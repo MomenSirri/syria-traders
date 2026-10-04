@@ -245,9 +245,10 @@ async function checkLayout(page, width, height, filename) {
   );
   assert.ok((await local.locator(".resource-popup:not(.resource-popup-fading)").count()) > 0);
   await local.clock.fastForward(120);
-  assert.ok((await local.locator(".resource-popup-fading").count()) > 0);
+  // React renders after the fired timer, so wait for the DOM rather than reading it at once.
+  await local.locator(".resource-popup-fading").first().waitFor({ timeout: 3000 });
   await local.clock.fastForward(710);
-  assert.equal(await local.locator(".resource-popup").count(), 0);
+  await local.locator(".resource-popup").first().waitFor({ state: "detached", timeout: 3000 });
   console.log("PASS browser gain badges hold for 30 seconds and fade/clear");
 
   const host = await pageFor(base);
@@ -378,6 +379,13 @@ async function checkLayout(page, width, height, filename) {
       )
     ).find((entry) => entry.id === activeId).page;
     await place(phone);
+    // The final placement pays starting cards: the TV flies them to that player.
+    if (i === 3) {
+      await tv.locator(".fx-token").first().waitFor({ state: "attached", timeout: 4000 });
+      await tv.locator(".fresh-piece").first().waitFor({ state: "attached", timeout: 4000 });
+      await tv.screenshot({ path: path.join(output, "tv-animation.png") });
+      await tv.locator(".fx-burst").first().waitFor({ state: "attached", timeout: 4000 });
+    }
     const revision = (await snapshot(phone)).revision;
     await tv.waitForFunction(
       (revision) =>
@@ -385,6 +393,8 @@ async function checkLayout(page, width, height, filename) {
       revision,
     );
   }
+  // Every effect cleans itself up.
+  await tv.locator(".fx-layer").waitFor({ state: "detached", timeout: 8000 });
   const tvState = await snapshot(tv);
   assert.equal(tvState.phase, "main");
   assert.equal(tvState.viewer.role, "table");

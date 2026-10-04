@@ -37,6 +37,7 @@ function mediaFor(payload, players) {
 // Table screens (a TV showing the shared board) hold a session without a seat.
 // Player sessions keep their original shape so older saves still authenticate.
 const isTable = (session) => session?.role === "table";
+const TABLE_ANIMATION_MS = 8000;
 
 function issue(game, playerId, host, role) {
   const token = randomBytes(32).toString("hex");
@@ -83,13 +84,17 @@ function view(game, session, includeMedia = false) {
         gains: event.gains.filter((gain) => ownId && gain.playerId === ownId),
       }))
       .filter((event) => event.gains.length);
-    if (result.visuals)
+    if (result.visuals) {
+      // Players animate only their own gains. The table screen animates everyone's
+      // public payout for a few seconds, then the amounts stop being sent at all.
+      const fresh = Date.now() - Date.parse(result.visuals.at) < TABLE_ANIMATION_MS;
       result.visuals = {
         ...result.visuals,
-        resourceDeltas: result.visuals.resourceDeltas.filter(
-          (gain) => ownId && gain.playerId === ownId,
+        resourceDeltas: result.visuals.resourceDeltas.filter((gain) =>
+          table ? fresh : gain.playerId === ownId,
         ),
       };
+    }
     if (!ownId || game.players[game.currentPlayerIndex]?.id !== ownId) result.hints = null;
   }
   if (includeMedia) result.media = game.media || { playerImages: {}, hexTexturesByRegion: {} };

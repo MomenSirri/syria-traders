@@ -37,7 +37,9 @@ function assertNoPrivateData(view) {
   assert.equal(view.sessions, undefined);
   assert.equal(view.hints, null);
   assert.deepEqual(view.gainEvents, []);
-  assert.deepEqual(view.visuals?.resourceDeltas || [], []);
+  // A fresh payout may be animated on the TV; an old one is never sent.
+  if (view.visuals && Date.now() - Date.parse(view.visuals.at) >= 8000)
+    assert.deepEqual(view.visuals.resourceDeltas, []);
   for (const player of view.players) {
     assert.equal(player.resources, null, `${player.name}'s hand reached the table`);
     assert.equal(typeof player.resourceTotal, "number");
@@ -52,8 +54,8 @@ function assertNoPrivateData(view) {
     }
     for (const [key, child] of Object.entries(value)) walk(child, `${where}.${key}`);
   };
-  // The bank and rules are public and intentionally list every resource.
-  const { bank, settings, ...rest } = view;
+  // The bank, rules and the short-lived animation cue are public.
+  const { bank, settings, visuals, ...rest } = view;
   walk(rest, "game");
 }
 async function placeAll(id, tokens) {
@@ -156,6 +158,34 @@ test("the table view never carries hands, gains or move hints, and cannot act", 
       : await api(`/games/${state.id}/roll`, { playerId: active }, omar.token, view.revision);
   assert.equal(roller.status, 200, roller.error);
   assertNoPrivateData(await read(state.id, tv.token));
+});
+
+test("the TV animates a fresh payout, then stops receiving its amounts", async () => {
+  const host = sessions.create({ mode: "online", playerNames: ["Host"] });
+  sessions.join(host.game.id, { name: "Guest" });
+  const watcher = sessions.watch(host.game.id);
+  const game = store.getGame(host.game.id);
+  game.visuals = {
+    flashId: "cue",
+    at: new Date().toISOString(),
+    kind: "roll",
+    producingTileIds: [3],
+    resourceDeltas: [{ playerId: game.players[1].id, resource: "wood", amount: 2, tileIds: [3] }],
+  };
+  store.saveGame(game);
+  const auth = sessions.authenticate(game.id, watcher.token);
+  assert.equal(sessions.view(auth.game, auth.session).visuals.resourceDeltas.length, 1);
+  const own = sessions.authenticate(game.id, host.token);
+  assert.deepEqual(
+    sessions.view(own.game, own.session).visuals.resourceDeltas,
+    [],
+    "Players animate only their own gains",
+  );
+  const stale = store.getGame(game.id);
+  stale.visuals.at = new Date(Date.now() - 9000).toISOString();
+  store.saveGame(stale);
+  const later = sessions.authenticate(game.id, watcher.token);
+  assert.deepEqual(sessions.view(later.game, later.session).visuals.resourceDeltas, []);
 });
 
 test("table screens leave cleanly and old player sessions keep working", async () => {

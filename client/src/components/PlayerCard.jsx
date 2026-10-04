@@ -17,6 +17,7 @@ export default memo(function PlayerCard({
     <article
       className={`player-card ${active ? "active-player" : ""} ${yours ? "your-seat" : ""}`}
       style={{ "--player-color": player.color }}
+      data-player-id={player.id}
       aria-label={`${player.name}${active ? ", active player" : ""}`}
     >
       <header className="player-header">

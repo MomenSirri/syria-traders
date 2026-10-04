@@ -129,10 +129,16 @@ function createPlayer(name, index) {
   };
 }
 
-function setVisualFeedback(game, { producingTileIds = [], resourceDeltas = [] } = {}) {
+// Short-lived animation cues. kind: roll, seven, setup or trade. Each delta names
+// where its cards came from: tileIds for production, fromPlayerId for trades.
+function setVisualFeedback(
+  game,
+  { producingTileIds = [], resourceDeltas = [], kind = "none" } = {},
+) {
   game.visuals = {
     flashId: uuidv4(),
     at: new Date().toISOString(),
+    kind,
     producingTileIds,
     resourceDeltas,
   };
@@ -333,38 +339,38 @@ function distributeResources(game, diceTotal) {
     for (const { owner, tile, amount } of requests) {
       const moved = transferFromBank(game, owner, resource, amount);
       producingTileIds.add(tile.id);
-      if (!gainByPlayer.has(owner.id)) gainByPlayer.set(owner.id, resourceTemplate(0));
-      gainByPlayer.get(owner.id)[resource] += moved;
+      if (!gainByPlayer.has(owner.id))
+        gainByPlayer.set(owner.id, { gain: resourceTemplate(0), tiles: {} });
+      const entry = gainByPlayer.get(owner.id);
+      entry.gain[resource] += moved;
+      entry.tiles[resource] = [...new Set([...(entry.tiles[resource] || []), tile.id])];
     }
   }
 
   if (!gainByPlayer.size) {
     addLog(game, "No settlements produced resources on this roll.");
-    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
+    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "roll" });
     return;
   }
 
   const resourceDeltas = [];
 
-  gainByPlayer.forEach((resourceGain, playerId) => {
-    const player = game.players.find((entry) => entry.id === playerId);
-    const summary = Object.entries(resourceGain)
-      .filter(([, amount]) => amount > 0)
-      .map(([resource, amount]) => `${amount} ${config.resourceLabels[resource]}`)
-      .join(", ");
-
-    addLog(game, `${player.name} receives ${summary}.`);
-
-    Object.entries(resourceGain).forEach(([resource, amount]) => {
+  const names = [];
+  gainByPlayer.forEach(({ gain, tiles }, playerId) => {
+    names.push(game.players.find((entry) => entry.id === playerId).name);
+    Object.entries(gain).forEach(([resource, amount]) => {
       if (amount > 0) {
-        resourceDeltas.push({ playerId, resource, amount });
+        resourceDeltas.push({ playerId, resource, amount, tileIds: tiles[resource] });
       }
     });
   });
+  // Amounts appear only as a brief animation; the lasting log keeps who was paid.
+  addLog(game, `Resources paid out to ${names.join(" and ")}.`);
 
   setVisualFeedback(game, {
     producingTileIds: [...producingTileIds],
     resourceDeltas,
+    kind: "roll",
   });
 }
 
@@ -401,7 +407,6 @@ function stealRandomResource(fromPlayer, toPlayer) {
 }
 
 function grantSecondPlacementResources(game, player, vertex) {
-  const gained = resourceTemplate(0);
   const resourceDeltas = [];
 
   vertex.adjacentTiles.forEach((tileId) => {
@@ -411,22 +416,17 @@ function grantSecondPlacementResources(game, player, vertex) {
     }
     const moved = transferFromBank(game, player, tile.resource, 1);
     if (moved > 0) {
-      gained[tile.resource] += moved;
-      resourceDeltas.push({ playerId: player.id, resource: tile.resource, amount: moved });
+      resourceDeltas.push({
+        playerId: player.id,
+        resource: tile.resource,
+        amount: moved,
+        tileIds: [tile.id],
+      });
     }
   });
 
-  const summary = Object.entries(gained)
-    .filter(([, amount]) => amount > 0)
-    .map(([resource, amount]) => `${amount} ${config.resourceLabels[resource]}`)
-    .join(", ");
-
-  if (summary) {
-    addLog(
-      game,
-      `${player.name} gains starting resources from second placement: ${summary}.`,
-      "setup",
-    );
+  if (resourceDeltas.length) {
+    addLog(game, `${player.name} gains starting resources from their second village.`, "setup");
   }
 
   return resourceDeltas;
@@ -763,8 +763,9 @@ function placeSetup(gameId, { playerId, vertexId, edgeId }) {
   }
 
   setVisualFeedback(game, {
-    producingTileIds: [],
+    producingTileIds: setupResourceDeltas.flatMap((delta) => delta.tileIds),
     resourceDeltas: setupResourceDeltas,
+    kind: "setup",
   });
 
   advanceSetupFlow(game);
@@ -818,7 +819,7 @@ function rollDice(gameId, { playerId }) {
     }
     game.mustMoveRobber = true;
     addLog(game, "The bandit awakens. Move it to a new region.");
-    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
+    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "seven" });
   } else {
     distributeResources(game, total);
   }
@@ -1071,9 +1072,15 @@ function acceptTradeOffer(gameId, { playerId, offerId }) {
   setVisualFeedback(game, {
     producingTileIds: [],
     resourceDeltas: [
-      { playerId: player.id, resource: want.resource, amount: want.amount },
-      { playerId: partner.id, resource: ask.resource, amount: ask.amount },
+      {
+        playerId: player.id,
+        resource: want.resource,
+        amount: want.amount,
+        fromPlayerId: partner.id,
+      },
+      { playerId: partner.id, resource: ask.resource, amount: ask.amount, fromPlayerId: player.id },
     ],
+    kind: "trade",
   });
   addLog(
     game,

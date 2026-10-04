@@ -13,6 +13,7 @@ import Lobby from "./components/Lobby";
 import TableStatus from "./components/TableStatus";
 import SeatHand from "./components/SeatHand";
 import TradePanel from "./components/TradePanel";
+import GameEffects from "./components/GameEffects";
 
 export default function App() {
   const match = useMatch();
@@ -43,8 +44,14 @@ export default function App() {
       return;
     }
     setHighlightedTileIds(game.visuals.producingTileIds || []);
+    // Every screen tumbles its dice when anyone rolls, not only the roller's.
+    if (["roll", "seven"].includes(game.visuals.kind)) setRolling(true);
     const timer = setTimeout(() => setHighlightedTileIds([]), 1800);
-    return () => clearTimeout(timer);
+    const dice = setTimeout(() => setRolling(false), 650);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(dice);
+    };
   }, [game?.visuals?.flashId]);
   useEffect(() => () => clearTimeout(rollTimer.current), []);
 
@@ -202,6 +209,7 @@ export default function App() {
             />
           )}
         </section>
+        <GameEffects game={game} table={table} />
         {help && (
           <div className="modal-backdrop" onClick={() => setHelp(false)}>
             <section

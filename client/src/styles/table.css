@@ -315,3 +315,240 @@
     width: auto;
   }
 }
+
+/* Short-lived game animations (GameEffects and fresh board pieces). */
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  overflow: hidden;
+}
+.fx-token {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--brass);
+  box-shadow: 0 6px 18px #00000059;
+  opacity: 0;
+  animation: fx-fly 1200ms cubic-bezier(0.45, 0, 0.3, 1) both;
+}
+@keyframes fx-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dx) * 0.5), calc(-50% + var(--dy) * 0.5 - 70px))
+      scale(1.1);
+  }
+  100% {
+    opacity: 0.15;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.6);
+  }
+}
+.fx-burst {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px 4px 10px;
+  border-radius: 999px;
+  border: 2px solid var(--player-color, var(--brass));
+  background: var(--card);
+  color: var(--ink);
+  font: 700 24px var(--font-ui);
+  box-shadow: 0 8px 22px #00000052;
+  transform: translate(-100%, -50%);
+  opacity: 0;
+  animation: fx-burst 3200ms var(--ease) both;
+}
+@keyframes fx-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-100%, -50%) scale(0.4);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-100%, -50%) scale(1.25);
+  }
+  18%,
+  80% {
+    opacity: 1;
+    transform: translate(-100%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-100%, -90%) scale(0.95);
+  }
+}
+.fx-dice {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 22px 40px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--brass);
+  background: color-mix(in srgb, var(--night) 88%, transparent);
+  color: var(--on-night);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, -50%);
+  animation: fx-dice 2200ms var(--ease) both;
+}
+.fx-dice .dice-display {
+  transform: scale(1.8);
+  margin: 18px 0 14px;
+}
+.fx-dice .dice-total {
+  display: none;
+}
+.fx-dice strong {
+  font: clamp(48px, 9vh, 96px) / 1 var(--font-display);
+  color: var(--brass-soft);
+}
+.fx-dice span:not(.dice-total) {
+  font: 600 20px var(--font-ui);
+}
+.fx-seven {
+  border-color: var(--terracotta);
+}
+.fx-seven strong {
+  color: #f08a6c;
+}
+@keyframes fx-dice {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6) rotate(-6deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05) rotate(1deg);
+  }
+  25%,
+  82% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+}
+.fx-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 22%;
+  transform: translate(-50%, -100%);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(760px, 70vw);
+}
+.fx-toast {
+  margin: 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--night) 90%, transparent);
+  color: var(--on-night);
+  border: 1px solid var(--night-line);
+  font: 600 clamp(15px, 2vh, 22px) var(--font-ui);
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: fx-toast 3800ms var(--ease) both;
+}
+.fx-toast-trade {
+  border-color: var(--brass);
+}
+.fx-toast-win {
+  border-color: var(--brass-soft);
+  color: var(--brass-soft);
+}
+@keyframes fx-toast {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  10%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.fresh-piece {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fx-piece 1500ms var(--ease) both;
+}
+@keyframes fx-piece {
+  0% {
+    transform: scale(0.2);
+    filter: drop-shadow(0 0 0 #ffe9a8);
+  }
+  35% {
+    transform: scale(1.5);
+    filter: drop-shadow(0 0 14px #ffe9a8);
+  }
+  60% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+.robber-landing {
+  animation: fx-robber 1100ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes fx-robber {
+  0% {
+    transform: translateY(-90px) scale(1.6);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(4px) scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+.table-winner {
+  animation: fx-winner 1s var(--ease) both;
+}
+@keyframes fx-winner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+/* index.css turns animations off for reduced motion; keep the cues visible, still. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-burst,
+  .fx-dice,
+  .fx-toast {
+    opacity: 1;
+  }
+}

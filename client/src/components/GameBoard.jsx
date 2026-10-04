@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_ASSET_BY_RESOURCE, presetMapById } from "../config/hexPresets";
 import ResourceIcon from "./ResourceIcon";
 const PRESETS = presetMapById();
@@ -22,6 +22,44 @@ function keyboard(event, callback) {
   }
 }
 
+const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false };
+// Pieces that appeared since the last update get a short entrance animation.
+function useFreshPieces(gameId, board) {
+  const previous = useRef(null);
+  const [fresh, setFresh] = useState(NO_FRESH);
+  const roads = board ? board.edges.filter((e) => e.ownerId).map((e) => e.id) : [];
+  const homes = board
+    ? board.vertices.filter((v) => v.building).map((v) => `${v.id}:${v.building}`)
+    : [];
+  const key = `${gameId}|${roads.join(",")}|${homes.join(",")}|${board?.robberTileId}`;
+  useEffect(() => {
+    if (!board) return;
+    const now = {
+      gameId,
+      roads: new Set(roads),
+      homes: new Set(homes),
+      robber: board.robberTileId,
+    };
+    const before = previous.current;
+    previous.current = now;
+    if (!before || before.gameId !== gameId) return;
+    const next = {
+      edges: new Set(roads.filter((id) => !before.roads.has(id))),
+      vertices: new Set(
+        homes
+          .filter((entry) => !before.homes.has(entry))
+          .map((entry) => Number(entry.split(":")[0])),
+      ),
+      robber: before.robber !== board.robberTileId,
+    };
+    if (!next.edges.size && !next.vertices.size && !next.robber) return;
+    setFresh(next);
+    const timer = setTimeout(() => setFresh(NO_FRESH), 1600);
+    return () => clearTimeout(timer);
+  }, [key]);
+  return fresh;
+}
+
 export default function GameBoard({
   game,
   selectedAction,
@@ -36,6 +74,7 @@ export default function GameBoard({
   interactive,
 }) {
   const board = game.board;
+  const fresh = useFreshPieces(game.id, board);
   const viewBox = useMemo(() => {
     if (!board) return "0 0 100 100";
     // Fit the actual outer corners instead of adding a large invisible margin.
@@ -159,6 +198,7 @@ export default function GameBoard({
               return (
                 <g
                   key={tile.id}
+                  data-tile-id={tile.id}
                   className={`tile-group ${target ? "robber-target" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
@@ -238,15 +278,14 @@ export default function GameBoard({
                     </g>
                   )}
                   {robberTileId === tile.id && (
-                    <g
-                      className="robber-marker"
-                      transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}
-                    >
-                      <circle r="16" />
-                      <text y="6" textAnchor="middle">
-                        B
-                      </text>
-                      <title>Bandit blocks production</title>
+                    <g transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}>
+                      <g className={`robber-marker ${fresh.robber ? "robber-landing" : ""}`}>
+                        <circle r="16" />
+                        <text y="6" textAnchor="middle">
+                          B
+                        </text>
+                        <title>Bandit blocks production</title>
+                      </g>
                     </g>
                   )}
                   <title>{`${tile.region}: ${tile.flavor} Produces ${tile.resource}.`}</title>
@@ -264,6 +303,7 @@ export default function GameBoard({
               return (
                 <g
                   key={edge.id}
+                  className={fresh.edges.has(edge.id) ? "fresh-piece" : undefined}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={target ? `Build road on edge ${edge.id}` : undefined}
@@ -316,6 +356,7 @@ export default function GameBoard({
               return (
                 <g
                   key={vertex.id}
+                  className={fresh.vertices.has(vertex.id) ? "fresh-piece" : undefined}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={

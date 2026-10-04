@@ -9,6 +9,7 @@ export default function SeatHand({ game, gains }) {
   if (!me?.resources) return null;
   return (
     <section
+      data-player-id={me.id}
       className="seat-hand panel"
       aria-label="Your hand"
       style={{ "--player-color": me.color }}
