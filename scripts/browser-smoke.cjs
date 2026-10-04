@@ -242,6 +242,67 @@ async function checkSmartTv(base) {
   await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
   console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
 }
+// A browser allows about six connections to the host and each game tab holds one.
+// Forgotten tabs on the host PC used to use them all, cutting that browser off.
+async function checkForgottenTabs(base) {
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const open = async () => {
+    const page = await context.newPage();
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(base, { timeout: 10000 });
+    return page;
+  };
+  // Headless pages always count as visible, so say which tab the player is looking at.
+  const show = (page, visible) =>
+    page.evaluate((hidden) => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, !visible);
+  const isLive = (page) =>
+    page.evaluate(() => document.querySelector(".lobby-footer")?.textContent.includes("live"));
+  const first = await open();
+  await first.getByRole("button", { name: "Host room", exact: true }).click();
+  await first.getByLabel("Player 1 name").fill("Layla");
+  await first.getByRole("button", { name: "Create a room" }).click();
+  await settled(first);
+  const tabs = [first];
+  for (let i = 0; i < 8; i++) {
+    await show(tabs.at(-1), false);
+    const tab = await open();
+    await settled(tab);
+    tabs.push(tab);
+  }
+  const current = tabs.at(-1);
+  await first.waitForFunction(
+    () => !document.querySelector(".lobby-footer").textContent.includes("live"),
+  );
+  // A parked tab keeps showing "live" for a moment: short drops are not announced.
+  let live = 9;
+  for (let i = 0; i < 25 && live > 2; i++) {
+    await delay(200);
+    live = (await Promise.all(tabs.map(isLive))).filter(Boolean).length;
+  }
+  assert.ok(live <= 2, `Hidden tabs must release their connection (${live} of 9 still live)`);
+  const guest = await pageFor(`${base}/?room=${(await snapshot(current)).roomCode}`);
+  await guest.getByLabel("Player 1 name").fill("Karim");
+  await guest.getByRole("button", { name: "Join the table" }).click();
+  await settled(guest);
+  // Before the fix this took a 12 second timeout and a reconnect, or never arrived.
+  await current.waitForFunction(
+    () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.players.length === 2,
+    null,
+    { timeout: 5000 },
+  );
+  assert.equal(await isLive(current), true);
+  // Coming back to a forgotten tab reconnects it at once, with the same seat.
+  await show(first, true);
+  await first.locator(".lobby-footer", { hasText: "live" }).waitFor({ timeout: 5000 });
+  await first.getByText("Karim").first().waitFor({ timeout: 5000 });
+  assert.equal(await first.getByRole("button", { name: "Start the match" }).count(), 1);
+  await context.close();
+  await guest.context().close();
+  console.log("PASS nine tabs of one game in one browser: hidden tabs yield, play stays live");
+}
 (async () => {
   port = await availablePort();
   hostPort = useHttps ? port : await availablePort();
@@ -659,6 +720,7 @@ async function checkSmartTv(base) {
   await watcher.getByRole("button", { name: "Close TV screen" }).click();
   await watcher.getByRole("button", { name: "TV screen", exact: true }).waitFor();
   console.log("PASS TV screen joins a phone-hosted match by link and closes cleanly");
+  await checkForgottenTabs(base);
   // Five or six players use the 30-territory map and a compact merchants panel.
   const six = await pageFor(base);
   for (let i = 3; i <= 6; i++) {
