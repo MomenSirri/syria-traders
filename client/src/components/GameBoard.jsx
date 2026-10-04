@@ -1,7 +1,11 @@
-import { useMemo } from "react";
-import { DEFAULT_ASSET_BY_RESOURCE, presetMapById } from "../config/hexPresets";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
 import ResourceIcon from "./ResourceIcon";
+import config from "../../../shared/gameConfig.json";
 const PRESETS = presetMapById();
+const REGION_NAMES = new Set(
+  [...config.regions, ...(config.largeBoard?.extraRegions ?? [])].map((region) => region.name),
+);
 const SIZE = 90;
 const CORNERS = [-30, 30, 90, 150, 210, 270];
 const corners = (center) =>
@@ -10,16 +14,51 @@ const corners = (center) =>
     y: center.y + SIZE * Math.sin((angle * Math.PI) / 180),
   }));
 const points = (vertices) => vertices.map((v) => `${v.x},${v.y}`).join(" ");
-function labelLines(name) {
-  if (name.length <= 12) return [name];
-  const words = name.split(" ");
-  return [words.slice(0, -1).join(" "), words.at(-1)];
-}
+// A small one-line name pill, so the territory painting stays the hero.
+const labelWidth = (name) => Math.min(150, Math.round(name.length * 7.4 + 16));
 function keyboard(event, callback) {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     callback();
   }
+}
+
+const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false };
+// Pieces that appeared since the last update get a short entrance animation.
+function useFreshPieces(gameId, board) {
+  const previous = useRef(null);
+  const [fresh, setFresh] = useState(NO_FRESH);
+  const roads = board ? board.edges.filter((e) => e.ownerId).map((e) => e.id) : [];
+  const homes = board
+    ? board.vertices.filter((v) => v.building).map((v) => `${v.id}:${v.building}`)
+    : [];
+  const key = `${gameId}|${roads.join(",")}|${homes.join(",")}|${board?.robberTileId}`;
+  useEffect(() => {
+    if (!board) return;
+    const now = {
+      gameId,
+      roads: new Set(roads),
+      homes: new Set(homes),
+      robber: board.robberTileId,
+    };
+    const before = previous.current;
+    previous.current = now;
+    if (!before || before.gameId !== gameId) return;
+    const next = {
+      edges: new Set(roads.filter((id) => !before.roads.has(id))),
+      vertices: new Set(
+        homes
+          .filter((entry) => !before.homes.has(entry))
+          .map((entry) => Number(entry.split(":")[0])),
+      ),
+      robber: before.robber !== board.robberTileId,
+    };
+    if (!next.edges.size && !next.vertices.size && !next.robber) return;
+    setFresh(next);
+    const timer = setTimeout(() => setFresh(NO_FRESH), 1600);
+    return () => clearTimeout(timer);
+  }, [key]);
+  return fresh;
 }
 
 export default function GameBoard({
@@ -36,6 +75,7 @@ export default function GameBoard({
   interactive,
 }) {
   const board = game.board;
+  const fresh = useFreshPieces(game.id, board);
   const viewBox = useMemo(() => {
     if (!board) return "0 0 100 100";
     // Fit the actual outer corners instead of adding a large invisible margin.
@@ -71,7 +111,7 @@ export default function GameBoard({
   const hint = !interactive
     ? game.winnerId
       ? "A journey well played. Start a new table whenever you are ready."
-      : "The table is waiting for the active player."
+      : `Waiting for ${game.players[game.currentPlayerIndex]?.name || "the active player"} to play.`
     : setup
       ? selectedSetupVertex === null
         ? "Choose a glowing site for your village."
@@ -85,7 +125,9 @@ export default function GameBoard({
     <section className="board-panel">
       <div className="board-caption">
         <span className="eyebrow">The caravan coast</span>
-        <span>19 territories / 9 harbors</span>
+        <span>
+          {tiles.length} territories / {seaTiles.filter((sea) => sea.harbor).length} harbors
+        </span>
       </div>
       <div className="board-stage">
         <svg
@@ -151,14 +193,16 @@ export default function GameBoard({
           </g>
           <g className="tile-layer">
             {tiles.map((tile) => {
-              const lines = labelLines(tile.region),
-                target = validTiles.has(tile.id);
+              const target = validTiles.has(tile.id);
               const texture =
                 hexTexturesByRegion[tile.region] ||
-                PRESETS[DEFAULT_ASSET_BY_RESOURCE[tile.resource]]?.url;
+                (REGION_NAMES.has(tile.region)
+                  ? regionArtUrl(tile.region)
+                  : PRESETS[DEFAULT_ASSET_BY_RESOURCE[tile.resource]]?.url);
               return (
                 <g
                   key={tile.id}
+                  data-tile-id={tile.id}
                   className={`tile-group ${target ? "robber-target" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
@@ -184,28 +228,29 @@ export default function GameBoard({
                     points={points(tile.vertexIds.map((id) => vertices[id]))}
                     fill="none"
                   />
-                  <g transform={`translate(${tile.center.x - 12},${tile.center.y - 66})`}>
-                    <ResourceIcon resource={tile.resource} size={24} />
-                  </g>
+                  {tile.resource !== "desert" && (
+                    <g className={`tile-resource resource-${tile.resource}`}>
+                      <circle cx={tile.center.x} cy={tile.center.y - 53} r="16" />
+                      <g transform={`translate(${tile.center.x - 11},${tile.center.y - 64})`}>
+                        <ResourceIcon resource={tile.resource} size={22} />
+                      </g>
+                    </g>
+                  )}
                   <rect
                     className="tile-label-bg"
-                    x={tile.center.x - 73}
-                    y={tile.center.y - 30}
-                    width="146"
-                    height={lines.length === 1 ? 30 : 48}
-                    rx="6"
+                    x={tile.center.x - labelWidth(tile.region) / 2}
+                    y={tile.center.y - 15}
+                    width={labelWidth(tile.region)}
+                    height="20"
+                    rx="10"
                   />
                   <text
                     x={tile.center.x}
-                    y={tile.center.y - 8}
+                    y={tile.center.y}
                     textAnchor="middle"
                     className="tile-name"
                   >
-                    {lines.map((line, i) => (
-                      <tspan key={line} x={tile.center.x} dy={i ? 21 : 0}>
-                        {line}
-                      </tspan>
-                    ))}
+                    {tile.region}
                   </text>
                   {tile.numberToken && (
                     <g className={[6, 8].includes(tile.numberToken) ? "hot-token" : ""}>
@@ -217,24 +262,35 @@ export default function GameBoard({
                       />
                       <text
                         x={tile.center.x}
-                        y={tile.center.y + 50}
+                        y={tile.center.y + 49}
                         textAnchor="middle"
                         className="token-text"
                       >
                         {tile.numberToken}
                       </text>
+                      <g className="token-pips" aria-hidden="true">
+                        {Array.from({ length: 6 - Math.abs(7 - tile.numberToken) }, (_, i) => (
+                          <circle
+                            key={i}
+                            cx={
+                              tile.center.x + (i - (5 - Math.abs(7 - tile.numberToken)) / 2) * 5.5
+                            }
+                            cy={tile.center.y + 56}
+                            r="2"
+                          />
+                        ))}
+                      </g>
                     </g>
                   )}
                   {robberTileId === tile.id && (
-                    <g
-                      className="robber-marker"
-                      transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}
-                    >
-                      <circle r="16" />
-                      <text y="6" textAnchor="middle">
-                        B
-                      </text>
-                      <title>Bandit blocks production</title>
+                    <g transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}>
+                      <g className={`robber-marker ${fresh.robber ? "robber-landing" : ""}`}>
+                        <circle r="16" />
+                        <text y="6" textAnchor="middle">
+                          B
+                        </text>
+                        <title>Bandit blocks production</title>
+                      </g>
                     </g>
                   )}
                   <title>{`${tile.region}: ${tile.flavor} Produces ${tile.resource}.`}</title>
@@ -252,6 +308,7 @@ export default function GameBoard({
               return (
                 <g
                   key={edge.id}
+                  className={fresh.edges.has(edge.id) ? "fresh-piece" : undefined}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={target ? `Build road on edge ${edge.id}` : undefined}
@@ -304,6 +361,7 @@ export default function GameBoard({
               return (
                 <g
                   key={vertex.id}
+                  className={fresh.vertices.has(vertex.id) ? "fresh-piece" : undefined}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={

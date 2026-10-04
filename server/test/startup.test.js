@@ -17,6 +17,7 @@ function startServer(env) {
       PORT: "0",
       GAME_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-start-")),
       OPEN_BROWSER: "0",
+      TV_PORT: "off",
       ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],

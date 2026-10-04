@@ -1,25 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
-import { DEFAULT_ASSET_BY_RESOURCE, presetMapById } from "../config/hexPresets";
+import Icon from "./Icon";
+import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
+import { boardSizeFor, boardSpec } from "../config/boards";
 
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
+// ?room=CODE opens the join form; adding &tv=1 opens it as a TV table screen.
+// /tv is the short address typed on a smart TV's own browser.
+// The host's plain-HTTP address only serves table screens, so it opens as one.
+const tvAddress = location.protocol === "http:";
+function linkedMode() {
+  const params = new URLSearchParams(location.search);
+  if (tvAddress || params.has("tv") || location.pathname.replace(/\/+$/, "") === "/tv") return "tv";
+  return params.has("room") ? "join" : null;
+}
+const mapFor = (size) => {
+  const spec = boardSpec(size);
+  return {
+    regionOrder: shuffled(spec.regions.map((region) => region.name)),
+    numberOrder: [...spec.numberTokens],
+    harborOrder: [...spec.harborTypes],
+  };
+};
 const defaults = () => ({
-  mode: new URLSearchParams(location.search).has("room") ? "join" : "local",
+  mode: linkedMode() || "local",
   names: ["Nour", "Yazan"],
   avatars: ["", ""],
-  regionOrder: shuffled(config.regions.map((region) => region.name)),
-  numberOrder: [...config.numberTokens],
-  harborOrder: [...config.harborTypes],
+  seats: 4,
+  ...mapFor("standard"),
   hexTexturesByRegion: {},
   balanced: true,
 });
 function initial() {
   try {
     const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
-    const draft = saved?.regionOrder?.length === 19 ? { ...defaults(), ...saved } : defaults();
-    if (new URLSearchParams(location.search).has("room")) draft.mode = "join";
+    const draft = saved?.regionOrder?.length ? { ...defaults(), ...saved } : defaults();
+    if (linkedMode()) draft.mode = linkedMode();
     return draft;
   } catch {
     return defaults();
@@ -33,12 +51,17 @@ function shuffled(list) {
   }
   return copy;
 }
-const rows = [-2, -1, 0, 1, 2].map((r) =>
-  config.boardLayout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
+const rowsOf = (layout) =>
+  [...new Set(layout.map((coord) => coord.r))]
+    .sort((a, b) => a - b)
+    .map((r) =>
+      layout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
+    );
+const regions = Object.fromEntries(
+  boardSpec("large").regions.map((region) => [region.name, region]),
 );
-const regions = Object.fromEntries(config.regions.map((region) => [region.name, region]));
 
-export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
+export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy, error }) {
   const [draft, setDraft] = useState(initial);
   const [selected, setSelected] = useState(0);
   const [swapFrom, setSwapFrom] = useState(null);
@@ -50,11 +73,30 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
   const inputRef = useRef();
   const update = (values) => setDraft((current) => ({ ...current, ...values }));
   const network = draft.mode !== "local";
-  const regionName = draft.regionOrder[selected];
+  const tv = draft.mode === "tv";
+  // A TV either opens a new room (and arranges its map) or shows an existing one.
+  const viewing = draft.mode === "join" || (tv && room.trim() !== "");
+  // Seats decide the map: one device counts its players, a room uses its seat choice.
+  const seats = network ? draft.seats : draft.names.length;
+  const spec = boardSpec(boardSizeFor(seats));
+  const rows = rowsOf(spec.boardLayout);
+  const mapMatches =
+    draft.regionOrder.length === spec.regions.length &&
+    draft.regionOrder.every((name) => spec.regions.some((region) => region.name === name)) &&
+    draft.numberOrder.length === spec.numberTokens.length &&
+    draft.harborOrder.length === spec.harborTypes.length;
+  useEffect(() => {
+    if (!mapMatches) {
+      update({ ...mapFor(spec.size), balanced: true });
+      setSelected(0);
+      setSwapFrom(null);
+    }
+  }, [mapMatches, spec.size]);
+  const regionName = draft.regionOrder[selected] || draft.regionOrder[0];
   const region = regions[regionName];
   const texture = (name) =>
     draft.hexTexturesByRegion[name] ||
-    PRESETS[DEFAULT_ASSET_BY_RESOURCE[regions[name].resource]]?.url;
+    (regions[name] ? regionArtUrl(name) : PRESETS[DEFAULT_ASSET_BY_RESOURCE.wheat]?.url);
 
   useEffect(() => {
     try {
@@ -101,6 +143,22 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
   }
   function submit(event) {
     event.preventDefault();
+    if (tv) {
+      if (room.trim()) onWatchGame(room);
+      else
+        onCreateGame({
+          mode: "online",
+          tableHost: true,
+          playerNames: [],
+          playerProfiles: [],
+          maxPlayers: seats,
+          regionOrder: draft.regionOrder,
+          numberOrder: draft.balanced ? null : draft.numberOrder,
+          harborOrder: draft.harborOrder,
+          hexTexturesByRegion: draft.hexTexturesByRegion,
+        });
+      return;
+    }
     const names = (network ? draft.names.slice(0, 1) : draft.names).map((name) => name.trim());
     if (
       names.some((name) => !name) ||
@@ -117,6 +175,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
       mode: draft.mode,
       playerNames: names,
       playerProfiles: names.map((_, i) => ({ avatar: draft.avatars[i] })),
+      maxPlayers: network ? seats : names.length > 4 ? 6 : 4,
       regionOrder: draft.regionOrder,
       numberOrder: draft.balanced ? null : draft.numberOrder,
       harborOrder: draft.harborOrder,
@@ -152,74 +211,83 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
                 ["local", "One device"],
                 ["online", "Host room"],
                 ["join", "Join room"],
-              ].map(([value, label]) => (
-                <button
-                  type="button"
-                  key={value}
-                  className={draft.mode === value ? "selected" : ""}
-                  onClick={() => update({ mode: value })}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="muted">
-              {network
-                ? "Each player joins from their own browser. Your resource hand stays private."
-                : "Pass the screen between 2 to 4 players. Everyone's hand is visible."}
-            </p>
-            <div className="setup-player-list">
-              {(network ? draft.names.slice(0, 1) : draft.names).map((name, index) => (
-                <article className="setup-player-card" key={index}>
+                ["tv", "TV screen"],
+              ]
+                .filter(([value]) => !tvAddress || value === "tv")
+                .map(([value, label]) => (
                   <button
                     type="button"
-                    className="setup-avatar"
-                    title="Upload player photo"
-                    aria-label={`Upload photo for player ${index + 1}`}
-                    disabled={uploading}
-                    onClick={() => chooseImage({ type: "avatar", index })}
+                    key={value}
+                    className={draft.mode === value ? "selected" : ""}
+                    onClick={() => update({ mode: value })}
                   >
-                    {draft.avatars[index] ? (
-                      <img src={draft.avatars[index]} alt="" />
-                    ) : (
-                      name[0]?.toUpperCase() || "?"
-                    )}
-                    <span className="avatar-edit">+</span>
+                    {label}
                   </button>
-                  <label>
-                    <span>Player {index + 1}</span>
-                    <input
-                      value={name}
-                      maxLength={24}
-                      aria-label={`Player ${index + 1} name`}
-                      onChange={(event) =>
-                        update({
-                          names: draft.names.map((value, i) =>
-                            i === index ? event.target.value : value,
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-                  {!network && draft.names.length > 2 && (
+                ))}
+            </div>
+            <p className="muted">
+              {tv
+                ? "Show the whole table on a big screen. Players join and play on their own phones; their hands never appear here."
+                : network
+                  ? "Each player joins from their own browser. Your resource hand stays private."
+                  : "Pass the screen between 2 to 6 players. Everyone's hand is visible."}
+            </p>
+            {!tv && (
+              <div className="setup-player-list">
+                {(network ? draft.names.slice(0, 1) : draft.names).map((name, index) => (
+                  <article className="setup-player-card" key={index}>
                     <button
                       type="button"
-                      className="quiet-button remove-player"
-                      aria-label={`Remove player ${index + 1}`}
-                      onClick={() =>
-                        update({
-                          names: draft.names.filter((_, i) => i !== index),
-                          avatars: draft.avatars.filter((_, i) => i !== index),
-                        })
-                      }
+                      className="setup-avatar"
+                      title="Upload player photo"
+                      aria-label={`Upload photo for player ${index + 1}`}
+                      disabled={uploading}
+                      onClick={() => chooseImage({ type: "avatar", index })}
                     >
-                      x
+                      {draft.avatars[index] ? (
+                        <img src={draft.avatars[index]} alt="" />
+                      ) : (
+                        name[0]?.toUpperCase() || "?"
+                      )}
+                      <span className="avatar-edit">
+                        <Icon name="plus" className="" />
+                      </span>
                     </button>
-                  )}
-                </article>
-              ))}
-            </div>
-            {!network && draft.names.length < 4 && (
+                    <label>
+                      <span>Player {index + 1}</span>
+                      <input
+                        value={name}
+                        maxLength={24}
+                        aria-label={`Player ${index + 1} name`}
+                        onChange={(event) =>
+                          update({
+                            names: draft.names.map((value, i) =>
+                              i === index ? event.target.value : value,
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                    {!network && draft.names.length > 2 && (
+                      <button
+                        type="button"
+                        className="quiet-button remove-player"
+                        aria-label={`Remove player ${index + 1}`}
+                        onClick={() =>
+                          update({
+                            names: draft.names.filter((_, i) => i !== index),
+                            avatars: draft.avatars.filter((_, i) => i !== index),
+                          })
+                        }
+                      >
+                        <Icon name="close" className="" />
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+            {!network && draft.names.length < config.maxPlayers && (
               <button
                 type="button"
                 className="secondary-btn"
@@ -231,31 +299,55 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
               </button>
             )}
             <p className="muted">
-              Click a portrait to upload a photo. Profiles and map art lock when you start.
+              {tv
+                ? "Leave the room code empty to open a new room on this screen, or enter one to show a room that already exists."
+                : "Click a portrait to upload a photo. Profiles and map art lock when you start."}
             </p>
-            {draft.mode === "join" && (
+            {network && !viewing && (
               <label className="room-field">
-                Room code
+                Seats
+                <select
+                  value={draft.seats > 4 ? 6 : 4}
+                  onChange={(event) => update({ seats: Number(event.target.value) })}
+                >
+                  <option value={4}>Up to 4 players (classic map)</option>
+                  <option value={6}>Up to 6 players (large map)</option>
+                </select>
+              </label>
+            )}
+            {(draft.mode === "join" || tv) && (
+              <label className="room-field">
+                {tv ? "Room code (optional)" : "Room code"}
                 <input
                   value={room}
                   placeholder="A1B2C3"
                   maxLength={6}
-                  required
+                  required={!tv}
                   onChange={(event) => setRoom(event.target.value.toUpperCase())}
                 />
               </label>
             )}
             <div className="setup-submit">
-              <button type="submit" className="primary-btn" disabled={busy || uploading}>
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={busy || uploading}
+                // A TV remote's OK button should start straight away.
+                autoFocus={linkedMode() === "tv"}
+              >
                 {busy
                   ? "Opening your table..."
                   : uploading
                     ? "Preparing photo..."
-                    : draft.mode === "online"
-                      ? "Create a room"
-                      : draft.mode === "join"
-                        ? "Join the table"
-                        : "Begin the journey"}
+                    : tv
+                      ? room.trim()
+                        ? "Show this room on the TV"
+                        : "Open a room on this TV"
+                      : draft.mode === "online"
+                        ? "Create a room"
+                        : draft.mode === "join"
+                          ? "Join the table"
+                          : "Begin the journey"}
               </button>
               {(localError || error) && (
                 <p role="alert" className="setup-error">
@@ -273,28 +365,29 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
               <button
                 type="button"
                 className="secondary-btn"
-                disabled={draft.mode === "join"}
+                disabled={viewing}
                 onClick={() =>
                   update({
                     regionOrder: shuffled(draft.regionOrder),
-                    numberOrder: shuffled(config.numberTokens),
-                    harborOrder: shuffled(config.harborTypes),
+                    numberOrder: shuffled(spec.numberTokens),
+                    harborOrder: shuffled(spec.harborTypes),
                     balanced: true,
                   })
                 }
               >
+                <Icon name="shuffle" />
                 Shuffle map
               </button>
             </div>
             <p className="muted">
-              {draft.mode === "join"
+              {viewing
                 ? "The host prepares the map for everyone."
                 : swapFrom !== null
                   ? "Choose another territory to exchange its position."
                   : "Drag territories to rearrange. Select one to change its artwork."}
             </p>
-            <div className="arrangement-rows">
-              {rows.map((row, i) => (
+            <div className={`arrangement-rows ${spec.size === "large" ? "large-map" : ""}`}>
+              {(mapMatches ? rows : []).map((row, i) => (
                 <div className="arrangement-row" key={i}>
                   {row.map(({ index }) => {
                     const name = draft.regionOrder[index];
@@ -302,9 +395,10 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
                       <button
                         key={index}
                         type="button"
-                        draggable={draft.mode !== "join"}
-                        disabled={draft.mode === "join"}
+                        draggable={!viewing}
+                        disabled={viewing}
                         aria-label={`Customize ${name}`}
+                        title={name}
                         className={`arrangement-tile ${selected === index ? "selected" : ""}`}
                         onClick={() =>
                           swapFrom !== null ? swap(swapFrom, index) : setSelected(index)
@@ -335,12 +429,15 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
                 <input
                   type="checkbox"
                   checked={draft.balanced}
-                  disabled={draft.mode === "join"}
+                  disabled={viewing}
                   onChange={(event) => update({ balanced: event.target.checked })}
                 />{" "}
                 Balanced dice numbers
               </label>
-              <span>19 territories / 9 ports / 10 points to win</span>
+              <span>
+                {spec.regions.length} territories / {spec.harborTypes.length} ports /{" "}
+                {config.winPoints} points to win
+              </span>
             </div>
             <p className="muted">
               Balanced numbers keep high-production 6 and 8 tokens apart. The sea ring is added when
@@ -358,15 +455,16 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
             <button
               type="button"
               className="secondary-btn"
-              disabled={uploading || draft.mode === "join"}
+              disabled={uploading || viewing}
               onClick={() => chooseImage({ type: "hex", name: regionName })}
             >
+              <Icon name="upload" />
               Upload territory photo
             </button>
             <button
               type="button"
               className="quiet-button"
-              disabled={draft.mode === "join"}
+              disabled={viewing}
               onClick={() => {
                 const next = { ...draft.hexTexturesByRegion };
                 delete next[regionName];
@@ -378,9 +476,10 @@ export default function GameSetup({ onCreateGame, onJoinGame, busy, error }) {
             <button
               type="button"
               className="secondary-btn"
-              disabled={draft.mode === "join"}
+              disabled={viewing}
               onClick={() => setSwapFrom(swapFrom === null ? selected : null)}
             >
+              <Icon name="swap" />
               {swapFrom === null ? "Swap this territory" : "Cancel swap"}
             </button>
             {!draft.balanced && region.resource !== "desert" && (

@@ -3,7 +3,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const config = require("../../../shared/gameConfig.json");
 const store = require("./gameStore");
-const { generateBoard } = require("./boardGenerator");
+const { boardSpec, boardSizeFor, generateBoard } = require("./boardGenerator");
 const {
   clone,
   resourceTemplate,
@@ -11,6 +11,7 @@ const {
   spendResources,
   getResourceTotal,
   randomItem,
+  shuffle,
 } = require("./helpers");
 const {
   canPlaceInitialVillage,
@@ -46,18 +47,18 @@ function arraySignature(values) {
     .join("|");
 }
 
-function normalizeRegionOrder(regionOrder) {
+function normalizeRegionOrder(regionOrder, spec) {
   if (!regionOrder) {
     return null;
   }
   if (!Array.isArray(regionOrder)) {
     throw createError("regionOrder must be an array of region names.");
   }
-  if (regionOrder.length !== config.regions.length) {
-    throw createError(`regionOrder must include ${config.regions.length} regions.`);
+  if (regionOrder.length !== spec.regions.length) {
+    throw createError(`regionOrder must include ${spec.regions.length} regions.`);
   }
 
-  const knownNames = new Set(config.regions.map((region) => region.name));
+  const knownNames = new Set(spec.regions.map((region) => region.name));
   const usedNames = new Set();
 
   const normalized = regionOrder.map((name) => String(name || "").trim());
@@ -74,15 +75,15 @@ function normalizeRegionOrder(regionOrder) {
   return normalized;
 }
 
-function normalizeNumberOrder(numberOrder) {
+function normalizeNumberOrder(numberOrder, spec) {
   if (!numberOrder) {
     return null;
   }
   if (!Array.isArray(numberOrder)) {
     throw createError("numberOrder must be an array.");
   }
-  if (numberOrder.length !== config.numberTokens.length) {
-    throw createError(`numberOrder must include ${config.numberTokens.length} tokens.`);
+  if (numberOrder.length !== spec.numberTokens.length) {
+    throw createError(`numberOrder must include ${spec.numberTokens.length} tokens.`);
   }
 
   const normalized = numberOrder.map((token) => Number(token));
@@ -90,26 +91,26 @@ function normalizeNumberOrder(numberOrder) {
     throw createError("numberOrder contains invalid values.");
   }
 
-  if (arraySignature(normalized) !== arraySignature(config.numberTokens)) {
+  if (arraySignature(normalized) !== arraySignature(spec.numberTokens)) {
     throw createError("numberOrder must contain the same token values as the default set.");
   }
 
   return normalized;
 }
 
-function normalizeHarborOrder(harborOrder) {
+function normalizeHarborOrder(harborOrder, spec) {
   if (!harborOrder) {
     return null;
   }
   if (!Array.isArray(harborOrder)) {
     throw createError("harborOrder must be an array.");
   }
-  if (harborOrder.length !== config.harborTypes.length) {
-    throw createError(`harborOrder must include ${config.harborTypes.length} harbor labels.`);
+  if (harborOrder.length !== spec.harborTypes.length) {
+    throw createError(`harborOrder must include ${spec.harborTypes.length} harbor labels.`);
   }
 
   const normalized = harborOrder.map((value) => String(value || "").trim());
-  if (arraySignature(normalized) !== arraySignature(config.harborTypes)) {
+  if (arraySignature(normalized) !== arraySignature(spec.harborTypes)) {
     throw createError("harborOrder must contain the same harbor labels as the default set.");
   }
 
@@ -129,14 +130,43 @@ function createPlayer(name, index) {
   };
 }
 
-function setVisualFeedback(game, { producingTileIds = [], resourceDeltas = [] } = {}) {
+// Short-lived animation cues. kind: roll, seven, setup, trade, devbuy or devplay.
+// Each delta names where its cards came from: tileIds for production,
+// fromPlayerId for trades. Development-card cues name the player and, once a card
+// is played (and so public), its type; a bought card's type is never included.
+function setVisualFeedback(
+  game,
+  { producingTileIds = [], resourceDeltas = [], kind = "none", playerId, card } = {},
+) {
   game.visuals = {
     flashId: uuidv4(),
     at: new Date().toISOString(),
+    kind,
     producingTileIds,
     resourceDeltas,
+    ...(playerId ? { playerId } : {}),
+    ...(card ? { card } : {}),
   };
 }
+
+// Development cards. The deck lives only on the server; players see their own
+// cards, and everyone else sees how many each player holds.
+const DEV_TYPES = Object.keys(config.developmentCards);
+const devLabel = (type) => config.developmentCardLabels[type] || type;
+function newDevDeck() {
+  return shuffle(DEV_TYPES.flatMap((type) => Array(config.developmentCards[type]).fill(type)));
+}
+// Saves from before development cards get a full deck and empty hands on first use.
+function devState(game) {
+  if (!Array.isArray(game.devDeck)) game.devDeck = newDevDeck();
+  for (const player of game.players) {
+    if (!Array.isArray(player.devCards)) player.devCards = [];
+    player.knightsPlayed ||= 0;
+  }
+  return game;
+}
+const hiddenPoints = (player) =>
+  (player.devCards || []).filter((card) => card.type === "victoryPoint").length;
 
 function addLog(game, message, type = "info") {
   game.log.push({
@@ -249,6 +279,7 @@ function initializeSetupFlow(game) {
 
 function initializeActiveMatch(game) {
   game.board = generateBoard({
+    boardSize: game.boardSize,
     regionOrder: game.regionOrder,
     numberOrder: game.numberOrder,
     harborOrder: game.harborOrder,
@@ -261,8 +292,17 @@ function initializeActiveMatch(game) {
   game.turnHasRolled = false;
   game.lastDiceRoll = null;
   game.lastDicePair = null;
+  game.trade = null;
   game.mustMoveRobber = false;
   game.winnerId = null;
+  game.devDeck = newDevDeck();
+  game.largestArmyId = null;
+  game.freeRoads = null;
+  game.devCardPlayedTurn = null;
+  for (const player of game.players) {
+    player.devCards = [];
+    player.knightsPlayed = 0;
+  }
   setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
 
   initializeSetupFlow(game);
@@ -280,8 +320,20 @@ function initializeActiveMatch(game) {
   );
 }
 
+// Victory Point cards stay hidden until they win the game.
 function checkWinner(game, player) {
-  if (player.score >= config.winPoints) {
+  const hidden = hiddenPoints(player);
+  if (player.score + hidden >= config.winPoints) {
+    if (hidden) {
+      player.score += hidden;
+      player.devCards = player.devCards.filter((card) => card.type !== "victoryPoint");
+      player.revealedVictoryPoints = hidden;
+      addLog(
+        game,
+        `${player.name} reveals ${hidden} Victory Point card${hidden === 1 ? "" : "s"}.`,
+        "win",
+      );
+    }
     game.status = "finished";
     game.winnerId = player.id;
     addLog(game, `${player.name} reaches ${player.score} points and wins the match!`, "win");
@@ -332,38 +384,38 @@ function distributeResources(game, diceTotal) {
     for (const { owner, tile, amount } of requests) {
       const moved = transferFromBank(game, owner, resource, amount);
       producingTileIds.add(tile.id);
-      if (!gainByPlayer.has(owner.id)) gainByPlayer.set(owner.id, resourceTemplate(0));
-      gainByPlayer.get(owner.id)[resource] += moved;
+      if (!gainByPlayer.has(owner.id))
+        gainByPlayer.set(owner.id, { gain: resourceTemplate(0), tiles: {} });
+      const entry = gainByPlayer.get(owner.id);
+      entry.gain[resource] += moved;
+      entry.tiles[resource] = [...new Set([...(entry.tiles[resource] || []), tile.id])];
     }
   }
 
   if (!gainByPlayer.size) {
     addLog(game, "No settlements produced resources on this roll.");
-    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
+    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "roll" });
     return;
   }
 
   const resourceDeltas = [];
 
-  gainByPlayer.forEach((resourceGain, playerId) => {
-    const player = game.players.find((entry) => entry.id === playerId);
-    const summary = Object.entries(resourceGain)
-      .filter(([, amount]) => amount > 0)
-      .map(([resource, amount]) => `${amount} ${config.resourceLabels[resource]}`)
-      .join(", ");
-
-    addLog(game, `${player.name} receives ${summary}.`);
-
-    Object.entries(resourceGain).forEach(([resource, amount]) => {
+  const names = [];
+  gainByPlayer.forEach(({ gain, tiles }, playerId) => {
+    names.push(game.players.find((entry) => entry.id === playerId).name);
+    Object.entries(gain).forEach(([resource, amount]) => {
       if (amount > 0) {
-        resourceDeltas.push({ playerId, resource, amount });
+        resourceDeltas.push({ playerId, resource, amount, tileIds: tiles[resource] });
       }
     });
   });
+  // Amounts appear only as a brief animation; the lasting log keeps who was paid.
+  addLog(game, `Resources paid out to ${names.join(" and ")}.`);
 
   setVisualFeedback(game, {
     producingTileIds: [...producingTileIds],
     resourceDeltas,
+    kind: "roll",
   });
 }
 
@@ -400,7 +452,6 @@ function stealRandomResource(fromPlayer, toPlayer) {
 }
 
 function grantSecondPlacementResources(game, player, vertex) {
-  const gained = resourceTemplate(0);
   const resourceDeltas = [];
 
   vertex.adjacentTiles.forEach((tileId) => {
@@ -410,22 +461,17 @@ function grantSecondPlacementResources(game, player, vertex) {
     }
     const moved = transferFromBank(game, player, tile.resource, 1);
     if (moved > 0) {
-      gained[tile.resource] += moved;
-      resourceDeltas.push({ playerId: player.id, resource: tile.resource, amount: moved });
+      resourceDeltas.push({
+        playerId: player.id,
+        resource: tile.resource,
+        amount: moved,
+        tileIds: [tile.id],
+      });
     }
   });
 
-  const summary = Object.entries(gained)
-    .filter(([, amount]) => amount > 0)
-    .map(([resource, amount]) => `${amount} ${config.resourceLabels[resource]}`)
-    .join(", ");
-
-  if (summary) {
-    addLog(
-      game,
-      `${player.name} gains starting resources from second placement: ${summary}.`,
-      "setup",
-    );
+  if (resourceDeltas.length) {
+    addLog(game, `${player.name} gains starting resources from their second village.`, "setup");
   }
 
   return resourceDeltas;
@@ -503,6 +549,23 @@ function buildHints(game) {
 
   const currentPlayer = getCurrentPlayer(game);
   const actionPhase = game.turnHasRolled && !game.mustMoveRobber;
+  // Road Building lets the player place free roads, even before rolling.
+  const freeRoads =
+    game.freeRoads?.playerId === currentPlayer.id && !game.mustMoveRobber
+      ? game.freeRoads.count
+      : 0;
+  const cards = currentPlayer.devCards || [];
+  const canPlayCard =
+    game.status === "active" && !game.mustMoveRobber && game.devCardPlayedTurn !== game.turn;
+  const playable = canPlayCard
+    ? [
+        ...new Set(
+          cards
+            .filter((card) => card.type !== "victoryPoint" && card.boughtTurn !== game.turn)
+            .map((card) => card.type),
+        ),
+      ]
+    : [];
   const canAffordRoad = hasEnoughResources(currentPlayer.resources, config.buildingCosts.road);
   const canAffordVillage = hasEnoughResources(
     currentPlayer.resources,
@@ -516,7 +579,16 @@ function buildHints(game) {
     canEndTurn: actionPhase,
     tradeRates: getTradeRates(game, currentPlayer),
     mustMoveRobber: game.mustMoveRobber,
-    validRoadEdges: actionPhase && canAffordRoad ? getValidRoadIds(game, currentPlayer) : [],
+    validRoadEdges:
+      freeRoads || (actionPhase && canAffordRoad) ? getValidRoadIds(game, currentPlayer) : [],
+    freeRoads,
+    devCards: {
+      canBuy:
+        actionPhase &&
+        (game.devDeck?.length ?? 1) > 0 &&
+        hasEnoughResources(currentPlayer.resources, config.buildingCosts.development),
+      playable,
+    },
     validVillageVertices:
       actionPhase && canAffordVillage ? getValidVillageIds(game, currentPlayer) : [],
     validCityVertices: actionPhase && canAffordCity ? getValidCityIds(game, currentPlayer) : [],
@@ -529,6 +601,7 @@ function buildHints(game) {
 }
 
 function serializeGame(game) {
+  const spec = boardSpec(game.boardSize);
   const setupSummary =
     game.phase === "setup-placement"
       ? {
@@ -569,10 +642,14 @@ function serializeGame(game) {
       resourceLabels: config.resourceLabels,
       bankTradeRate: config.bankTradeRate,
       buildingCosts: config.buildingCosts,
-      regions: config.regions,
-      boardLayout: config.boardLayout,
-      numberTokens: config.numberTokens,
-      harborTypes: config.harborTypes,
+      developmentCards: config.developmentCards,
+      developmentCardLabels: config.developmentCardLabels,
+      largestArmy: config.largestArmy,
+      boardSize: spec.size,
+      regions: spec.regions,
+      boardLayout: spec.boardLayout,
+      numberTokens: spec.numberTokens,
+      harborTypes: spec.harborTypes,
     },
     players: game.players.map((player) => ({
       id: player.id,
@@ -584,18 +661,31 @@ function serializeGame(game) {
       cities: player.cities,
       score: player.score,
       resourceTotal: getResourceTotal(player.resources),
+      // Hidden from other players by sessions.view; only the count is public.
+      devCards: player.devCards || [],
+      devCardCount: (player.devCards || []).length,
+      knightsPlayed: player.knightsPlayed || 0,
+      ...(player.revealedVictoryPoints
+        ? { revealedVictoryPoints: player.revealedVictoryPoints }
+        : {}),
     })),
+    devDeckCount: Array.isArray(game.devDeck)
+      ? game.devDeck.length
+      : Object.values(config.developmentCards).reduce((sum, count) => sum + count, 0),
+    largestArmyId: game.largestArmyId || null,
     board: game.board,
     bank: game.bank,
     log: game.log.slice(-100),
     visuals: game.visuals,
+    // Open trade requests are public; older saves have none.
+    trade: game.status === "active" && game.phase === "main" ? game.trade || null : null,
     hints: buildHints(game),
   };
 }
 
 function createGame({
   playerNames = [],
-  maxPlayers = config.maxPlayers,
+  maxPlayers = 4,
   regionOrder = null,
   numberOrder = null,
   harborOrder = null,
@@ -607,14 +697,17 @@ function createGame({
     boundedMaxPlayers < config.minPlayers ||
     boundedMaxPlayers > config.maxPlayers
   ) {
-    throw createError("Choose a maximum of 2, 3 or 4 players.");
+    throw createError(`Choose a maximum of ${config.minPlayers} to ${config.maxPlayers} players.`);
   }
   const names = normalizeNames(playerNames);
-  const normalizedOrder = normalizeRegionOrder(regionOrder);
-  const normalizedNumberOrder = normalizeNumberOrder(numberOrder);
-  const normalizedHarborOrder = normalizeHarborOrder(harborOrder);
+  // Five and six players need the larger map.
+  const spec = boardSpec(boardSizeFor(boundedMaxPlayers));
+  const normalizedOrder = normalizeRegionOrder(regionOrder, spec);
+  const normalizedNumberOrder = normalizeNumberOrder(numberOrder, spec);
+  const normalizedHarborOrder = normalizeHarborOrder(harborOrder, spec);
 
-  if (names.length < 1) {
+  // A network room hosted by a table screen starts with no seats.
+  if (names.length < 1 && mode !== "online") {
     throw createError("Provide at least one player name.");
   }
   if (names.length > boundedMaxPlayers) {
@@ -626,6 +719,7 @@ function createGame({
     mode: mode === "online" ? "online" : "local",
     createdAt: new Date().toISOString(),
     maxPlayers: boundedMaxPlayers,
+    boardSize: spec.size,
     status: "lobby",
     phase: "lobby",
     players: names.map((name, index) => createPlayer(name, index)),
@@ -759,8 +853,9 @@ function placeSetup(gameId, { playerId, vertexId, edgeId }) {
   }
 
   setVisualFeedback(game, {
-    producingTileIds: [],
+    producingTileIds: setupResourceDeltas.flatMap((delta) => delta.tileIds),
     resourceDeltas: setupResourceDeltas,
+    kind: "setup",
   });
 
   advanceSetupFlow(game);
@@ -780,6 +875,9 @@ function rollDice(gameId, { playerId }) {
 
   if (game.turnHasRolled) {
     throw createError("Dice already rolled this turn.");
+  }
+  if (game.mustMoveRobber) {
+    throw createError("Move the bandit before rolling.");
   }
 
   const d1 = Math.floor(Math.random() * 6) + 1;
@@ -814,7 +912,7 @@ function rollDice(gameId, { playerId }) {
     }
     game.mustMoveRobber = true;
     addLog(game, "The bandit awakens. Move it to a new region.");
-    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
+    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "seven" });
   } else {
     distributeResources(game, total);
   }
@@ -828,23 +926,29 @@ function buildRoad(gameId, { playerId, edgeId }) {
   assertActiveGame(game);
   assertMainPhase(game);
   assertPlayersTurn(game, playerId);
-  assertActionPhase(game);
+  const free = game.freeRoads?.playerId === playerId && game.freeRoads.count > 0;
+  if (free && game.mustMoveRobber) throw createError("Move the bandit first.");
+  if (!free) assertActionPhase(game);
 
   const player = getPlayerOrThrow(game, playerId);
   const cost = config.buildingCosts.road;
 
-  if (!hasEnoughResources(player.resources, cost)) {
+  if (!free && !hasEnoughResources(player.resources, cost)) {
     throw createError("Not enough resources to build a road.");
   }
   if (!canPlaceRoad(game, player, Number(edgeId))) {
     throw createError("Illegal road placement.");
   }
 
-  spendResources(player.resources, game.bank, cost);
+  if (free) {
+    game.freeRoads.count -= 1;
+    if (!game.freeRoads.count) game.freeRoads = null;
+  } else spendResources(player.resources, game.bank, cost);
   game.board.edges[Number(edgeId)].ownerId = player.id;
   player.roads.push(Number(edgeId));
+  if (game.freeRoads && !getValidRoadIds(game, player).length) game.freeRoads = null;
 
-  addLog(game, `${player.name} built a road.`);
+  addLog(game, `${player.name} built a ${free ? "free " : ""}road.`);
   store.saveGame(game);
   return serializeGame(game);
 }
@@ -951,14 +1055,149 @@ function tradeWithBank(gameId, { playerId, giveResource, getResource }) {
   return serializeGame(game);
 }
 
+// Player-to-player trades: the active player asks for cards, others offer,
+// and the active player accepts one offer. Offers are public, like at a real table.
+const MAX_TRADE_CARDS = 4;
+function tradeAmount(resource, amount) {
+  if (!config.resources.includes(resource)) throw createError("Choose a resource to trade.");
+  const count = Number(amount);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_TRADE_CARDS)
+    throw createError(`Trade between 1 and ${MAX_TRADE_CARDS} cards.`);
+  return count;
+}
+const cards = (amount, resource) => `${amount} ${config.resourceLabels[resource]}`;
+function openTrade(game, requestId) {
+  if (!game.trade || (requestId !== undefined && game.trade.id !== requestId))
+    throw createError("That trade request has closed.", 409);
+  return game.trade;
+}
+
+function requestTrade(gameId, { playerId, resource, amount }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const count = tradeAmount(resource, amount);
+  const player = getPlayerOrThrow(game, playerId);
+  game.trade = { id: uuidv4(), playerId, want: { resource, amount: count }, offers: [] };
+  addLog(game, `${player.name} asks the table for ${cards(count, resource)}.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function offerTrade(gameId, { playerId, requestId, resource, amount }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  const trade = openTrade(game, requestId);
+  if (trade.playerId === playerId) throw createError("Wait for other players to make offers.");
+  const player = getPlayerOrThrow(game, playerId);
+  const count = tradeAmount(resource, amount);
+  if (resource === trade.want.resource)
+    throw createError("Ask for a different resource than the one you give.");
+  if ((player.resources[trade.want.resource] || 0) < trade.want.amount)
+    throw createError(`You need ${cards(trade.want.amount, trade.want.resource)} to offer.`);
+  trade.offers = trade.offers.filter((offer) => offer.playerId !== playerId);
+  trade.offers.push({ id: uuidv4(), playerId, ask: { resource, amount: count } });
+  addLog(
+    game,
+    `${player.name} offers ${cards(trade.want.amount, trade.want.resource)} for ${cards(count, resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function withdrawTradeOffer(gameId, { playerId, requestId }) {
+  const game = getGameOrThrow(gameId);
+  const trade = openTrade(game, requestId);
+  if (!trade.offers.some((offer) => offer.playerId === playerId))
+    throw createError("You have no offer on this request.");
+  trade.offers = trade.offers.filter((offer) => offer.playerId !== playerId);
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} withdrew their offer.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function declineTradeOffer(gameId, { playerId, offerId }) {
+  const game = getGameOrThrow(gameId);
+  assertPlayersTurn(game, playerId);
+  const trade = openTrade(game);
+  const offer = trade.offers.find((entry) => entry.id === offerId);
+  if (!offer) throw createError("That offer was withdrawn.", 409);
+  trade.offers = trade.offers.filter((entry) => entry.id !== offerId);
+  addLog(
+    game,
+    `${getPlayerOrThrow(game, playerId).name} declined ${getPlayerOrThrow(game, offer.playerId).name}'s offer.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function cancelTrade(gameId, { playerId }) {
+  const game = getGameOrThrow(gameId);
+  assertPlayersTurn(game, playerId);
+  openTrade(game);
+  game.trade = null;
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} closed the trade request.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function acceptTradeOffer(gameId, { playerId, offerId }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const trade = openTrade(game);
+  const offer = trade.offers.find((entry) => entry.id === offerId);
+  if (!offer) throw createError("That offer was withdrawn.", 409);
+  const player = getPlayerOrThrow(game, playerId);
+  const partner = getPlayerOrThrow(game, offer.playerId);
+  const { want } = trade;
+  const { ask } = offer;
+  if ((player.resources[ask.resource] || 0) < ask.amount)
+    throw createError(`You need ${cards(ask.amount, ask.resource)} to accept this offer.`);
+  if ((partner.resources[want.resource] || 0) < want.amount)
+    throw createError(`${partner.name} no longer has ${cards(want.amount, want.resource)}.`);
+  player.resources[ask.resource] -= ask.amount;
+  partner.resources[ask.resource] += ask.amount;
+  partner.resources[want.resource] -= want.amount;
+  player.resources[want.resource] += want.amount;
+  game.trade = null;
+  setVisualFeedback(game, {
+    producingTileIds: [],
+    resourceDeltas: [
+      {
+        playerId: player.id,
+        resource: want.resource,
+        amount: want.amount,
+        fromPlayerId: partner.id,
+      },
+      { playerId: partner.id, resource: ask.resource, amount: ask.amount, fromPlayerId: player.id },
+    ],
+    kind: "trade",
+  });
+  addLog(
+    game,
+    `${player.name} traded ${cards(ask.amount, ask.resource)} to ${partner.name} for ${cards(want.amount, want.resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
 function moveRobber(gameId, { playerId, tileId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
   assertMainPhase(game);
   assertPlayersTurn(game, playerId);
 
-  if (!game.turnHasRolled || !game.mustMoveRobber) {
-    throw createError("The bandit can only move after rolling a 7.");
+  if (!game.mustMoveRobber) {
+    throw createError("The bandit can only move after a 7 or a Knight.");
   }
 
   const nextTileId = Number(tileId);
@@ -990,6 +1229,137 @@ function moveRobber(gameId, { playerId, tileId }) {
   return serializeGame(game);
 }
 
+function buyDevelopmentCard(gameId, { playerId }) {
+  const game = devState(getGameOrThrow(gameId));
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+
+  const player = getPlayerOrThrow(game, playerId);
+  const cost = config.buildingCosts.development;
+  if (!game.devDeck.length) throw createError("No development cards are left.");
+  if (!hasEnoughResources(player.resources, cost)) {
+    throw createError("A development card costs 1 Wheat, 1 Sheep and 1 Stone.");
+  }
+
+  spendResources(player.resources, game.bank, cost);
+  const type = game.devDeck.pop();
+  player.devCards.push({ id: uuidv4(), type, boughtTurn: game.turn });
+  addLog(game, `${player.name} bought a development card.`);
+  setVisualFeedback(game, { kind: "devbuy", playerId: player.id });
+  checkWinner(game, player);
+
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+// Largest Army: the first to play 3 Knights, then whoever plays more than the holder.
+function updateLargestArmy(game, player) {
+  if (player.knightsPlayed < config.largestArmy.minKnights) return;
+  const holder = game.players.find((entry) => entry.id === game.largestArmyId);
+  if (holder === player || (holder && holder.knightsPlayed >= player.knightsPlayed)) return;
+  if (holder) holder.score -= config.largestArmy.points;
+  player.score += config.largestArmy.points;
+  game.largestArmyId = player.id;
+  addLog(
+    game,
+    `${player.name} now has the Largest Army (+${config.largestArmy.points} points)${
+      holder ? `, taking it from ${holder.name}` : ""
+    }.`,
+    "win",
+  );
+}
+
+function playDevelopmentCard(gameId, { playerId, type, resource, resources }) {
+  const game = devState(getGameOrThrow(gameId));
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  if (game.mustMoveRobber) throw createError("Move the bandit first.");
+  if (!DEV_TYPES.includes(type)) throw createError("Choose a development card to play.");
+  if (type === "victoryPoint") {
+    throw createError("Victory Point cards count by themselves. Keep them hidden.");
+  }
+  if (game.devCardPlayedTurn === game.turn) {
+    throw createError("Only one development card can be played each turn.");
+  }
+
+  const player = getPlayerOrThrow(game, playerId);
+  const owned = player.devCards.filter((card) => card.type === type);
+  const index = player.devCards.findIndex(
+    (card) => card.type === type && card.boughtTurn !== game.turn,
+  );
+  if (index < 0) {
+    throw createError(
+      owned.length
+        ? "A card bought this turn can be played from your next turn."
+        : `You have no ${devLabel(type)} card.`,
+    );
+  }
+
+  // Check the card's choices before using it up.
+  const valid = (entry) => config.resources.includes(entry);
+  if (type === "yearOfPlenty") {
+    if (!Array.isArray(resources) || resources.length !== 2 || !resources.every(valid)) {
+      throw createError("Choose two resources to take from the bank.");
+    }
+    for (const entry of new Set(resources)) {
+      const wanted = resources.filter((value) => value === entry).length;
+      if ((game.bank[entry] || 0) < wanted) {
+        throw createError(`The bank does not have ${wanted} ${config.resourceLabels[entry]}.`);
+      }
+    }
+  }
+  if (type === "monopoly" && !valid(resource)) throw createError("Choose a resource to claim.");
+  if (type === "roadBuilding" && !getValidRoadIds(game, player).length) {
+    throw createError("You have no free road spot to build on.");
+  }
+
+  player.devCards.splice(index, 1);
+  game.devCardPlayedTurn = game.turn;
+  let resourceDeltas = [];
+
+  if (type === "knight") {
+    player.knightsPlayed += 1;
+    game.mustMoveRobber = true;
+    addLog(game, `${player.name} played a Knight. Move the bandit and steal a card.`);
+    updateLargestArmy(game, player);
+  } else if (type === "roadBuilding") {
+    game.freeRoads = { playerId: player.id, count: Math.min(2, 15 - player.roads.length) };
+    addLog(game, `${player.name} played Road Building: two free roads.`);
+  } else if (type === "yearOfPlenty") {
+    for (const entry of resources) transferFromBank(game, player, entry, 1);
+    resourceDeltas = [...new Set(resources)].map((entry) => ({
+      playerId: player.id,
+      resource: entry,
+      amount: resources.filter((value) => value === entry).length,
+      tileIds: [],
+    }));
+    const taken = resourceDeltas.map((delta) => cards(delta.amount, delta.resource));
+    addLog(game, `${player.name} played Year of Plenty and took ${taken.join(" and ")}.`);
+  } else if (type === "monopoly") {
+    let total = 0;
+    for (const other of game.players) {
+      const amount = other.id === player.id ? 0 : other.resources[resource];
+      if (!amount) continue;
+      other.resources[resource] = 0;
+      player.resources[resource] += amount;
+      total += amount;
+      resourceDeltas.push({ playerId: player.id, resource, amount, fromPlayerId: other.id });
+    }
+    addLog(
+      game,
+      `${player.name} played Monopoly on ${config.resourceLabels[resource]} and collected ${total}.`,
+    );
+  }
+
+  setVisualFeedback(game, { kind: "devplay", playerId: player.id, card: type, resourceDeltas });
+  checkWinner(game, player);
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
 function endTurn(gameId, { playerId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
@@ -1011,6 +1381,8 @@ function endTurn(gameId, { playerId }) {
   game.turnHasRolled = false;
   game.lastDiceRoll = null;
   game.lastDicePair = null;
+  game.trade = null;
+  game.freeRoads = null;
 
   const nextPlayer = getCurrentPlayer(game);
   addLog(game, `Turn ${game.turn}: ${nextPlayer.name}'s turn starts.`);
@@ -1035,7 +1407,15 @@ module.exports = {
   buildVillage,
   upgradeCity,
   tradeWithBank,
+  requestTrade,
+  offerTrade,
+  withdrawTradeOffer,
+  declineTradeOffer,
+  cancelTrade,
+  acceptTradeOffer,
   moveRobber,
+  buyDevelopmentCard,
+  playDevelopmentCard,
   endTurn,
   getSampleMatchData,
 };

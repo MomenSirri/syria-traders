@@ -12,11 +12,14 @@ export default memo(function PlayerCard({
   yours,
   gains,
   setupCount,
+  largestArmy,
 }) {
+  const devCount = player.devCardCount ?? player.devCards?.length ?? 0;
   return (
     <article
-      className={`player-card ${active ? "active-player" : ""}`}
+      className={`player-card ${active ? "active-player" : ""} ${yours ? "your-seat" : ""}`}
       style={{ "--player-color": player.color }}
+      data-player-id={player.id}
       aria-label={`${player.name}${active ? ", active player" : ""}`}
     >
       <header className="player-header">
@@ -56,6 +59,18 @@ export default memo(function PlayerCard({
           Cities <b>{player.cities.length}</b>
         </span>
       </div>
+      {(devCount > 0 || player.knightsPlayed > 0 || largestArmy) && (
+        <div className="player-dev-row">
+          <span title="Development cards in hand">
+            <i className="dev-mini" aria-hidden="true" />
+            Cards <b>{devCount}</b>
+          </span>
+          <span title="Knights played">
+            Knights <b>{player.knightsPlayed || 0}</b>
+          </span>
+          {largestArmy && <em className="army-badge">Largest Army +2</em>}
+        </div>
+      )}
       {player.resources ? (
         <div className="player-resources">
           {resources.map((resource) => {

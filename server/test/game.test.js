@@ -208,7 +208,7 @@ test("snapshot survives a fresh Node process", () => {
   assert.deepEqual(restored.board, game.board);
   assert.deepEqual(
     restored.players,
-    game.players.map(({ resourceTotal, ...p }) => p),
+    game.players.map(({ resourceTotal, devCardCount, ...p }) => p),
   );
 });
 

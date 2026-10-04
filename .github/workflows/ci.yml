@@ -36,10 +36,10 @@ jobs:
       - name: Install Chromium for the pinned Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Browser tests (HTTPS, local and LAN mode)
+      - name: Browser tests (HTTPS host and smart-TV address, as run-game.bat)
         run: npm run test:browser
 
-      - name: Browser tests (HTTP, cloud preview mode)
+      - name: Browser tests (HTTP host behind a TLS proxy, as a cloud preview)
         run: npm run test:browser
         env:
           HTTPS: "0"

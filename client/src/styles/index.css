@@ -1,13 +1,144 @@
+/* Self-hosted (OFL) so LAN games render identically without internet access. */
+@font-face {
+  font-family: "Marcellus";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/marcellus-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
+}
+
+/*
+ * Design tokens: "Felt & Brass". Night-ink chrome, a felt-green table under the
+ * board and brass-gold for the one primary action. The board itself carries the
+ * colour; everything around it stays calm. See design-system/syria-traders/MASTER.md.
+ */
 :root {
-  --ink: #2e3c34;
-  --muted: #7a7969;
-  --sand: #eee5d3;
-  --paper: #f8f3e8;
-  --terracotta: #a6583e;
-  --olive: #526951;
-  --azure: #4e8288;
-  --gold: #b69a60;
-  --line: #d9cfb9;
+  /* Surfaces, darkest to most raised */
+  --bg: #0a0f17;
+  --bg-2: #0e1520;
+  --surface-1: #121a26;
+  --surface-2: #172131;
+  --surface-3: #1e2a3d;
+  --surface-hover: #243249;
+  --border: #ffffff14;
+  --border-strong: #ffffff29;
+  --hairline: #ffffff0d;
+
+  /* Text (all pairs ≥ 4.5:1 on --surface-1/2) */
+  --text: #f3efe6;
+  --text-2: #cdd4de;
+  --text-muted: #97a3b4;
+
+  /* Brass: primary action and emphasis */
+  --gold: #e2b450;
+  --gold-strong: #f1c96d;
+  --gold-soft: #f6dfa4;
+  --gold-deep: #a8792a;
+  --on-gold: #1c1406;
+  --gold-tint: #e2b4501f;
+
+  /* Felt: the table under the board, and confirm actions */
+  --felt: #1b4a3a;
+  --felt-deep: #0d2a22;
+  --green: #1f8a4c;
+  --green-strong: #25a35a;
+  --on-green: #ffffff;
+  --green-text: #6fdc9b;
+
+  /* Status */
+  --danger: #e2553f;
+  --danger-text: #ff9b87;
+  --warning: #e8a33a;
+  --info: #5fa8d3;
+
+  /* Resource tints (icon chips) */
+  --res-wheat: #e8c867;
+  --res-wood: #7fb88a;
+  --res-stone: #aab6c6;
+  --res-brick: #dd9572;
+  --res-sheep: #bcd57e;
+
+  /* Legacy aliases still used by the board SVG and a few components */
+  --brass: var(--gold);
+  --brass-soft: var(--gold-soft);
+  --brass-deep: var(--gold-deep);
+  --night: var(--bg);
+  --on-night: var(--text);
+  --on-night-muted: var(--text-muted);
+  --ink: var(--text);
+  --muted: var(--text-muted);
+  --card: var(--surface-2);
+  --line: var(--border);
+  --line-strong: var(--border-strong);
+  --terracotta: var(--danger);
+  --teal: var(--green);
+  --success: var(--green);
+
+  /* Type scale (Manrope UI, Marcellus display) */
+  --font-display: "Marcellus", Georgia, "Times New Roman", serif;
+  --font-ui: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fs-label: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 44px;
+
+  /* 4/8 spacing rhythm */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Shape and elevation */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px #00000040, 0 1px 1px #00000026;
+  --shadow-2: 0 4px 12px #00000047, 0 1px 3px #00000033;
+  --shadow-3: 0 16px 40px #00000066, 0 4px 12px #00000040;
+  --shadow-4: 0 32px 80px #0000008c, 0 8px 24px #00000059;
+  --inset-top: inset 0 1px #ffffff0f;
+  --ring: 0 0 0 3px #e2b4506b;
+
+  /* Motion: enter decelerates, exit accelerates, pops overshoot slightly */
+  --dur-press: 110ms;
+  --dur-fast: 160ms;
+  --dur: 240ms;
+  --dur-slow: 380ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.55, 0, 0.75, 0.2);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Layers */
+  --z-raised: 10;
+  --z-overlay: 40;
+  --z-banner: 50;
+  --z-modal: 100;
+  --z-fx: 200;
+
+  /* Eight-point star lattice used on dark backdrops. */
+  --girih: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23e2b450' stroke-opacity='.06' stroke-width='1'%3E%3Cpath d='M36 14l6.4 15.6L58 36l-15.6 6.4L36 58l-6.4-15.6L14 36l15.6-6.4z'/%3E%3Cpath d='M20.4 20.4h31.2v31.2H20.4z' transform='rotate(45 36 36)'/%3E%3Cpath d='M20.4 20.4h31.2v31.2H20.4z'/%3E%3Cpath d='M0 0l14 14M72 0L58 14M0 72l14-14M72 72L58 58'/%3E%3C/g%3E%3C/svg%3E");
+  --brand-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M20 1l5.6 13.4L39 20l-13.4 5.6L20 39l-5.6-13.4L1 20l13.4-5.6z'/%3E%3C/svg%3E");
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -21,10 +152,18 @@ body,
 }
 body {
   overflow: hidden;
-  color: var(--ink);
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-  font-size: 14px;
-  background: radial-gradient(ellipse at 30% 0, #faf2dd, transparent 60%), #d9d0be;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, #1d2a3f 0, transparent 65%),
+    radial-gradient(ellipse 60% 50% at 50% 110%, #12291f 0, transparent 70%),
+    var(--girih),
+    var(--bg);
 }
 h1,
 h2,
@@ -35,39 +174,82 @@ p {
 h1,
 h2,
 h3 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.15;
+  text-wrap: balance;
 }
 button,
 input,
 select {
   font: inherit;
+  color: inherit;
 }
 button {
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 button:disabled {
   opacity: 0.42;
   cursor: not-allowed;
 }
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-[tabindex]:focus-visible {
-  outline: 3px solid #498992;
-  outline-offset: 3px;
-}
-button,
-input,
-select {
-  color: inherit;
+:focus-visible {
+  outline: 2px solid var(--gold-strong);
+  outline-offset: 2px;
 }
 input,
 select {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px;
-  background: #fffcf5;
   min-width: 0;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+select {
+  appearance: none;
+  padding-right: 30px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cdd4de' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      right 10px center / 12px no-repeat,
+    var(--bg-2);
+  cursor: pointer;
+}
+select option {
+  background: var(--surface-2);
+  color: var(--text);
+}
+input::placeholder {
+  color: #6f7c8f;
+}
+input:hover,
+select:hover {
+  border-color: #ffffff47;
+}
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: var(--ring);
+}
+input[type="checkbox"] {
+  accent-color: var(--gold);
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  cursor: pointer;
+}
+::selection {
+  background: #e2b45066;
+  color: var(--text);
 }
 img {
   max-width: 100%;
@@ -75,8 +257,20 @@ img {
 svg {
   flex-shrink: 0;
 }
-button {
-  touch-action: manipulation;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2e transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffffff2e;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
   *,

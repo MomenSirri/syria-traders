@@ -10,6 +10,13 @@ import ActionBar from "./components/ActionBar";
 import GameLog from "./components/GameLog";
 import DiceDisplay from "./components/DiceDisplay";
 import Lobby from "./components/Lobby";
+import TableStatus from "./components/TableStatus";
+import SeatHand from "./components/SeatHand";
+import TradePanel from "./components/TradePanel";
+import DevCardPanel from "./components/DevCardPanel";
+import GameEffects from "./components/GameEffects";
+import Icon from "./components/Icon";
+import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
 
 export default function App() {
   const match = useMatch();
@@ -22,13 +29,22 @@ export default function App() {
   const rollTimer = useRef();
   const resourcePopups = useResourceGains(game?.gainEvents, game?.clockOffset);
   const current = game?.players[game.currentPlayerIndex];
-  const myTurn = game?.mode !== "online" || current?.id === game?.viewer.playerId;
+  // A TV table screen watches the match; it never holds a seat or takes turns.
+  const table = game?.viewer?.role === "table";
+  const tvLayout = table || (!game && onTvAddress());
+  useEffect(() => fitTvViewport(tvLayout), [tvLayout]);
+  const myTurn = !table && (game?.mode !== "online" || current?.id === game?.viewer.playerId);
   const interactive = myTurn && !busy && connection === "live" && game?.status === "active";
 
   useEffect(() => {
     setSelectedAction(game?.mustMoveRobber ? "robber" : null);
     setSelectedSetupVertex(null);
   }, [game?.id, game?.turn, game?.currentPlayerIndex, game?.phase, game?.mustMoveRobber]);
+  // Road Building hands out free roads: show the road sites straight away.
+  const freeRoads = myTurn ? game?.hints?.freeRoads || 0 : 0;
+  useEffect(() => {
+    if (freeRoads) setSelectedAction("road");
+  }, [freeRoads]);
   useEffect(() => {
     if (
       !game?.visuals ||
@@ -38,10 +54,22 @@ export default function App() {
       return;
     }
     setHighlightedTileIds(game.visuals.producingTileIds || []);
+    // Every screen tumbles its dice when anyone rolls, not only the roller's.
+    if (["roll", "seven"].includes(game.visuals.kind)) setRolling(true);
     const timer = setTimeout(() => setHighlightedTileIds([]), 1800);
-    return () => clearTimeout(timer);
+    const dice = setTimeout(() => setRolling(false), 650);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(dice);
+    };
   }, [game?.visuals?.flashId]);
   useEffect(() => () => clearTimeout(rollTimer.current), []);
+  useEffect(() => {
+    if (!help) return;
+    const close = (event) => event.key === "Escape" && setHelp(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [help]);
 
   async function action(route, payload) {
     const success = await act(route, payload);
@@ -65,9 +93,9 @@ export default function App() {
   if (!game)
     return (
       <GameSetup
-        maxPlayers={4}
         onCreateGame={match.create}
         onJoinGame={match.join}
+        onWatchGame={match.watch}
         busy={busy}
         error={warning}
       />
@@ -88,10 +116,12 @@ export default function App() {
   const winner = game.players.find((player) => player.id === game.winnerId);
   return (
     <div className="viewport-shell">
-      <main className="dashboard-16x9">
+      <main
+        className={`dashboard-16x9 ${table ? "table-view" : game.mode === "online" ? "seat-view" : ""}`}
+      >
         <header className="dashboard-header">
           <div className="brand">
-            <span className="eyebrow">A gathering of merchants</span>
+            <span className="eyebrow">{table ? "Table screen" : "A gathering of merchants"}</span>
             <h1>{config.gameTitle}</h1>
           </div>
           <div className="turn-status" style={{ "--player-color": current?.color }}>
@@ -117,17 +147,28 @@ export default function App() {
             {game.mode === "online" ? `Room ${game.roomCode}` : "Shared table"}
             <small>{connection === "live" ? "Saved on host" : "Reconnecting..."}</small>
           </div>
-          <button className="quiet-button" onClick={() => setHelp(true)}>
-            How to play
-          </button>
-          <button className="quiet-button" onClick={match.leave}>
-            New table
-          </button>
+          <div className="header-actions">
+            <button className="quiet-button" onClick={() => setHelp(true)}>
+              <Icon name="help" />
+              <span className="btn-label">How to play</span>
+            </button>
+            <button className="quiet-button" onClick={match.leave}>
+              <Icon name="exit" />
+              <span className="btn-label">{table ? "Close TV screen" : "New table"}</span>
+            </button>
+          </div>
         </header>
+        {game.mode === "online" && !table && <SeatHand game={game} gains={resourcePopups} />}
         <aside className="dashboard-players">
           <Sidebar game={game} playerImages={media.playerImages} resourcePopups={resourcePopups} />
         </aside>
         <section className="dashboard-board">
+          <TradePanel
+            game={game}
+            busy={busy || connection !== "live" || game.status !== "active"}
+            onAction={action}
+          />
+          <DevCardPanel game={game} busy={!interactive} onAction={action} />
           <GameBoard
             game={game}
             selectedAction={selectedAction}
@@ -144,6 +185,13 @@ export default function App() {
                 setSelectedSetupVertex(null);
             }}
           />
+          {table && winner && (
+            <div className="table-winner" style={{ "--player-color": winner.color }}>
+              <span className="eyebrow">The caravan has a winner</span>
+              <strong>{winner.name}</strong>
+              <span>{winner.score} points</span>
+            </div>
+          )}
           {warning && (
             <div className="error-banner" role="alert">
               {warning}
@@ -159,24 +207,30 @@ export default function App() {
           <GameLog log={game.log} />
         </section>
         <section className="dashboard-actions">
-          <ActionBar
-            game={game}
-            currentPlayer={current}
-            busy={!interactive}
-            myTurn={myTurn}
-            selectedAction={selectedAction}
-            onSelectAction={setSelectedAction}
-            onRoll={roll}
-            onEndTurn={() => action("end-turn")}
-            onTrade={(giveResource, getResource) =>
-              action("trade/bank", { giveResource, getResource })
-            }
-            soundEnabled={match.soundEnabled}
-            onToggleSound={() => match.setSoundEnabled((value) => !value)}
-            selectedSetupVertex={selectedSetupVertex}
-            onClearSetupVertex={() => setSelectedSetupVertex(null)}
-          />
+          {table ? (
+            <TableStatus game={game} currentPlayer={current} />
+          ) : (
+            <ActionBar
+              game={game}
+              currentPlayer={current}
+              busy={!interactive}
+              myTurn={myTurn}
+              selectedAction={selectedAction}
+              onSelectAction={setSelectedAction}
+              onRoll={roll}
+              onEndTurn={() => action("end-turn")}
+              onBuyCard={() => action("dev/buy")}
+              onTrade={(giveResource, getResource) =>
+                action("trade/bank", { giveResource, getResource })
+              }
+              soundEnabled={match.soundEnabled}
+              onToggleSound={() => match.setSoundEnabled((value) => !value)}
+              selectedSetupVertex={selectedSetupVertex}
+              onClearSetupVertex={() => setSelectedSetupVertex(null)}
+            />
+          )}
         </section>
+        <GameEffects game={game} table={table} />
         {help && (
           <div className="modal-backdrop" onClick={() => setHelp(false)}>
             <section
@@ -187,6 +241,7 @@ export default function App() {
               onClick={(event) => event.stopPropagation()}
             >
               <button className="quiet-button modal-close" onClick={() => setHelp(false)} autoFocus>
+                <Icon name="close" />
                 Close
               </button>
               <span className="eyebrow">Welcome to the table</span>
@@ -211,6 +266,13 @@ export default function App() {
                 <li>
                   A seven automatically returns half of any hand over seven to the bank, chosen
                   randomly. Move the bandit and steal a random card from an adjacent opponent.
+                </li>
+                <li>
+                  After rolling, buy a development card for 1 Wheat, 1 Sheep and 1 Stone. Play one
+                  card a turn, but not on the turn you bought it: a Knight moves the bandit (three
+                  knights earn the Largest Army, worth 2 points), Road Building gives two free
+                  roads, Year of Plenty takes two resources, Monopoly collects one resource from
+                  everyone. Victory Point cards stay hidden until they win.
                 </li>
                 <li>
                   Reach 10 points: villages are worth one, cities two. Each player has 15 roads, 5
