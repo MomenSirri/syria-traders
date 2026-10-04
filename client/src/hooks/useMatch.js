@@ -201,16 +201,21 @@ export default function useMatch() {
     if (actionLock.current) return;
     const current = gameRef.current;
     const lobby = current.phase === "lobby";
-    const message = lobby
-      ? "Leave this room? Your seat will open up. If you are the host, the next player becomes host."
-      : "Start a new table? This browser will forget its current seat and cannot rejoin it. The match stays on the host PC. Cancel to keep playing.";
+    const table = current.viewer?.role === "table";
+    const message = table
+      ? "Close the TV screen for this room? Players keep their seats, and you can reopen it with the room code."
+      : lobby
+        ? "Leave this room? Your seat will open up. If you are the host, the next player becomes host."
+        : "Start a new table? This browser will forget its current seat and cannot rejoin it. The match stays on the host PC. Cancel to keep playing.";
     if (!window.confirm(message)) return;
-    if (lobby) {
+    if (lobby || table) {
       actionLock.current = true;
       setBusy(true);
       try {
         await gameApi.act(current, token, "leave", { playerId: current.viewer.playerId });
       } catch (failure) {
+        // A closed TV screen only needs to forget its token locally.
+        if (table && [401, 404].includes(failure.status)) return forget();
         setError(failure.message);
         if (failure.status === 409) {
           try {
@@ -225,6 +230,10 @@ export default function useMatch() {
         setBusy(false);
       }
     }
+    forget();
+  }
+
+  function forget() {
     let clearError = "";
     try {
       clearSave();
@@ -253,5 +262,6 @@ export default function useMatch() {
     leave,
     create: (payload) => enter(() => gameApi.create(payload)),
     join: (code, payload) => enter(() => gameApi.join(code, payload)),
+    watch: (code) => enter(() => gameApi.watch(code)),
   };
 }

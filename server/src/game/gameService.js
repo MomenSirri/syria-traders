@@ -614,7 +614,8 @@ function createGame({
   const normalizedNumberOrder = normalizeNumberOrder(numberOrder);
   const normalizedHarborOrder = normalizeHarborOrder(harborOrder);
 
-  if (names.length < 1) {
+  // A network room hosted by a table screen starts with no seats.
+  if (names.length < 1 && mode !== "online") {
     throw createError("Provide at least one player name.");
   }
   if (names.length > boundedMaxPlayers) {

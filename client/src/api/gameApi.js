@@ -35,6 +35,9 @@ export const gameApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  // Opens a read-only table screen (TV) for a network room.
+  watch: (code) =>
+    request(`/games/${encodeURIComponent(code.trim())}/table`, { method: "POST", body: "{}" }),
   get: (id, token, media = false, signal) =>
     request(`/games/${id}${media ? "?media=1" : ""}`, { token, signal }),
   act: (game, token, route, body) =>

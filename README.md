@@ -20,6 +20,18 @@ Port 8443 now serves both the built game and API. Rebuilding on launch prevents 
 
 Each browser has its own player seat and private hand. Only the active player can act. To test several players on one PC, use separate profiles/incognito contexts, not tabs sharing browser storage. Keep the host PC awake and its server running. This is trusted-LAN multiplayer, not public internet matchmaking.
 
+### Phones and a TV
+
+Everyone plays on their own phone while a TV shows the shared table.
+
+1. On the PC connected to the TV, open the game, choose **TV screen** and press **Open a room on this TV**. Arrange the map first if you like.
+2. Players scan the QR code (or open the link) on the same Wi-Fi, enter their names and join. Phones show your own hand first, then the actions and board.
+3. Press **Start the match** on the TV. The first phone to join can start it too.
+
+To show a room a phone already hosts, choose **TV screen** and enter its room code, or open `/?room=CODE&tv=1`. This works mid-match.
+
+The TV is a read-only seat-less viewer. The server never sends it hands, gain details or move hints; it shows the board, dice, turn, scores, piece counts, card counts per hand, the bank and the log (the same public information every player already sees). Moves sent with a TV token are rejected. **Close TV screen** revokes its token without touching any seat. Anyone with the room code on your network can open a TV view, so it shows nothing private.
+
 Leaving a lobby frees your seat. If the host leaves, the next player becomes host. An empty room closes. After a match starts, seats cannot be removed or reassigned.
 
 ## Development
@@ -86,7 +98,10 @@ client/
     api/gameApi.js          Authenticated requests and live stream
     components/
       GameSetup.jsx         Names, avatars, map arrangement, custom art
-      Lobby.jsx             Invitations, seats, host-controlled start
+      Lobby.jsx             Invitations, seats, host-controlled start, TV QR code
+      TableStatus.jsx       TV screen turn summary, bank and hand counts
+      SeatHand.jsx          Phone strip with your own hand
+      QrCode.jsx            Invite link as an SVG QR code
       GameBoard.jsx         SVG map, ports, placement targets
       PlayerCard.jsx        Avatar, score, aligned rows, gain badges
       Sidebar.jsx           Player grid
@@ -102,6 +117,7 @@ client/
       index.css             Theme and shared elements
       app.css               Dashboard, board, setup, responsive layout
       PlayerCard.css        Card and resource layout
+      table.css             TV screen and phone seat layout
     utils/
       storage.js            Session snapshot and artwork cache
       images.js             Photo validation, resize, URL cleanup
@@ -118,6 +134,7 @@ server/
       sessions.js           Seats, authorization, private game views
       gameStore.js          Atomic disk saves and revision events
   test/game.test.js
+  test/table.test.js        TV screen never receives private data
   data/                     Generated saves (ignored)
 shared/gameConfig.json      Regions, resources, colors, costs, tokens
 scripts/
@@ -130,14 +147,14 @@ The generator shares rounded corners between neighboring tiles, then creates edg
 
 ## API
 
-`POST /api/games` creates a match and returns a game plus secret seat token. `POST /api/games/:id/join` joins an unstarted network room using its ID or six-character code.
+`POST /api/games` creates a match and returns a game plus secret seat token. Send `{ "mode": "online", "tableHost": true, "playerNames": [] }` to open a room hosted by a TV screen. `POST /api/games/:id/join` joins an unstarted network room using its ID or six-character code. `POST /api/games/:id/table` opens a read-only TV screen for a network room (any phase) and returns its token.
 
 The following routes require `Authorization: Bearer <token>`. Mutations also require `X-Game-Revision: <latest revision>`; stale moves return 409 and must be retried after refresh.
 
 - `GET /api/games/:id` (add `?media=1` for artwork)
 - `GET /api/games/:id/events` (SSE revisions)
 - `POST /api/games/:id/start` (host only)
-- `POST /api/games/:id/leave` (before start; own seat only)
+- `POST /api/games/:id/leave` (before start; own seat only. A TV token closes that TV screen in any phase)
 - `POST /api/games/:id/setup/place`
 - `POST /api/games/:id/roll`
 - `POST /api/games/:id/build/road`

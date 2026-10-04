@@ -1,0 +1,198 @@
+/* TV table screen and phone seat layout. Kept separate from the dashboard styles. */
+
+/* Lobby invite: the TV shows a scannable code beside the room details. */
+.lobby-invite {
+  display: grid;
+  gap: 20px;
+}
+.lobby-invite-details {
+  display: grid;
+  gap: 16px;
+  align-content: center;
+  min-width: 0;
+}
+.table-lobby {
+  width: min(1240px, 95vw);
+  max-height: 100vh;
+  overflow: auto;
+}
+.table-lobby .lobby-invite {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+.qr-code {
+  display: block;
+  width: clamp(160px, 30vh, 300px);
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.table-lobby .room-code strong {
+  font-size: clamp(40px, 7vh, 72px);
+}
+.table-lobby .lobby-link {
+  font-size: 16px;
+}
+.tv-hint b {
+  color: var(--ink);
+}
+
+/* TV dashboard: read from across the room. */
+.table-view .turn-status strong {
+  font-size: 20px;
+}
+.table-view .turn-dot {
+  width: 14px;
+  height: 14px;
+}
+.table-view .private-hand strong {
+  font-size: 24px;
+}
+.table-view .log-list {
+  font-size: 13px;
+}
+.table-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto auto;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 18px;
+}
+.table-status-main {
+  border-left: 5px solid var(--player-color, var(--gold));
+  padding-left: 14px;
+  min-width: 0;
+}
+.table-status-main p {
+  margin-top: 6px;
+  font:
+    clamp(18px, 2.2vh, 26px) Georgia,
+    serif;
+}
+.table-bank,
+.table-hands {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 15px;
+}
+.table-bank > .eyebrow,
+.table-hands > .eyebrow {
+  flex-basis: 100%;
+}
+.table-bank span:not(.eyebrow),
+.table-hands span:not(.eyebrow) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.table-hands i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--player-color);
+}
+.table-winner {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 56px;
+  border: 3px solid var(--player-color);
+  border-radius: 16px;
+  background: #fffaf0f2;
+  box-shadow: 0 20px 60px #2e3c3440;
+  z-index: 5;
+  text-align: center;
+}
+.table-winner strong {
+  font:
+    clamp(36px, 6vh, 64px) Georgia,
+    serif;
+  color: var(--player-color);
+}
+
+/* Phone seat: own hand first. The strip only appears on narrow screens. */
+.seat-hand {
+  display: none;
+}
+@media (max-width: 700px) {
+  .seat-view .seat-hand {
+    display: grid;
+    order: 1;
+    gap: 8px;
+    padding: 10px 12px;
+    border-color: var(--player-color);
+  }
+  .seat-view .dashboard-actions {
+    order: 2;
+  }
+  .seat-view .dashboard-board {
+    order: 3;
+  }
+  .seat-view .dashboard-players {
+    order: 4;
+  }
+  .seat-view .dashboard-log {
+    order: 5;
+  }
+  .seat-hand-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .seat-hand-title strong {
+    font-size: 18px;
+  }
+  .seat-hand-title small {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .seat-hand-cards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .seat-card {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 8px 2px 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf0;
+  }
+  .seat-card b {
+    font-size: 20px;
+  }
+  .seat-card small {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .seat-card em {
+    position: absolute;
+    top: -7px;
+    right: -3px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: var(--olive);
+    color: #fff;
+    font-size: 11px;
+    font-style: normal;
+    transition: opacity 700ms ease;
+  }
+  .seat-card em.fading {
+    opacity: 0;
+  }
+  .table-lobby .lobby-invite {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .table-status {
+    grid-template-columns: 1fr;
+  }
+}

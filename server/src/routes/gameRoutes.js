@@ -20,6 +20,10 @@ router.post(
   "/games/:gameId/join",
   handle((req, res) => res.json(sessions.join(req.params.gameId, req.body))),
 );
+router.post(
+  "/games/:gameId/table",
+  handle((req, res) => res.status(201).json(sessions.watch(req.params.gameId))),
+);
 router.use("/games/:gameId", (req, _res, next) => {
   try {
     Object.assign(
@@ -64,12 +68,7 @@ router.post(
   "/games/:gameId/start",
   handle((req, res) => {
     if (!req.session.host) sessions.fail("Only the host can start the match.", 403);
-    sessions.assertAction(
-      req.game,
-      req.session,
-      { playerId: req.session.playerId },
-      req.get("x-game-revision"),
-    );
+    sessions.assertRevision(req.game, req.get("x-game-revision"));
     service.startGame(req.game.id);
     res.json({ game: sessions.view(store.getGame(req.game.id), req.session, true) });
   }),
@@ -77,6 +76,10 @@ router.post(
 router.post(
   "/games/:gameId/leave",
   handle((req, res) => {
+    if (sessions.isTable(req.session)) {
+      sessions.leaveTable(req.game, req.session);
+      return res.json({ left: true });
+    }
     sessions.assertAction(req.game, req.session, req.body, req.get("x-game-revision"));
     sessions.leaveLobby(req.game, req.session);
     res.json({ left: true });

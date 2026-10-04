@@ -34,9 +34,15 @@ function mediaFor(payload, players) {
   return { playerImages, hexTexturesByRegion };
 }
 
-function issue(game, playerId, host) {
+// Table screens (a TV showing the shared board) hold a session without a seat.
+// Player sessions keep their original shape so older saves still authenticate.
+const isTable = (session) => session?.role === "table";
+
+function issue(game, playerId, host, role) {
   const token = randomBytes(32).toString("hex");
-  const session = { playerId, host, tokenHash: hash(token) };
+  const session = role
+    ? { role, playerId: null, host, tokenHash: hash(token) }
+    : { playerId, host, tokenHash: hash(token) };
   game.sessions = [...(game.sessions || []), session];
   store.saveGame(game);
   return { token, session };
@@ -53,8 +59,14 @@ function authenticate(id, token) {
 
 function view(game, session, includeMedia = false) {
   const result = service.getGameState(game.id);
-  result.viewer = { playerId: session.playerId, isHost: session.host };
-  if (session.host && game.mode === "online") {
+  const table = isTable(session);
+  // A table screen is nobody's seat: it sees exactly what every player can see.
+  const ownId = table ? null : session.playerId;
+  result.viewer = table
+    ? { playerId: null, isHost: Boolean(session.host), role: "table" }
+    : { playerId: session.playerId, isHost: session.host };
+  // The table screen shows the invite link, so it needs the host's LAN addresses.
+  if ((session.host || table) && game.mode === "online") {
     result.hostAddresses = Object.values(networkInterfaces())
       .flat()
       .filter((entry) => entry.family === "IPv4" && !entry.internal)
@@ -63,20 +75,22 @@ function view(game, session, includeMedia = false) {
   if (game.mode === "online") {
     // Opponent hands and private gain events never leave the server.
     result.players = result.players.map((player) =>
-      player.id === session.playerId ? player : { ...player, resources: null },
+      ownId && player.id === ownId ? player : { ...player, resources: null },
     );
-    result.gainEvents = result.gainEvents.map((event) => ({
-      ...event,
-      gains: event.gains.filter((gain) => gain.playerId === session.playerId),
-    }));
+    result.gainEvents = result.gainEvents
+      .map((event) => ({
+        ...event,
+        gains: event.gains.filter((gain) => ownId && gain.playerId === ownId),
+      }))
+      .filter((event) => event.gains.length);
     if (result.visuals)
       result.visuals = {
         ...result.visuals,
         resourceDeltas: result.visuals.resourceDeltas.filter(
-          (gain) => gain.playerId === session.playerId,
+          (gain) => ownId && gain.playerId === ownId,
         ),
       };
-    if (game.players[game.currentPlayerIndex]?.id !== session.playerId) result.hints = null;
+    if (!ownId || game.players[game.currentPlayerIndex]?.id !== ownId) result.hints = null;
   }
   if (includeMedia) result.media = game.media || { playerImages: {}, hexTexturesByRegion: {} };
   return result;
@@ -87,7 +101,13 @@ function create(payload) {
   if (!Array.isArray(payload.playerNames)) fail("Player names must be a list.");
   if (payload.mode && !["local", "online"].includes(payload.mode))
     fail("Choose local or online play.");
-  if (payload.mode === "online" && payload.playerNames?.length !== 1)
+  if (payload.tableHost !== undefined && typeof payload.tableHost !== "boolean")
+    fail("Choose whether a table screen hosts the room.");
+  const tableHost = payload.tableHost === true;
+  if (tableHost && payload.mode !== "online") fail("Only network rooms can use a table screen.");
+  if (tableHost && payload.playerNames?.length !== 0)
+    fail("A table screen hosts the room without a seat. Players join from their phones.");
+  if (!tableHost && payload.mode === "online" && payload.playerNames?.length !== 1)
     fail("Create a network room with one host name.");
   if (payload.mode !== "online" && payload.playerNames?.length < 2)
     fail("Add at least two local players.");
@@ -102,9 +122,24 @@ function create(payload) {
   do {
     game.roomCode = randomBytes(3).toString("hex").toUpperCase();
   } while (store.getGame(game.roomCode));
-  game.hostPlayerId = game.players[0].id;
-  const { token, session } = issue(game, game.hostPlayerId, true);
+  game.hostPlayerId = game.players[0]?.id || null;
+  const { token, session } = tableHost
+    ? issue(game, null, true, "table")
+    : issue(game, game.hostPlayerId, true);
   return { game: view(game, session, true), token };
+}
+
+// Open a read-only table screen (for example a TV) for an existing network room.
+function watch(id) {
+  const game = store.getGame(id);
+  if (!game || game.mode !== "online" || game.status === "closed")
+    fail("Network room not found.", 404);
+  // Reopening the screen should not grow the save forever: keep a few recent ones.
+  const watchers = (game.sessions || []).filter((seat) => isTable(seat) && !seat.host);
+  const stale = new Set(watchers.slice(0, Math.max(0, watchers.length - 7)));
+  game.sessions = (game.sessions || []).filter((seat) => !stale.has(seat));
+  const { token, session } = issue(game, null, false, "table");
+  return { game: view(store.getGame(game.id), session, true), token };
 }
 
 function join(id, payload) {
@@ -117,14 +152,22 @@ function join(id, payload) {
   const next = store.getGame(game.id);
   const player = next.players[next.players.length - 1];
   next.media.playerImages[player.id] = avatar;
-  const { token, session } = issue(next, player.id, false);
+  // In a room opened by a table screen, the first phone to join can also start it.
+  const captain = !next.hostPlayerId;
+  if (captain) next.hostPlayerId = player.id;
+  const { token, session } = issue(next, player.id, captain);
   return { game: view(next, session, true), token };
 }
 
-function assertAction(game, session, body, revision) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) fail("An action is required.");
+function assertRevision(game, revision) {
   if (!Number.isInteger(Number(revision)) || Number(revision) !== game.revision)
     fail("The match changed. Your screen has been refreshed; please try again.", 409);
+}
+
+function assertAction(game, session, body, revision) {
+  if (isTable(session)) fail("The table screen only shows the match. Play from a phone.", 403);
+  if (!body || typeof body !== "object" || Array.isArray(body)) fail("An action is required.");
+  assertRevision(game, revision);
   if (game.mode === "online" && body.playerId !== session.playerId)
     fail("You can only act for your own player.", 403);
   for (const key of ["edgeId", "vertexId", "tileId"]) {
@@ -140,10 +183,11 @@ function leaveLobby(game, session) {
   game.hostPlayerId = game.players[0]?.id || null;
   game.currentPlayerIndex = 0;
   game.sessions = game.sessions
-    .filter((seat) => seat.playerId !== session.playerId)
-    .map((seat) => ({ ...seat, host: seat.playerId === game.hostPlayerId }));
+    .filter((seat) => isTable(seat) || seat.playerId !== session.playerId)
+    .map((seat) => (isTable(seat) ? seat : { ...seat, host: seat.playerId === game.hostPlayerId }));
   if (game.media?.playerImages) delete game.media.playerImages[session.playerId];
-  if (!game.players.length) {
+  // A room opened by a table screen stays open for new players.
+  if (!game.players.length && !game.sessions.some((seat) => isTable(seat) && seat.host)) {
     game.status = "closed";
     game.phase = "closed";
   }
@@ -157,4 +201,26 @@ function leaveLobby(game, session) {
   store.saveGame(game);
 }
 
-module.exports = { create, join, authenticate, view, assertAction, leaveLobby, fail };
+// Disconnect a table screen. Its token stops working; seats are untouched.
+function leaveTable(game, session) {
+  game.sessions = game.sessions.filter((seat) => seat.tokenHash !== session.tokenHash);
+  if (game.phase === "lobby" && !game.players.length && session.host) {
+    game.status = "closed";
+    game.phase = "closed";
+  }
+  store.saveGame(game);
+}
+
+module.exports = {
+  create,
+  join,
+  watch,
+  authenticate,
+  view,
+  assertAction,
+  assertRevision,
+  leaveLobby,
+  leaveTable,
+  isTable,
+  fail,
+};

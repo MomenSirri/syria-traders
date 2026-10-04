@@ -342,6 +342,95 @@ async function checkLayout(page, width, height, filename) {
   }
   assert.equal((await snapshot(players[1])).turn, 2);
   console.log("PASS complete host restart preserves matches, media and browser seats");
+
+  // TV table screen: hosts a room without a seat; players use phones.
+  const tvPayloads = [];
+  const tv = await pageFor(base);
+  tv.on("response", async (response) => {
+    if (!/\/api\/games(\/|$)/.test(response.url()) || response.url().endsWith("/events")) return;
+    tvPayloads.push(await response.json().catch(() => ({})));
+  });
+  await tv.getByRole("button", { name: "TV screen", exact: true }).click();
+  await tv.getByRole("button", { name: "Open a room on this TV" }).click();
+  await tv.locator(".table-lobby .qr-code").waitFor();
+  const tvCode = (await snapshot(tv)).roomCode;
+  const phones = [];
+  for (const name of ["Nour", "Yazan"]) {
+    const phone = await pageFor(`${base}/?room=${tvCode}`);
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.getByLabel("Player 1 name").fill(name);
+    await phone.getByRole("button", { name: "Join the table" }).click();
+    await phone.locator(".lobby").waitFor();
+    phones.push(phone);
+  }
+  assert.equal(await phones[0].getByRole("button", { name: "Start the match" }).count(), 1);
+  assert.equal(await phones[1].getByRole("button", { name: "Start the match" }).count(), 0);
+  await tv.getByRole("button", { name: "Start the match" }).waitFor();
+  await tv.screenshot({ path: path.join(output, "tv-lobby.png") });
+  await tv.getByRole("button", { name: "Start the match" }).click();
+  for (const page of [tv, ...phones]) await page.locator(".dashboard-16x9").waitFor();
+  for (let i = 0; i < 4; i++) {
+    const state = await snapshot(tv);
+    const activeId = state.players[state.currentPlayerIndex].id;
+    const phone = (
+      await Promise.all(
+        phones.map(async (page) => ({ page, id: (await snapshot(page)).viewer.playerId })),
+      )
+    ).find((entry) => entry.id === activeId).page;
+    await place(phone);
+    const revision = (await snapshot(phone)).revision;
+    await tv.waitForFunction(
+      (revision) =>
+        JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.revision >= revision,
+      revision,
+    );
+  }
+  const tvState = await snapshot(tv);
+  assert.equal(tvState.phase, "main");
+  assert.equal(tvState.viewer.role, "table");
+  assert.ok(tvState.players.every((player) => player.resources === null));
+  assert.ok(tvState.players.some((player) => player.resourceTotal > 0));
+  assert.deepEqual(tvState.gainEvents, []);
+  assert.equal(tvState.hints, null);
+  for (const payload of tvPayloads) {
+    assert.ok(payload.game, "TV request failed");
+    assert.ok(payload.game.players.every((player) => player.resources === null));
+    assert.deepEqual(payload.game.gainEvents, []);
+  }
+  assert.equal(await tv.locator(".resource-row").count(), 0);
+  assert.equal(await tv.locator(".private-hand").count(), 2);
+  assert.equal(await tv.getByRole("button", { name: "Roll dice" }).count(), 0);
+  assert.equal(await tv.locator(".table-status").count(), 1);
+  assert.equal(await tv.locator(".tile-layer .tile-group").count(), 19);
+  await tv.screenshot({ path: path.join(output, "tv-dashboard.png") });
+  for (const phone of phones) {
+    await phone.locator(".seat-hand").waitFor();
+    assert.equal(await phone.locator(".seat-card").count(), 5);
+    assert.equal(await phone.locator(".player-resources").count(), 1);
+    assert.equal(await phone.locator(".private-hand").count(), 1);
+  }
+  const overflow = await phones[0].evaluate(
+    () => document.documentElement.scrollWidth > innerWidth,
+  );
+  assert.equal(overflow, false, "Phone seat scrolls horizontally");
+  await phones[0].screenshot({ path: path.join(output, "phone-seat.png"), fullPage: true });
+  await tv.reload();
+  await tv.locator(".table-status").waitFor();
+  assert.equal((await snapshot(tv)).viewer.role, "table");
+  console.log("PASS TV table screen hosts a room, hides every hand and reconnects as a table");
+
+  // A TV can also show a room that a phone hosts, mid-match, from a link.
+  const watcher = await pageFor(`${base}/?room=${code}&tv=1`);
+  await watcher.getByRole("button", { name: "Show this room on the TV" }).click();
+  await watcher.locator(".table-status").waitFor();
+  const watched = await snapshot(watcher);
+  assert.equal(watched.viewer.isHost, false);
+  assert.equal(watched.players.length, 4);
+  assert.ok(watched.players.every((player) => player.resources === null));
+  watcher.once("dialog", (dialog) => dialog.accept());
+  await watcher.getByRole("button", { name: "Close TV screen" }).click();
+  await watcher.getByRole("button", { name: "TV screen", exact: true }).waitFor();
+  console.log("PASS TV screen joins a phone-hosted match by link and closes cleanly");
   assert.deepEqual(errors, [], "Browser runtime errors");
   fs.writeFileSync(
     path.join(output, "layout-measurements.json"),

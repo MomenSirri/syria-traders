@@ -10,6 +10,8 @@ import ActionBar from "./components/ActionBar";
 import GameLog from "./components/GameLog";
 import DiceDisplay from "./components/DiceDisplay";
 import Lobby from "./components/Lobby";
+import TableStatus from "./components/TableStatus";
+import SeatHand from "./components/SeatHand";
 
 export default function App() {
   const match = useMatch();
@@ -22,7 +24,9 @@ export default function App() {
   const rollTimer = useRef();
   const resourcePopups = useResourceGains(game?.gainEvents, game?.clockOffset);
   const current = game?.players[game.currentPlayerIndex];
-  const myTurn = game?.mode !== "online" || current?.id === game?.viewer.playerId;
+  // A TV table screen watches the match; it never holds a seat or takes turns.
+  const table = game?.viewer?.role === "table";
+  const myTurn = !table && (game?.mode !== "online" || current?.id === game?.viewer.playerId);
   const interactive = myTurn && !busy && connection === "live" && game?.status === "active";
 
   useEffect(() => {
@@ -68,6 +72,7 @@ export default function App() {
         maxPlayers={4}
         onCreateGame={match.create}
         onJoinGame={match.join}
+        onWatchGame={match.watch}
         busy={busy}
         error={warning}
       />
@@ -88,10 +93,12 @@ export default function App() {
   const winner = game.players.find((player) => player.id === game.winnerId);
   return (
     <div className="viewport-shell">
-      <main className="dashboard-16x9">
+      <main
+        className={`dashboard-16x9 ${table ? "table-view" : game.mode === "online" ? "seat-view" : ""}`}
+      >
         <header className="dashboard-header">
           <div className="brand">
-            <span className="eyebrow">A gathering of merchants</span>
+            <span className="eyebrow">{table ? "Table screen" : "A gathering of merchants"}</span>
             <h1>{config.gameTitle}</h1>
           </div>
           <div className="turn-status" style={{ "--player-color": current?.color }}>
@@ -121,9 +128,10 @@ export default function App() {
             How to play
           </button>
           <button className="quiet-button" onClick={match.leave}>
-            New table
+            {table ? "Close TV screen" : "New table"}
           </button>
         </header>
+        {game.mode === "online" && !table && <SeatHand game={game} gains={resourcePopups} />}
         <aside className="dashboard-players">
           <Sidebar game={game} playerImages={media.playerImages} resourcePopups={resourcePopups} />
         </aside>
@@ -144,6 +152,13 @@ export default function App() {
                 setSelectedSetupVertex(null);
             }}
           />
+          {table && winner && (
+            <div className="table-winner" style={{ "--player-color": winner.color }}>
+              <span className="eyebrow">The caravan has a winner</span>
+              <strong>{winner.name}</strong>
+              <span>{winner.score} points</span>
+            </div>
+          )}
           {warning && (
             <div className="error-banner" role="alert">
               {warning}
@@ -159,23 +174,27 @@ export default function App() {
           <GameLog log={game.log} />
         </section>
         <section className="dashboard-actions">
-          <ActionBar
-            game={game}
-            currentPlayer={current}
-            busy={!interactive}
-            myTurn={myTurn}
-            selectedAction={selectedAction}
-            onSelectAction={setSelectedAction}
-            onRoll={roll}
-            onEndTurn={() => action("end-turn")}
-            onTrade={(giveResource, getResource) =>
-              action("trade/bank", { giveResource, getResource })
-            }
-            soundEnabled={match.soundEnabled}
-            onToggleSound={() => match.setSoundEnabled((value) => !value)}
-            selectedSetupVertex={selectedSetupVertex}
-            onClearSetupVertex={() => setSelectedSetupVertex(null)}
-          />
+          {table ? (
+            <TableStatus game={game} currentPlayer={current} />
+          ) : (
+            <ActionBar
+              game={game}
+              currentPlayer={current}
+              busy={!interactive}
+              myTurn={myTurn}
+              selectedAction={selectedAction}
+              onSelectAction={setSelectedAction}
+              onRoll={roll}
+              onEndTurn={() => action("end-turn")}
+              onTrade={(giveResource, getResource) =>
+                action("trade/bank", { giveResource, getResource })
+              }
+              soundEnabled={match.soundEnabled}
+              onToggleSound={() => match.setSoundEnabled((value) => !value)}
+              selectedSetupVertex={selectedSetupVertex}
+              onClearSetupVertex={() => setSelectedSetupVertex(null)}
+            />
+          )}
         </section>
         {help && (
           <div className="modal-backdrop" onClick={() => setHelp(false)}>
