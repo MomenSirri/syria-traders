@@ -86,3 +86,21 @@ after(async () => {
   if (path.basename(process.env.GAME_DATA_DIR).startsWith("syria-traders-test-"))
     fs.rmSync(process.env.GAME_DATA_DIR, { recursive: true, force: true });
 });
+
+test("the TV address uses the real Wi-Fi address before virtual adapters", () => {
+  const os = require("node:os");
+  const original = os.networkInterfaces;
+  const ipv4 = (address) => [{ address, family: "IPv4", internal: false }];
+  os.networkInterfaces = () => ({
+    "vEthernet (WSL)": ipv4("172.18.64.1"),
+    "vEthernet (Default Switch)": ipv4("172.19.96.1"),
+    "Wi-Fi": ipv4("192.168.1.164"),
+    "Loopback Pseudo-Interface 1": [{ address: "127.0.0.1", family: "IPv4", internal: true }],
+  });
+  try {
+    const { lanAddresses } = require("../src/utils/network");
+    assert.deepEqual(lanAddresses(), ["192.168.1.164", "172.18.64.1", "172.19.96.1"]);
+  } finally {
+    os.networkInterfaces = original;
+  }
+});

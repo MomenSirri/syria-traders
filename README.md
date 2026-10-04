@@ -28,7 +28,7 @@ Everyone plays on their own phone while a TV shows the shared table.
 2. Players scan the QR code (or open the link) on the same Wi-Fi, enter their names and join. Phones show your own hand first, then the actions and board.
 3. Press **Start the match** on the TV. The first phone to join can start it too.
 
-**Without a PC on the TV:** open the TV's own browser at the **Smart TV browser** address the host window prints, for example `http://192.168.1.20:8080/tv`. It opens straight to the TV screen with **Open a room on this TV** selected, so the remote's OK button starts a room. To show a room a phone already hosts, enter its room code there instead. Hosts also see this address in their lobby.
+**Without a PC on the TV:** type the **TV:** address from the box in the host window into the TV's own browser. It looks like `http://<your PC's address>:8080/tv`, using the PC's Wi-Fi or Ethernet address (virtual adapters such as WSL or Hyper-V are listed last). It opens straight to the TV screen with **Open a room on this TV** selected, so the remote's OK button starts a room. To show a room a phone already hosts, enter its room code there instead. Hosts also see this address in their lobby.
 
 - That address is plain HTTP so TV browsers don't block the self-signed certificate. Only table screens can use it: the server refuses player seats and joins there, and the TV never receives hands. The QR code still sends phones to HTTPS.
 - The build includes a fallback bundle for older TV browsers. It was checked in Chromium 63 and 69 (roughly 2019-2020 Samsung and LG TVs), but not on a real TV.
