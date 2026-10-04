@@ -20,6 +20,25 @@ import GameEffects from "./components/GameEffects";
 import Icon from "./components/Icon";
 import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
 
+// Matches the CSS phone breakpoint, where a seat stacks its panels in one column.
+const PHONE_QUERY = "(max-width: 700px)";
+function usePhoneWidth() {
+  const [phone, setPhone] = useState(() => !!window.matchMedia?.(PHONE_QUERY).matches);
+  useEffect(() => {
+    const query = window.matchMedia?.(PHONE_QUERY);
+    if (!query) return;
+    const update = () => setPhone(query.matches);
+    update();
+    if (query.addEventListener) query.addEventListener("change", update);
+    else query.addListener(update);
+    return () =>
+      query.removeEventListener
+        ? query.removeEventListener("change", update)
+        : query.removeListener(update);
+  }, []);
+  return phone;
+}
+
 export default function App() {
   const match = useMatch();
   const { game, media, busy, connection, act } = match;
@@ -35,6 +54,8 @@ export default function App() {
   // A TV table screen watches the match; it never holds a seat or takes turns.
   const table = game?.viewer?.role === "table";
   const tvLayout = table || (!game && onTvAddress());
+  // On a phone seat the development cards sit right under the hand, not over the board.
+  const phoneSeat = usePhoneWidth() && game?.mode === "online" && !table;
   useEffect(() => fitTvViewport(tvLayout), [tvLayout]);
   const myTurn = !table && (game?.mode !== "online" || current?.id === game?.viewer.playerId);
   const interactive = myTurn && !busy && connection === "live" && game?.status === "active";
@@ -167,6 +188,7 @@ export default function App() {
           </div>
         </header>
         {game.mode === "online" && !table && <SeatHand game={game} gains={resourcePopups} />}
+        {phoneSeat && <DevCardPanel game={game} busy={!interactive} onAction={action} />}
         <aside className="dashboard-players">
           <Sidebar game={game} playerImages={media.playerImages} resourcePopups={resourcePopups} />
         </aside>
@@ -176,7 +198,7 @@ export default function App() {
             busy={busy || connection !== "live" || game.status !== "active"}
             onAction={action}
           />
-          <DevCardPanel game={game} busy={!interactive} onAction={action} />
+          {!phoneSeat && <DevCardPanel game={game} busy={!interactive} onAction={action} />}
           <DiscardPanel
             game={game}
             busy={busy || connection !== "live" || game.status !== "active"}

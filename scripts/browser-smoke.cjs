@@ -833,6 +833,15 @@ async function checkForgottenTabs(base) {
       if (player.id !== state.viewer.playerId) assert.equal(player.devCards, null);
   }
   assert.equal(await tv.locator(".dev-panel").count(), 0, "TV never shows a hand of cards");
+  // On a phone the hand stays pinned on top, even with the card panel scrolled under it.
+  const handOnTop = await buyer.evaluate(() => {
+    const panel = document.querySelector(".dev-panel").getBoundingClientRect();
+    window.scrollTo(0, panel.top + window.scrollY);
+    const hand = document.querySelector(".seat-hand").getBoundingClientRect();
+    const hit = document.elementFromPoint(hand.left + hand.width / 2, hand.top + hand.height / 2);
+    return !!hit?.closest(".seat-hand");
+  });
+  assert.ok(handOnTop, "Development cards cover the phone's hand");
   await buyer.evaluate(() => window.scrollTo(0, 0));
   await buyer.screenshot({ path: path.join(output, "phone-devcards.png"), fullPage: true });
   await buyer.locator(".dev-knight").getByRole("button", { name: "Play" }).click();
