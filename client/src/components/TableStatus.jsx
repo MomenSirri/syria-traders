@@ -8,6 +8,12 @@ const costText = (cost) =>
     .map(([resource, amount]) => `${amount} ${LABELS[resource]}`)
     .join(", ");
 
+const waitingFor = (game) =>
+  game.players
+    .filter((player) => game.pendingDiscards?.[player.id] > 0)
+    .map((player) => player.name)
+    .join(" and ");
+
 // The TV's action area: what the table is waiting for, plus public counts.
 export default function TableStatus({ game, currentPlayer }) {
   const winner = game.players.find((player) => player.id === game.winnerId);
@@ -16,11 +22,13 @@ export default function TableStatus({ game, currentPlayer }) {
     ? `${winner.name} reaches ${winner.score} points and wins the match.`
     : game.phase === "setup-placement"
       ? `${name} is placing a village and road.`
-      : game.mustMoveRobber
-        ? `${name} is moving the bandit.`
-        : !game.turnHasRolled
-          ? `Waiting for ${name} to roll.`
-          : `${name} is building and trading.`;
+      : waitingFor(game)
+        ? `A seven! ${waitingFor(game)} must choose cards to return.`
+        : game.mustMoveRobber
+          ? `${name} is moving the bandit.`
+          : !game.turnHasRolled
+            ? `Waiting for ${name} to roll.`
+            : `${name} is building and trading.`;
   return (
     <section className="action-bar-panel panel table-status" aria-live="polite">
       <div className="table-status-main" style={{ "--player-color": currentPlayer?.color }}>
@@ -31,7 +39,10 @@ export default function TableStatus({ game, currentPlayer }) {
         <span className="eyebrow">Bank</span>
         <div className="table-bank-row">
           {game.settings.resources.map((resource) => (
-            <span key={resource} title={`${game.bank[resource]} ${LABELS[resource]} left in the bank`}>
+            <span
+              key={resource}
+              title={`${game.bank[resource]} ${LABELS[resource]} left in the bank`}
+            >
               <ResourceChip resource={resource} size={15} />
               <b>{game.bank[resource]}</b>
             </span>

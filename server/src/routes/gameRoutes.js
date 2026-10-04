@@ -115,6 +115,7 @@ for (const [route, action] of Object.entries({
   "trade/cancel": "cancelTrade",
   "trade/accept": "acceptTradeOffer",
   "robber/move": "moveRobber",
+  discard: "discardCards",
   "dev/buy": "buyDevelopmentCard",
   "dev/play": "playDevelopmentCard",
   "end-turn": "endTurn",
@@ -124,7 +125,8 @@ for (const [route, action] of Object.entries({
     handle((req, res) => {
       // Trade offers name the request or offer they answer, so several phones can
       // respond at once without tripping over each other's revisions.
-      const named = route.startsWith("trade/") && route !== "trade/bank";
+      // Discards after a seven work the same way: each player returns their own.
+      const named = (route.startsWith("trade/") && route !== "trade/bank") || route === "discard";
       sessions.assertAction(req.game, req.session, req.body, req.get("x-game-revision"), !named);
       service[action](req.game.id, req.body);
       res.json({ game: sessions.view(store.getGame(req.game.id), req.session) });

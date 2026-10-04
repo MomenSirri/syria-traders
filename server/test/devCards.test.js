@@ -132,7 +132,10 @@ test("a Knight moves the bandit before rolling, and three Knights win the Larges
     state = service.playDevelopmentCard(game.id, { playerId: yazan, type: "knight" });
     state = service.moveRobber(game.id, {
       playerId: yazan,
-      tileId: state.hints.validRobberTiles[0],
+      // A tile with at most one victim needs no choice of whom to rob.
+      tileId: state.hints.validRobberTiles.find(
+        (id) => (state.hints.robberVictimsByTile[id] || []).length < 2,
+      ),
     });
   }
   assert.equal(state.largestArmyId, yazan);

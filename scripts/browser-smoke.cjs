@@ -139,6 +139,31 @@ async function place(page) {
     .click();
   await settled(page, old.revision);
 }
+// Moves the bandit, preferring a territory where the roller must choose whom to rob.
+async function moveBandit(page, shot) {
+  const state = await snapshot(page);
+  const victims = state.hints.robberVictimsByTile || {};
+  const choice = state.hints.validRobberTiles.find((id) => (victims[id] || []).length > 1);
+  const tileId = choice ?? state.hints.validRobberTiles[0];
+  await page
+    .getByRole("button", {
+      name: `Move bandit to ${state.board.tiles[tileId].region}`,
+      exact: true,
+    })
+    .click();
+  if (choice !== undefined) {
+    await page.locator(".robber-picker").waitFor();
+    if (shot) {
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: path.join(output, shot) });
+    }
+    await page.locator(".robber-victim").first().click();
+  }
+  await page.waitForFunction(
+    () => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
+  );
+  return choice !== undefined;
+}
 async function checkLayout(page, width, height, filename) {
   await page.bringToFront();
   await page.setViewportSize({ width, height });
@@ -455,11 +480,7 @@ async function checkForgottenTabs(base) {
   await host.waitForFunction(
     () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
   );
-  if ((await snapshot(host)).mustMoveRobber)
-    await host
-      .getByRole("button", { name: /^Move bandit to/ })
-      .first()
-      .click();
+  if ((await snapshot(host)).mustMoveRobber) await moveBandit(host);
   await host.getByRole("button", { name: "End turn", exact: true }).click();
   for (const page of players)
     await page.waitForFunction(
@@ -498,6 +519,125 @@ async function checkForgottenTabs(base) {
   }
   assert.equal((await snapshot(players[1])).turn, 2);
   console.log("PASS complete host restart preserves matches, media and browser seats");
+
+  // A seven with two opponents on one territory: the roller picks whom to rob,
+  // and only the thief and the victim learn which card moved.
+  const robState = await snapshot(players[1]);
+  const robberId = robState.players[robState.currentPlayerIndex].id;
+  const seatsById = Object.fromEntries(
+    await Promise.all(players.map(async (page) => [(await snapshot(page)).viewer.playerId, page])),
+  );
+  const [firstId, secondId] = robState.players
+    .map((player) => player.id)
+    .filter((id) => id !== robberId);
+  const bystander = robState.players.find(
+    (player) => ![robberId, firstId, secondId].includes(player.id),
+  ).id;
+  const resumed = players.map((page) =>
+    page.waitForResponse(
+      (response) => response.url().endsWith("/events") && response.status() === 200,
+      { timeout: 20000 },
+    ),
+  );
+  await stopServer();
+  const robFile = path.join(dataDirectory, `${robState.id}.json`);
+  const robSave = JSON.parse(fs.readFileSync(robFile, "utf8"));
+  const robTile = robSave.board.tiles.find((tile) => tile.id !== robSave.board.robberTileId);
+  robTile.vertexIds.forEach((id, index) => {
+    robSave.board.vertices[id].ownerId = index === 0 ? firstId : index === 3 ? secondId : null;
+  });
+  for (const id of [firstId, secondId]) {
+    const seat = robSave.players.find((player) => player.id === id);
+    if (!Object.values(seat.resources).some(Boolean)) {
+      seat.resources.wood += 1;
+      robSave.bank.wood -= 1;
+    }
+  }
+  robSave.turnHasRolled = true;
+  robSave.mustMoveRobber = true;
+  fs.writeFileSync(robFile, JSON.stringify(robSave));
+  await startServer();
+  await Promise.all(resumed);
+  const robber = seatsById[robberId];
+  await robber.waitForFunction(
+    () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
+  );
+  const handBefore = (await snapshot(robber)).players.find((p) => p.id === robberId).resources;
+  const victimPicked = robState.players.find((player) => player.id === firstId).name;
+  assert.equal(
+    await moveBandit(robber, "robber-picker.png"),
+    true,
+    "Two opponents on one territory need a choice",
+  );
+  const robbed = await snapshot(robber);
+  const handAfter = robbed.players.find((player) => player.id === robberId).resources;
+  const gained = Object.keys(handAfter).filter((r) => handAfter[r] > handBefore[r]);
+  assert.equal(gained.length, 1, "The thief gains exactly one card");
+  assert.ok(robbed.log.at(-1).message.endsWith(`stole a card from ${victimPicked}.`));
+  await robber.locator(".fx-toast-steal").waitFor({ state: "attached", timeout: 4000 });
+  for (const id of [firstId, bystander]) {
+    const page = seatsById[id];
+    await page.waitForFunction(
+      () =>
+        JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.visuals?.kind === "steal",
+    );
+    const seen = (await snapshot(page)).visuals.resourceDeltas.length;
+    assert.equal(seen, id === firstId ? 1 : 0, "Only the victim also sees the stolen card");
+  }
+  console.log("PASS a seven lets the roller choose whom to rob, privately");
+
+  // A seven with two big hands: each player picks which cards to return, on their
+  // own phone, and the bandit waits for both.
+  const sevenBack = players.map((page) =>
+    page.waitForResponse(
+      (response) => response.url().endsWith("/events") && response.status() === 200,
+      { timeout: 20000 },
+    ),
+  );
+  await stopServer();
+  const sevenSave = JSON.parse(fs.readFileSync(robFile, "utf8"));
+  const owedBy = {};
+  for (const [id, extra] of [
+    [firstId, 9],
+    [secondId, 8],
+  ]) {
+    const seat = sevenSave.players.find((player) => player.id === id);
+    seat.resources.wood += extra;
+    sevenSave.bank.wood -= extra;
+    owedBy[id] = Math.floor(Object.values(seat.resources).reduce((a, b) => a + b, 0) / 2);
+  }
+  sevenSave.pendingDiscards = owedBy;
+  sevenSave.discardsSince = new Date().toISOString();
+  sevenSave.mustMoveRobber = true;
+  fs.writeFileSync(robFile, JSON.stringify(sevenSave));
+  await startServer();
+  await Promise.all(sevenBack);
+  await robber.locator(".discard-waiting li").nth(1).waitFor();
+  for (const id of [firstId, secondId]) {
+    const page = seatsById[id];
+    const panel = page.locator(".discard-panel");
+    await panel.waitFor();
+    const confirm = panel.getByRole("button", { name: /^Return \d+ of \d+ cards$/ });
+    for (let i = 0; i < owedBy[id] && (await confirm.isDisabled()); i++)
+      await panel
+        .getByRole("button", { name: /^Return one / })
+        .and(page.locator(":enabled"))
+        .first()
+        .click();
+    if (id === firstId) await page.screenshot({ path: path.join(output, "discard-picker.png") });
+    const before = (await snapshot(page)).players.find((player) => player.id === id).resources;
+    await confirm.click();
+    await page.waitForFunction(
+      (id) => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.pendingDiscards[id],
+      id,
+    );
+    const after = (await snapshot(page)).players.find((player) => player.id === id).resources;
+    const dropped = Object.keys(before).reduce((sum, r) => sum + before[r] - after[r], 0);
+    assert.equal(dropped, owedBy[id], "The player returns exactly the cards they chose");
+  }
+  await robber.locator(".discard-panel").waitFor({ state: "detached" });
+  await moveBandit(robber);
+  console.log("PASS on a seven, big hands choose their own cards to return");
 
   // TV table screen: hosts a room without a seat; players use phones.
   const tvPayloads = [];
@@ -597,15 +737,7 @@ async function checkForgottenTabs(base) {
   await asker.waitForFunction(
     () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
   );
-  if ((await snapshot(asker)).mustMoveRobber) {
-    await asker
-      .getByRole("button", { name: /^Move bandit to/ })
-      .first()
-      .click();
-    await asker.waitForFunction(
-      () => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
-    );
-  }
+  if ((await snapshot(asker)).mustMoveRobber) await moveBandit(asker);
   const own = async (page) => {
     const state = await snapshot(page);
     return state.players.find((player) => player.id === state.viewer.playerId).resources;
@@ -693,10 +825,7 @@ async function checkForgottenTabs(base) {
   await buyer.locator(".dev-knight").getByRole("button", { name: "Play" }).click();
   await tv.locator(".fx-devplay", { hasText: "Knight" }).waitFor({ timeout: 4000 });
   await tv.screenshot({ path: path.join(output, "tv-devcard-play.png") });
-  await buyer
-    .getByRole("button", { name: /^Move bandit to/ })
-    .first()
-    .click();
+  await moveBandit(buyer);
   await tv.waitForFunction(() => {
     const game = JSON.parse(localStorage.getItem("syria_traders_save_v1")).game;
     return !game.mustMoveRobber && game.players.some((player) => player.knightsPlayed === 1);

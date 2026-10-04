@@ -136,7 +136,7 @@ function createPlayer(name, index) {
 // is played (and so public), its type; a bought card's type is never included.
 function setVisualFeedback(
   game,
-  { producingTileIds = [], resourceDeltas = [], kind = "none", playerId, card } = {},
+  { producingTileIds = [], resourceDeltas = [], kind = "none", playerId, card, fromPlayerId } = {},
 ) {
   game.visuals = {
     flashId: uuidv4(),
@@ -146,6 +146,7 @@ function setVisualFeedback(
     resourceDeltas,
     ...(playerId ? { playerId } : {}),
     ...(card ? { card } : {}),
+    ...(fromPlayerId ? { fromPlayerId } : {}),
   };
 }
 
@@ -419,7 +420,8 @@ function distributeResources(game, diceTotal) {
   });
 }
 
-function getRobberVictim(game, tileId, robberPlayerId) {
+// Opponents with a village or city on the tile who hold at least one card.
+function getRobberVictims(game, tileId, robberPlayerId) {
   const tile = game.board.tiles[tileId];
   const adjacentOwners = new Set();
 
@@ -430,11 +432,9 @@ function getRobberVictim(game, tileId, robberPlayerId) {
     }
   });
 
-  const candidates = [...adjacentOwners]
-    .map((ownerId) => game.players.find((player) => player.id === ownerId))
-    .filter((player) => player && getResourceTotal(player.resources) > 0);
-
-  return randomItem(candidates);
+  return game.players.filter(
+    (player) => adjacentOwners.has(player.id) && getResourceTotal(player.resources) > 0,
+  );
 }
 
 function stealRandomResource(fromPlayer, toPlayer) {
@@ -592,11 +592,23 @@ function buildHints(game) {
     validVillageVertices:
       actionPhase && canAffordVillage ? getValidVillageIds(game, currentPlayer) : [],
     validCityVertices: actionPhase && canAffordCity ? getValidCityIds(game, currentPlayer) : [],
-    validRobberTiles: game.mustMoveRobber
-      ? game.board.tiles
-          .filter((tile) => tile.id !== game.board.robberTileId)
-          .map((tile) => tile.id)
-      : [],
+    validRobberTiles:
+      game.mustMoveRobber && !waitingDiscards(game).length
+        ? game.board.tiles
+            .filter((tile) => tile.id !== game.board.robberTileId)
+            .map((tile) => tile.id)
+        : [],
+    // Who the bandit can steal from on each tile; the roller picks one.
+    robberVictimsByTile:
+      game.mustMoveRobber && !waitingDiscards(game).length
+        ? Object.fromEntries(
+            game.board.tiles
+              .filter((tile) => tile.id !== game.board.robberTileId)
+              .map((tile) => [tile.id, getRobberVictims(game, tile.id, currentPlayer.id)])
+              .filter(([, victims]) => victims.length)
+              .map(([id, victims]) => [id, victims.map((player) => player.id)]),
+          )
+        : {},
   };
 }
 
@@ -633,6 +645,9 @@ function serializeGame(game) {
     lastDiceRoll: game.lastDiceRoll,
     lastDicePair: game.lastDicePair,
     mustMoveRobber: game.mustMoveRobber,
+    // Public: how many cards each player still owes after a seven, never which.
+    pendingDiscards: game.pendingDiscards || {},
+    discardsSince: game.discardsSince || null,
     winnerId: game.winnerId,
     setup: setupSummary,
     settings: {
@@ -892,24 +907,17 @@ function rollDice(gameId, { playerId }) {
   addLog(game, `${currentPlayer.name} rolled ${d1} + ${d2} = ${total}.`);
 
   if (total === 7) {
-    // Automatic, card-weighted discards keep casual rooms moving.
+    // Everyone holding more than seven cards chooses half of them to return,
+    // on their own phone. The bandit waits until they all have.
+    game.pendingDiscards = {};
     for (const player of game.players) {
       const count = getResourceTotal(player.resources);
       if (count <= 7) continue;
-      const discard = Math.floor(count / 2);
-      for (let i = 0; i < discard; i += 1) {
-        const cards = config.resources.flatMap((resource) =>
-          Array(player.resources[resource]).fill(resource),
-        );
-        const resource = randomItem(cards);
-        player.resources[resource] -= 1;
-        game.bank[resource] += 1;
-      }
-      addLog(
-        game,
-        `${player.name} returned ${discard} random cards to the bank (hand over seven).`,
-      );
+      const owed = Math.floor(count / 2);
+      game.pendingDiscards[player.id] = owed;
+      addLog(game, `${player.name} must return ${owed} cards to the bank (hand over seven).`);
     }
+    game.discardsSince = Object.keys(game.pendingDiscards).length ? new Date().toISOString() : null;
     game.mustMoveRobber = true;
     addLog(game, "The bandit awakens. Move it to a new region.");
     setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "seven" });
@@ -1190,7 +1198,71 @@ function acceptTradeOffer(gameId, { playerId, offerId }) {
   return serializeGame(game);
 }
 
-function moveRobber(gameId, { playerId, tileId }) {
+// A player who doesn't choose (a phone asleep, a player away) can't hold up the
+// table forever: after this long the roller may return their cards at random.
+const DISCARD_WAIT_MS = Number(process.env.DISCARD_WAIT_MS || 60000);
+const waitingDiscards = (game) =>
+  game.players.filter((player) => game.pendingDiscards?.[player.id] > 0);
+
+function discardCards(gameId, { playerId, cards, forPlayerId }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  const actor = getPlayerOrThrow(game, playerId);
+  const target = getPlayerOrThrow(game, forPlayerId || playerId);
+  const owed = game.pendingDiscards?.[target.id] || 0;
+  if (!owed) throw createError(`${target.name} has no cards to return.`);
+
+  const returned = Object.fromEntries(config.resources.map((resource) => [resource, 0]));
+  const forced = target.id !== actor.id;
+  if (forced) {
+    assertPlayersTurn(game, actor.id);
+    if (Date.now() - Date.parse(game.discardsSince) < DISCARD_WAIT_MS) {
+      throw createError(`Give ${target.name} a moment to choose their cards.`);
+    }
+    const hand = { ...target.resources };
+    for (let i = 0; i < owed; i += 1) {
+      const resource = randomItem(
+        config.resources.flatMap((entry) => Array(hand[entry]).fill(entry)),
+      );
+      hand[resource] -= 1;
+      returned[resource] += 1;
+    }
+  } else {
+    if (!cards || typeof cards !== "object" || Array.isArray(cards)) {
+      throw createError(`Choose ${owed} cards to return.`);
+    }
+    for (const [resource, amount] of Object.entries(cards)) {
+      if (!config.resources.includes(resource) || !Number.isInteger(amount) || amount < 0) {
+        throw createError("Choose cards from your hand to return.");
+      }
+      if (amount > target.resources[resource]) {
+        throw createError(`You only have ${target.resources[resource]} ${resource}.`);
+      }
+      returned[resource] = amount;
+    }
+    const chosen = Object.values(returned).reduce((sum, amount) => sum + amount, 0);
+    if (chosen !== owed) throw createError(`Choose exactly ${owed} cards to return.`);
+  }
+
+  for (const [resource, amount] of Object.entries(returned)) {
+    target.resources[resource] -= amount;
+    game.bank[resource] += amount;
+  }
+  delete game.pendingDiscards[target.id];
+  if (!waitingDiscards(game).length) game.discardsSince = null;
+  addLog(
+    game,
+    forced
+      ? `${target.name} took too long; ${owed} random cards went back to the bank.`
+      : `${target.name} returned ${owed} cards to the bank.`,
+  );
+
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function moveRobber(gameId, { playerId, tileId, victimId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
   assertMainPhase(game);
@@ -1198,6 +1270,12 @@ function moveRobber(gameId, { playerId, tileId }) {
 
   if (!game.mustMoveRobber) {
     throw createError("The bandit can only move after a 7 or a Knight.");
+  }
+  const waiting = waitingDiscards(game);
+  if (waiting.length) {
+    throw createError(
+      `Waiting for ${waiting.map((player) => player.name).join(" and ")} to return cards.`,
+    );
   }
 
   const nextTileId = Number(tileId);
@@ -1209,20 +1287,41 @@ function moveRobber(gameId, { playerId, tileId }) {
     throw createError("Choose a different tile.");
   }
 
+  const robberPlayer = getPlayerOrThrow(game, playerId);
+  // The roller chooses whom to rob among the players on that territory.
+  const victims = getRobberVictims(game, nextTileId, playerId);
+  let victim = victims.length === 1 && !victimId ? victims[0] : null;
+  if (victimId) {
+    victim = victims.find((player) => player.id === victimId);
+    if (!victim) throw createError("Choose a player with a village or city on that territory.");
+  } else if (victims.length > 1) {
+    throw createError("Choose who to steal from.");
+  }
+
   game.board.robberTileId = nextTileId;
   game.mustMoveRobber = false;
-
-  const robberPlayer = getPlayerOrThrow(game, playerId);
   addLog(game, `${robberPlayer.name} moved the bandit to ${tile.region}.`);
 
-  const victim = getRobberVictim(game, nextTileId, playerId);
-  if (victim) {
-    const stolenResource = stealRandomResource(victim, robberPlayer);
-    if (stolenResource) {
-      addLog(game, `${robberPlayer.name} stole one card from ${victim.name}.`);
-    }
+  const stolenResource = victim && stealRandomResource(victim, robberPlayer);
+  if (stolenResource) {
+    addLog(game, `${robberPlayer.name} stole a card from ${victim.name}.`);
+    // Only the thief and the victim learn which card it was; see sessions.view.
+    setVisualFeedback(game, {
+      kind: "steal",
+      playerId: robberPlayer.id,
+      fromPlayerId: victim.id,
+      resourceDeltas: [
+        {
+          playerId: robberPlayer.id,
+          fromPlayerId: victim.id,
+          resource: stolenResource,
+          amount: 1,
+          private: true,
+        },
+      ],
+    });
   } else {
-    addLog(game, "No resources could be stolen from adjacent opponents.");
+    addLog(game, "Nobody on that territory had a card to steal.");
   }
 
   store.saveGame(game);
@@ -1415,6 +1514,7 @@ module.exports = {
   acceptTradeOffer,
   moveRobber,
   buyDevelopmentCard,
+  discardCards,
   playDevelopmentCard,
   endTurn,
   getSampleMatchData,

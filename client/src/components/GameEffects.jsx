@@ -4,6 +4,13 @@ import ResourceIcon from "./ResourceIcon";
 import ResourceChip from "./ResourceChip";
 import DiceDisplay from "./DiceDisplay";
 
+const RESOURCE_LABELS = {
+  wheat: "Wheat",
+  wood: "Wood",
+  stone: "Stone",
+  brick: "Clay",
+  sheep: "Sheep",
+};
 const FRESH_MS = 4000;
 const FLIGHT_MS = 1200;
 const BURST_MS = 3200;
@@ -55,11 +62,34 @@ export default function GameEffects({ game, table }) {
       setCardPlay(play);
       later(() => setCardPlay((current) => (current?.id === play.id ? null : current)), 2600);
     }
+    // A stolen card is named only to the thief and the victim.
+    const stolen = visuals.kind === "steal" && visuals.resourceDeltas?.[0];
+    if (!table && stolen && player) {
+      const victim = game.players.find((entry) => entry.id === visuals.fromPlayerId);
+      const label = RESOURCE_LABELS[stolen.resource];
+      const viewerId = game.viewer?.playerId;
+      const message =
+        viewerId === player.id
+          ? `You stole 1 ${label} from ${victim?.name}.`
+          : viewerId === victim?.id
+            ? `${player.name} stole your ${label}.`
+            : `${player.name} stole 1 ${label} from ${victim?.name}.`;
+      const toast = { id: `steal-${visuals.flashId}`, type: "steal", message };
+      setToasts((current) => [...current, toast].slice(-2));
+      later(() => setToasts((current) => current.filter((entry) => entry !== toast)), TOAST_MS);
+    }
     // Wait a frame so freshly rendered cards and tiles have their final positions.
     const frame = requestAnimationFrame(() => {
-      // A bought card flies face down from the deck to its new owner.
-      const owner = visuals.kind === "devbuy" && player && targetFor(player.id);
-      const deck = document.querySelector(".board-stage");
+      // A bought card flies face down from the deck to its new owner; a stolen one
+      // flies face down from the victim to the thief for everyone who can't see it.
+      const owner =
+        (visuals.kind === "devbuy" || (visuals.kind === "steal" && !stolen)) &&
+        player &&
+        targetFor(player.id);
+      const deck =
+        visuals.kind === "steal"
+          ? targetFor(visuals.fromPlayerId)
+          : document.querySelector(".board-stage");
       if (owner && deck && !reducedMotion()) {
         const start = centerOf(deck);
         const end = centerOf(owner);
