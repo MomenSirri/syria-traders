@@ -41,6 +41,7 @@ function mediaFor(payload, players) {
 // Player sessions keep their original shape so older saves still authenticate.
 const isTable = (session) => session?.role === "table";
 const TABLE_ANIMATION_MS = 8000;
+const MAX_SCREENS = 40;
 
 function issue(game, playerId, host, role) {
   const token = randomBytes(32).toString("hex");
@@ -148,9 +149,10 @@ function watch(id) {
   const game = store.getGame(id);
   if (!game || game.mode !== "online" || game.status === "closed")
     fail("Network room not found.", 404);
-  // Reopening the screen should not grow the save forever: keep a few recent ones.
+  // Reopening the screen should not grow the save forever, but a room full of
+  // spectators must not push the first screens out: keep plenty of recent ones.
   const watchers = (game.sessions || []).filter((seat) => isTable(seat) && !seat.host);
-  const stale = new Set(watchers.slice(0, Math.max(0, watchers.length - 7)));
+  const stale = new Set(watchers.slice(0, Math.max(0, watchers.length - (MAX_SCREENS - 1))));
   game.sessions = (game.sessions || []).filter((seat) => !stale.has(seat));
   const { token, session } = issue(game, null, false, "table");
   return { game: view(store.getGame(game.id), session, true), token };
