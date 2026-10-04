@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
+process.env.AWAY_MS = "60";
 const store = require("../src/game/gameStore");
 const app = require("../src/app");
 
@@ -132,6 +133,38 @@ test("a reconnecting player gets the same seat and private hand back", async () 
   // Amina's own view is untouched by Omar coming and going.
   assert.equal((await read(id, host.token)).viewer.playerId, host.game.viewer.playerId);
   again.close();
+  await listeners(id, 0);
+});
+
+test("a dropped player is marked away for everyone, the match waits, and nothing is saved", async () => {
+  const { id, host, omar } = await mainPhase();
+  const seat = omar.game.viewer.playerId;
+  const away = async (token) =>
+    (await read(id, token)).players.find((player) => player.id === seat).away;
+  const [aminaStream, omarStream] = [await watch(id, host.token), await watch(id, omar.token)];
+  await listeners(id, 2);
+  assert.equal(await away(host.token), false);
+  const revision = (await read(id, host.token)).revision;
+
+  omarStream.close();
+  // Amina's screen is told to refresh although no move was made.
+  await aminaStream.until(
+    () => aminaStream.revisions.filter((seen) => seen === revision).length >= 2,
+  );
+  assert.equal(await away(host.token), true);
+  const waiting = await read(id, host.token);
+  assert.equal(waiting.revision, revision, "Presence never changes the match");
+  assert.equal(waiting.status, "active");
+  assert.equal(waiting.players.length, 2, "Nobody is removed");
+  const saved = JSON.parse(fs.readFileSync(path.join(process.env.GAME_DATA_DIR, `${id}.json`)));
+  assert.ok(saved.players.every((player) => !("away" in player)));
+
+  const back = await watch(id, omar.token);
+  await back.until(() => back.revisions.length > 0);
+  assert.equal(await away(host.token), false);
+  assert.equal((await read(id, omar.token)).viewer.playerId, seat);
+  aminaStream.close();
+  back.close();
   await listeners(id, 0);
 });
 

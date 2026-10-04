@@ -53,4 +53,6 @@ function getGame(id) {
   return game ? copy(game) : undefined;
 }
 
-module.exports = { saveGame, getGame, updates };
+const getRevision = (id) => games.get(id)?.revision || 0;
+
+module.exports = { saveGame, getGame, getRevision, updates };

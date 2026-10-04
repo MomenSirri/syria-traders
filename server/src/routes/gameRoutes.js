@@ -2,6 +2,7 @@ const express = require("express");
 const service = require("../game/gameService");
 const sessions = require("../game/sessions");
 const store = require("../game/gameStore");
+const presence = require("../game/presence");
 
 const router = express.Router();
 
@@ -62,13 +63,19 @@ router.get(
       console.log(`[${new Date().toLocaleTimeString()}] Room ${req.game.roomCode}: ${who} ${what}`);
     if (req.game.mode === "online") note(`connected (${req.ip})`);
     // Tiny revision notifications avoid repeatedly sending images or unchanged boards.
-    const send = (revision) => res.write(`data: ${JSON.stringify({ revision })}\n\n`);
+    const send = (revision) =>
+      res.write(
+        `data: ${JSON.stringify({ revision, presence: presence.version(req.game.id) })}\n\n`,
+      );
+    // Joining first lets this stream's opening event carry the new presence number.
+    presence.join(req.game.id, req.session.playerId);
     send(req.game.revision);
     store.updates.on(req.game.id, send);
     const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
     res.on("close", () => {
       clearInterval(heartbeat);
       store.updates.off(req.game.id, send);
+      presence.leave(req.game.id, req.session.playerId);
       if (req.game.mode === "online") note("disconnected");
     });
   }),

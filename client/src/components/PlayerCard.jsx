@@ -17,7 +17,7 @@ export default memo(function PlayerCard({
   const devCount = player.devCardCount ?? player.devCards?.length ?? 0;
   return (
     <article
-      className={`player-card ${active ? "active-player" : ""} ${yours ? "your-seat" : ""}`}
+      className={`player-card ${active ? "active-player" : ""} ${yours ? "your-seat" : ""} ${player.away ? "away-player" : ""}`}
       style={{ "--player-color": player.color }}
       data-player-id={player.id}
       aria-label={`${player.name}${active ? ", active player" : ""}`}
@@ -40,7 +40,13 @@ export default memo(function PlayerCard({
         <div className="player-title-block">
           <h3 title={player.name}>{player.name}</h3>
           <span className="player-state">
-            {active ? "Playing now" : yours ? "Your seat" : "Merchant"}
+            {player.away
+              ? "Reconnecting..."
+              : active
+                ? "Playing now"
+                : yours
+                  ? "Your seat"
+                  : "Merchant"}
           </span>
         </div>
         <div className="player-score">

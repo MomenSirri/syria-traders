@@ -4,6 +4,7 @@ const service = require("./gameService");
 const { lanAddresses } = require("../utils/network");
 const { boardSpec } = require("./boardGenerator");
 const ports = require("../utils/ports");
+const presence = require("./presence");
 
 function fail(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -76,9 +77,11 @@ function view(game, session, includeMedia = false) {
   }
   if (game.mode === "online") {
     // Opponent hands and private gain events never leave the server.
-    result.players = result.players.map((player) =>
-      ownId && player.id === ownId ? player : { ...player, resources: null, devCards: null },
-    );
+    // "away" marks a seat whose phone has dropped; it is public and never saved.
+    result.players = result.players.map((player) => ({
+      ...(ownId && player.id === ownId ? player : { ...player, resources: null, devCards: null }),
+      away: presence.isAway(game.id, player.id),
+    }));
     result.gainEvents = result.gainEvents
       .map((event) => ({
         ...event,

@@ -126,7 +126,10 @@ export async function watchMatch(id, token, signal, onRevision, onConnected, onB
       while ((boundary = buffer.indexOf("\n\n")) >= 0) {
         const event = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
-        if (event.startsWith("data: ")) onRevision(JSON.parse(event.slice(6)).revision);
+        if (event.startsWith("data: ")) {
+          const update = JSON.parse(event.slice(6));
+          onRevision(update.revision, update.presence);
+        }
       }
     }
   } finally {

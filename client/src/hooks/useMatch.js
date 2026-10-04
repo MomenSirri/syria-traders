@@ -10,6 +10,8 @@ export default function useMatch() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [connection, setConnection] = useState("connecting");
+  // What the screen shows: a drop that heals within a moment never locks the table.
+  const [shown, setShown] = useState("connecting");
   const [error, setError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -64,10 +66,42 @@ export default function useMatch() {
   const live = connection === "live";
   useEffect(() => {
     setStalled(false);
-    if (live) return;
+    if (live) return setShown("live");
+    const grace = setTimeout(() => setShown("reconnecting"), 1500);
     const timer = setTimeout(() => setStalled(true), 8000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(grace);
+      clearTimeout(timer);
+    };
   }, [live]);
+
+  // Keep a phone's screen on during a network match: a sleeping phone drops its seat's
+  // connection. The lock is released by the browser when the tab is hidden, so ask again.
+  const awake = Boolean(game?.id && game.mode === "online" && !game.winnerId);
+  useEffect(() => {
+    if (!awake || !navigator.wakeLock) return;
+    let lock,
+      done = false;
+    const hold = () => {
+      if (document.hidden) return;
+      navigator.wakeLock
+        .request("screen")
+        .then((granted) => {
+          if (done) granted.release().catch(() => {});
+          else lock = granted;
+        })
+        .catch(() => {
+          /* Battery saver or an old browser: play continues without it. */
+        });
+    };
+    hold();
+    document.addEventListener("visibilitychange", hold);
+    return () => {
+      done = true;
+      document.removeEventListener("visibilitychange", hold);
+      lock?.release().catch(() => {});
+    };
+  }, [awake]);
 
   const accept = useCallback((next) => {
     if (gameRef.current?.id === next.id && gameRef.current.revision > next.revision) return;
@@ -127,6 +161,7 @@ export default function useMatch() {
     let retryTimer,
       stream,
       failures = 0,
+      presence,
       refreshing = false,
       requested = 0;
     const refresh = async (revision, includeMedia = false) => {
@@ -162,9 +197,12 @@ export default function useMatch() {
           game.id,
           token,
           linked.signal,
-          (revision) => {
+          (revision, seen) => {
+            // A changed presence number means a player dropped or came back.
+            const moved = presence !== undefined && seen !== presence;
+            presence = seen;
             // Restart the stream after a failed refresh, even if no more moves arrive.
-            if (revision > (gameRef.current?.revision || 0))
+            if (moved || revision > (gameRef.current?.revision || 0))
               refresh(revision).catch(() => {
                 setConnection("reconnecting");
                 stream.abort();
@@ -221,21 +259,33 @@ export default function useMatch() {
   }
 
   async function act(route, body = {}) {
-    if (actionLock.current || connection !== "live") return false;
+    if (actionLock.current || shown !== "live") return false;
     actionLock.current = true;
     setBusy(true);
     setError("");
+    let attempt = 0;
     try {
       const current = gameRef.current;
       const playerId =
         current.mode === "online"
           ? current.viewer.playerId
           : current.players[current.currentPlayerIndex].id;
-      const result = await gameApi.act(current, token, route, { playerId, ...body });
+      let result;
+      // A network blip retries the move. The revision check makes that safe: if the
+      // first try did reach the host, the retry is refused and the screen refreshes.
+      for (;;) {
+        try {
+          result = await gameApi.act(current, token, route, { playerId, ...body });
+          break;
+        } catch (failure) {
+          if (failure.status || ++attempt > 2) throw failure;
+          await new Promise((resolve) => setTimeout(resolve, 700));
+        }
+      }
       accept(result.game);
       return true;
     } catch (failure) {
-      setError(failure.message);
+      setError(attempt && failure.status === 409 ? "" : failure.message);
       if (!failure.status) {
         setConnection("reconnecting");
         setReconnectKey((key) => key + 1);
@@ -311,7 +361,7 @@ export default function useMatch() {
     media,
     loading,
     busy,
-    connection,
+    connection: shown,
     stalled,
     error,
     saveError,
