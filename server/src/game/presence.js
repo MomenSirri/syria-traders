@@ -41,7 +41,8 @@ function leave(gameId, playerId) {
   seat.timer.unref();
 }
 
+const isOnline = (gameId, playerId) => Boolean(seats.get(key(gameId, playerId))?.streams);
 const isAway = (gameId, playerId) => Boolean(seats.get(key(gameId, playerId))?.away);
 const version = (gameId) => versions.get(gameId) || 0;
 
-module.exports = { join, leave, isAway, version };
+module.exports = { join, leave, isOnline, isAway, version };
