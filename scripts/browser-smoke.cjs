@@ -253,10 +253,12 @@ async function checkLayout(page, width, height, filename) {
   await local.clock.install();
   await local.reload();
   await settled(local);
-  const lastGain = Math.max(...(await snapshot(local)).gainEvents.map((event) => event.at));
-  await local.clock.fastForward(
-    Math.max(0, lastGain + 29900 - (await local.evaluate(() => Date.now()))),
-  );
+  const gainState = await snapshot(local);
+  const lastGain = Math.max(...gainState.gainEvents.map((event) => event.at));
+  // Badges run on the server clock (page time + clockOffset); response latency makes the
+  // offset negative, so ignoring it leaves too little margin on slower CI machines.
+  const serverNow = (await local.evaluate(() => Date.now())) + (gainState.clockOffset || 0);
+  await local.clock.fastForward(Math.max(0, lastGain + 29900 - serverNow));
   assert.ok((await local.locator(".resource-popup:not(.resource-popup-fading)").count()) > 0);
   await local.clock.fastForward(120);
   assert.ok((await local.locator(".resource-popup-fading").count()) > 0);
