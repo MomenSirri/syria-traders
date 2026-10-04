@@ -14,11 +14,8 @@ const corners = (center) =>
     y: center.y + SIZE * Math.sin((angle * Math.PI) / 180),
   }));
 const points = (vertices) => vertices.map((v) => `${v.x},${v.y}`).join(" ");
-function labelLines(name) {
-  if (name.length <= 12) return [name];
-  const words = name.split(" ");
-  return [words.slice(0, -1).join(" "), words.at(-1)];
-}
+// A small one-line name pill, so the territory painting stays the hero.
+const labelWidth = (name) => Math.min(150, Math.round(name.length * 7.4 + 16));
 function keyboard(event, callback) {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
@@ -196,8 +193,7 @@ export default function GameBoard({
           </g>
           <g className="tile-layer">
             {tiles.map((tile) => {
-              const lines = labelLines(tile.region),
-                target = validTiles.has(tile.id);
+              const target = validTiles.has(tile.id);
               const texture =
                 hexTexturesByRegion[tile.region] ||
                 (REGION_NAMES.has(tile.region)
@@ -242,23 +238,19 @@ export default function GameBoard({
                   )}
                   <rect
                     className="tile-label-bg"
-                    x={tile.center.x - 73}
-                    y={tile.center.y - 30}
-                    width="146"
-                    height={lines.length === 1 ? 30 : 48}
-                    rx="6"
+                    x={tile.center.x - labelWidth(tile.region) / 2}
+                    y={tile.center.y - 15}
+                    width={labelWidth(tile.region)}
+                    height="20"
+                    rx="10"
                   />
                   <text
                     x={tile.center.x}
-                    y={tile.center.y - 8}
+                    y={tile.center.y}
                     textAnchor="middle"
                     className="tile-name"
                   >
-                    {lines.map((line, i) => (
-                      <tspan key={line} x={tile.center.x} dy={i ? 21 : 0}>
-                        {line}
-                      </tspan>
-                    ))}
+                    {tile.region}
                   </text>
                   {tile.numberToken && (
                     <g className={[6, 8].includes(tile.numberToken) ? "hot-token" : ""}>

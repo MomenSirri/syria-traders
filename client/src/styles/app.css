@@ -433,12 +433,14 @@
 }
 .tile-label-bg {
   fill: #fdf7ea;
-  fill-opacity: 0.94;
+  fill-opacity: 0.9;
   stroke: #00000014;
 }
 .tile-name {
-  font-family: var(--font-display);
-  font-size: 21px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   fill: #1f2d27;
   pointer-events: none;
 }
@@ -1206,8 +1208,8 @@ g[role="button"]:focus-visible {
 .arrangement-tile span,
 .arrangement-tile small {
   position: absolute;
-  left: 14%;
-  right: 14%;
+  left: 50%;
+  max-width: 78%;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -1216,19 +1218,21 @@ g[role="button"]:focus-visible {
 }
 .arrangement-tile span {
   top: 50%;
-  transform: translateY(-50%);
-  font: clamp(10px, 1.1cqw, 15px) / 1.25 var(--font-display);
+  transform: translate(-50%, -50%);
+  font: 700 clamp(8px, 0.75cqw, 11px) / 1.2 var(--font-ui);
   color: #1f2b2e;
-  background: #fdf7eaeb;
-  padding: 2px 3px;
+  background: #fdf7eae0;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
 }
 .arrangement-tile small {
-  top: calc(50% + clamp(12px, 1.4cqw, 17px));
-  left: 26%;
-  right: 26%;
-  background: #1d2430cc;
+  top: calc(50% + clamp(8px, 0.9cqw, 12px));
+  transform: translateX(-50%);
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: #1d2430b3;
   color: #fdf7ea;
-  font-size: clamp(8px, 0.8cqw, 10px);
+  font-size: clamp(6px, 0.55cqw, 8px);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
