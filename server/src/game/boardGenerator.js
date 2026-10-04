@@ -4,19 +4,44 @@ const { shuffle } = require("./helpers");
 const SQRT_3 = Math.sqrt(3);
 const HEX_SIZE = 90;
 const CORNER_ANGLES = [-30, 30, 90, 150, 210, 270];
-const SEA_RADIUS = 3;
-const HARBOR_SLOT_INDEXES = [0, 2, 4, 6, 8, 10, 12, 14, 16];
+const NEIGHBOR_STEPS = [
+  [1, 0],
+  [1, -1],
+  [0, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, 1],
+];
+
+// The classic 19-hex map seats up to four; the 30-hex map is used by 5 and 6
+// player rooms. Saves without a board size are classic.
+function boardSpec(size = "standard") {
+  if (size !== "large") {
+    return {
+      size: "standard",
+      boardLayout: config.boardLayout,
+      regions: config.regions,
+      numberTokens: config.numberTokens,
+      harborTypes: config.harborTypes,
+    };
+  }
+  const large = config.largeBoard;
+  return {
+    size: "large",
+    boardLayout: large.boardLayout,
+    regions: [...config.regions, ...large.extraRegions],
+    numberTokens: large.numberTokens,
+    harborTypes: large.harborTypes,
+  };
+}
+
+const boardSizeFor = (maxPlayers) => (maxPlayers > 4 ? "large" : "standard");
 
 function axialToPixel(q, r) {
   return {
     x: HEX_SIZE * SQRT_3 * (q + r / 2),
     y: HEX_SIZE * 1.5 * r,
   };
-}
-
-function axialDistance(q, r) {
-  const s = -q - r;
-  return Math.max(Math.abs(q), Math.abs(r), Math.abs(s));
 }
 
 function getCorner(center, index) {
@@ -44,16 +69,16 @@ function arraySignature(values) {
     .join("|");
 }
 
-function resolveRegions(regionOrder) {
+function resolveRegions(regionOrder, spec) {
   if (!Array.isArray(regionOrder) || !regionOrder.length) {
-    return shuffle(config.regions);
+    return shuffle(spec.regions);
   }
 
-  if (regionOrder.length !== config.regions.length) {
-    throw new Error(`regionOrder must include exactly ${config.regions.length} region names.`);
+  if (regionOrder.length !== spec.regions.length) {
+    throw new Error(`regionOrder must include exactly ${spec.regions.length} region names.`);
   }
 
-  const knownRegionsByName = new Map(config.regions.map((region) => [region.name, region]));
+  const knownRegionsByName = new Map(spec.regions.map((region) => [region.name, region]));
   const usedNames = new Set();
 
   return regionOrder.map((name) => {
@@ -69,64 +94,81 @@ function resolveRegions(regionOrder) {
   });
 }
 
-function resolveNumberTokens(numberOrder) {
+function resolveNumberTokens(numberOrder, spec) {
   if (!Array.isArray(numberOrder) || !numberOrder.length) {
-    return shuffle(config.numberTokens);
+    return shuffle(spec.numberTokens);
   }
 
-  if (numberOrder.length !== config.numberTokens.length) {
-    throw new Error(`numberOrder must include exactly ${config.numberTokens.length} tokens.`);
+  if (numberOrder.length !== spec.numberTokens.length) {
+    throw new Error(`numberOrder must include exactly ${spec.numberTokens.length} tokens.`);
   }
 
-  if (arraySignature(numberOrder) !== arraySignature(config.numberTokens)) {
+  if (arraySignature(numberOrder) !== arraySignature(spec.numberTokens)) {
     throw new Error("numberOrder must use the same token values as the configured number tokens.");
   }
 
   return numberOrder.map((token) => Number(token));
 }
 
-function resolveHarbors(harborOrder) {
+function resolveHarbors(harborOrder, spec) {
   if (!Array.isArray(harborOrder) || !harborOrder.length) {
-    return shuffle(config.harborTypes);
+    return shuffle(spec.harborTypes);
   }
 
-  if (harborOrder.length !== config.harborTypes.length) {
-    throw new Error(`harborOrder must include exactly ${config.harborTypes.length} harbors.`);
+  if (harborOrder.length !== spec.harborTypes.length) {
+    throw new Error(`harborOrder must include exactly ${spec.harborTypes.length} harbors.`);
   }
 
-  if (arraySignature(harborOrder) !== arraySignature(config.harborTypes)) {
+  if (arraySignature(harborOrder) !== arraySignature(spec.harborTypes)) {
     throw new Error("harborOrder must use the same harbor labels as the configured harbor set.");
   }
 
   return harborOrder.map((entry) => String(entry));
 }
 
-function buildSeaRing() {
+// Every water hex touching the land, ordered around the island's middle.
+function buildSeaRing(layout) {
+  const land = new Set(layout.map(({ q, r }) => `${q},${r}`));
+  const seen = new Set();
   const ring = [];
-
-  for (let q = -SEA_RADIUS; q <= SEA_RADIUS; q += 1) {
-    for (let r = -SEA_RADIUS; r <= SEA_RADIUS; r += 1) {
-      if (axialDistance(q, r) === SEA_RADIUS) {
-        const center = axialToPixel(q, r);
-        ring.push({
-          q,
-          r,
-          center,
-          angle: Math.atan2(center.y, center.x),
-        });
-      }
-    }
-  }
-
+  layout.forEach(({ q, r }) =>
+    NEIGHBOR_STEPS.forEach(([dq, dr]) => {
+      const key = `${q + dq},${r + dr}`;
+      if (land.has(key) || seen.has(key)) return;
+      seen.add(key);
+      ring.push({ q: q + dq, r: r + dr, center: axialToPixel(q + dq, r + dr) });
+    }),
+  );
+  const middle = layout
+    .map(({ q, r }) => axialToPixel(q, r))
+    .reduce(
+      (sum, point) => ({ x: sum.x + point.x / layout.length, y: sum.y + point.y / layout.length }),
+      {
+        x: 0,
+        y: 0,
+      },
+    );
+  ring.forEach((entry) => {
+    const angle = Math.atan2(entry.center.y - middle.y, entry.center.x - middle.x);
+    // Round so the classic ring keeps its original order despite float noise.
+    entry.angle = Number(angle.toFixed(6));
+  });
   return ring.sort((a, b) => a.angle - b.angle);
 }
 
+// Harbors sit on every other water hex when there is room, spread evenly otherwise.
+function harborSlots(seaCount, harborCount) {
+  return Array.from({ length: harborCount }, (_, i) => Math.round((i * seaCount) / harborCount));
+}
+
 function generateBoard(options = {}) {
-  const positions = [...config.boardLayout];
-  const regions = resolveRegions(options.regionOrder);
-  const numberTokens = resolveNumberTokens(options.numberOrder);
-  const harborTypes = resolveHarbors(options.harborOrder);
-  const seaRing = buildSeaRing();
+  const spec = boardSpec(options.boardSize);
+  const positions = [...spec.boardLayout];
+  const regions = resolveRegions(options.regionOrder, spec);
+  const numberTokens = resolveNumberTokens(options.numberOrder, spec);
+  const harborTypes = resolveHarbors(options.harborOrder, spec);
+  const seaRing = buildSeaRing(positions);
+  const slots = harborSlots(seaRing.length, harborTypes.length);
 
   const tiles = [];
   const vertices = [];
@@ -211,7 +253,7 @@ function generateBoard(options = {}) {
   });
 
   seaRing.forEach((entry, seaIndex) => {
-    const harborSlot = HARBOR_SLOT_INDEXES.indexOf(seaIndex);
+    const harborSlot = slots.indexOf(seaIndex);
     seaTiles.push({
       id: `sea-${seaIndex}`,
       axial: { q: entry.q, r: entry.r },
@@ -274,7 +316,7 @@ function generateBoard(options = {}) {
         )
       )
         break;
-      const nextTokens = shuffle(config.numberTokens);
+      const nextTokens = shuffle(spec.numberTokens);
       productive.forEach((tile, index) => {
         tile.numberToken = nextTokens[index];
       });
@@ -292,5 +334,7 @@ function generateBoard(options = {}) {
 
 module.exports = {
   HEX_SIZE,
+  boardSpec,
+  boardSizeFor,
   generateBoard,
 };

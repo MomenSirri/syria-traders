@@ -1,0 +1,803 @@
+/* TV table screen and phone seat layout. Kept separate from the dashboard styles. */
+
+/* Lobby invite: the TV shows a scannable code beside the room details. */
+.lobby-invite {
+  display: grid;
+  gap: var(--sp-5);
+}
+.lobby-invite-details {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: center;
+  min-width: 0;
+}
+.table-lobby {
+  width: min(1240px, 95vw);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+.table-lobby .lobby-invite {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-8);
+}
+/* The QR code stays black on white so every phone camera can read it. */
+.qr-code {
+  display: block;
+  width: clamp(160px, 30vh, 300px);
+  height: auto;
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow:
+    0 0 0 1px #e2b45066,
+    0 0 0 6px #e2b45014,
+    var(--shadow-3);
+}
+.table-lobby .room-code strong {
+  font-size: clamp(40px, 7vh, 72px);
+}
+.table-lobby .lobby-link {
+  font-size: var(--fs-lg);
+}
+.tv-hint b {
+  color: var(--text);
+}
+
+/* TV dashboard: read from across the room. */
+.table-view .turn-status strong {
+  font-size: var(--fs-xl);
+}
+.table-view .turn-dot {
+  width: 14px;
+  height: 14px;
+}
+@media (min-height: 900px) {
+  .table-view .private-hand strong {
+    font-size: var(--fs-2xl);
+  }
+}
+.table-view .log-list li {
+  font-size: var(--fs-sm);
+}
+.table-view.dashboard-16x9 {
+  grid-template-rows: 64px minmax(0, 1fr) 172px;
+}
+/* On a TV the map is the hero: it takes the full height of the middle column,
+   with the merchants on the left and the turn, bank, costs and log on the right. */
+@media (min-width: 1200px) {
+  .table-view.dashboard-16x9 {
+    grid-template-columns: minmax(0, 22fr) minmax(0, 56fr) minmax(0, 22fr);
+    grid-template-rows: 64px auto minmax(0, 1fr);
+    grid-template-areas: "header header header" "players board actions" "players board log";
+  }
+  .table-view .player-list {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  .table-view .player-list.players-5,
+  .table-view .player-list.players-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  /* Two narrow columns for five or six merchants: drop the portrait so names fit. */
+  .table-view .players-5 .player-header,
+  .table-view .players-6 .player-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .table-view .players-5 .player-avatar,
+  .table-view .players-6 .player-avatar {
+    display: none;
+  }
+  .table-view .players-5 .player-title-block h3,
+  .table-view .players-6 .player-title-block h3 {
+    font-size: 17px;
+  }
+  .table-view .board-panel .board-svg,
+  .table-view .board-panel svg {
+    max-height: none;
+  }
+  .table-view .table-status {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    align-content: start;
+    gap: var(--sp-4);
+    padding: var(--sp-4);
+  }
+  .table-view .table-costs {
+    grid-column: auto;
+    grid-row: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    align-content: start;
+  }
+  .table-view .table-cost-row {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 6px var(--sp-3);
+  }
+  .table-view .table-cost-row b {
+    flex: 0 0 auto;
+    flex-basis: auto;
+    min-width: 4.2em;
+    font-size: clamp(16px, 1.9vh, 22px);
+  }
+  .table-view .table-cost-row em {
+    display: none;
+  }
+  .table-view .table-cost-row > span {
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .table-view .table-bank {
+    gap: 5px;
+  }
+  .table-view .table-bank > span:not(.eyebrow) {
+    padding: 2px 8px 2px 3px;
+  }
+}
+.table-status {
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: var(--sp-3) var(--sp-6);
+  padding: var(--sp-3) var(--sp-5);
+}
+.table-status-main {
+  position: relative;
+  padding-left: var(--sp-4);
+  min-width: 0;
+}
+.table-status-main::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--player-color, var(--gold));
+  box-shadow: 0 0 12px var(--player-color, var(--gold));
+}
+.table-status-main .eyebrow {
+  color: var(--gold);
+}
+.table-status-main p {
+  margin-top: var(--sp-1);
+  font: clamp(18px, 2.2vh, 28px) / 1.2 var(--font-display);
+  color: var(--text);
+}
+.table-bank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-lg);
+}
+.table-bank > .eyebrow {
+  flex-basis: 100%;
+}
+.table-bank > span:not(.eyebrow) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+.table-bank b {
+  font-variant-numeric: tabular-nums;
+}
+.res-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow: inset 0 -2px #00000026, inset 0 1px #ffffff4d;
+}
+.table-costs {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px var(--sp-3);
+  align-self: stretch;
+  min-height: 0;
+}
+.table-costs > .eyebrow {
+  grid-column: 1 / -1;
+}
+.table-cost-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px 14px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--surface-3), #1a2536);
+  box-shadow: var(--inset-top);
+  min-width: 0;
+  overflow: hidden;
+}
+.table-cost-row b {
+  flex-basis: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font: clamp(17px, 2.1vh, 24px) var(--font-display);
+  color: var(--text);
+}
+.table-cost-row em {
+  font: 600 var(--fs-xs) var(--font-ui);
+  font-style: normal;
+  color: var(--gold-soft);
+}
+.table-cost-row > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(13px, 1.6vh, 17px);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.table-winner {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-12);
+  border: 1px solid color-mix(in srgb, var(--player-color) 70%, transparent);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--player-color) 30%, transparent), transparent 70%),
+    var(--surface-2);
+  box-shadow:
+    0 0 60px color-mix(in srgb, var(--player-color) 35%, transparent),
+    var(--shadow-4);
+  z-index: var(--z-banner);
+  text-align: center;
+}
+.table-winner .eyebrow {
+  color: var(--gold);
+}
+.table-winner strong {
+  font: clamp(40px, 6vh, 68px) / 1.1 var(--font-display);
+  color: var(--text);
+}
+.table-winner > span:last-child {
+  font-size: var(--fs-lg);
+  color: var(--gold-soft);
+  font-weight: 700;
+}
+
+/* Phone seat: own hand first. The strip only appears on narrow screens. */
+.seat-hand {
+  display: none;
+}
+@media (max-width: 700px) {
+  .seat-view .seat-hand {
+    display: grid;
+    order: 1;
+    gap: 10px;
+    padding: var(--sp-3);
+    border-color: color-mix(in srgb, var(--player-color) 55%, var(--border));
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--player-color) 16%, transparent), transparent 70%),
+      var(--surface-2);
+    /* The hand stays in view while scrolling the board on a phone. */
+    position: sticky;
+    top: var(--sp-2);
+    z-index: var(--z-overlay);
+    box-shadow: var(--shadow-3), var(--inset-top);
+  }
+  .seat-view .dashboard-actions {
+    order: 2;
+  }
+  .seat-view .dashboard-board {
+    order: 3;
+  }
+  .seat-view .dashboard-players {
+    order: 4;
+  }
+  .seat-view .dashboard-log {
+    order: 5;
+  }
+  .seat-hand-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .seat-hand-title .eyebrow {
+    color: var(--gold);
+  }
+  .seat-hand-title strong {
+    font-size: var(--fs-xl);
+    font-variant-numeric: tabular-nums;
+  }
+  .seat-hand-title small {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+  .seat-hand-cards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+  /* Each resource reads as a small playing card, tinted by its resource. */
+  .seat-card {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    padding: var(--sp-2) 2px 6px;
+    border: 1px solid #00000033;
+    border-radius: var(--radius-sm);
+    color: #1c2430;
+    box-shadow:
+      inset 0 1px #ffffff66,
+      inset 0 -3px #0000001f,
+      var(--shadow-1);
+  }
+  .seat-card b {
+    font-size: 22px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .seat-card small {
+    font-size: 11px;
+    font-weight: 700;
+    color: #1c2430cc;
+  }
+  .seat-card em {
+    position: absolute;
+    top: -8px;
+    right: -4px;
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--green);
+    border: 1px solid #36c274;
+    color: #fff;
+    font-size: var(--fs-xs);
+    font-weight: 800;
+    font-style: normal;
+    box-shadow: 0 0 10px #1f8a4c80;
+    animation: gain-pop var(--dur-slow) var(--ease-spring);
+    transition: opacity 700ms ease;
+  }
+  .seat-card em.fading {
+    opacity: 0;
+  }
+  .table-lobby .lobby-invite {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .table-status {
+    grid-template-columns: 1fr;
+  }
+  .table-costs {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+@keyframes gain-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+/* Player trades float over the board's corner; on phones they sit above it. */
+.trade-panel {
+  position: absolute;
+  top: 40px;
+  right: var(--sp-3);
+  z-index: var(--z-overlay);
+  width: min(360px, 45%);
+  display: grid;
+  gap: 10px;
+  padding: var(--sp-3) var(--sp-4);
+  background: #121a26f2;
+  backdrop-filter: blur(8px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-3), var(--inset-top);
+  animation: panel-in var(--dur-slow) var(--ease);
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.trade-panel > .eyebrow {
+  color: var(--gold);
+}
+.trade-request {
+  font-size: var(--fs-lg);
+  color: var(--text-2);
+}
+.trade-request strong {
+  color: var(--text);
+}
+.trade-cards {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.trade-cards .res-chip {
+  width: 22px;
+  height: 22px;
+}
+.trade-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-2);
+}
+.trade-picker {
+  display: inline-flex;
+  gap: var(--sp-1);
+}
+.trade-picker select {
+  min-height: 32px;
+  padding-block: 2px;
+}
+.trade-offers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.trade-offers li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-2);
+  animation: panel-in var(--dur) var(--ease);
+}
+.trade-offers li b {
+  color: var(--text);
+}
+.trade-buttons {
+  display: inline-flex;
+  gap: var(--sp-1);
+}
+.table-view .trade-panel {
+  width: min(440px, 45%);
+}
+.table-view .trade-request,
+.table-view .trade-offers li {
+  font-size: 18px;
+}
+@media (max-width: 700px) {
+  .dashboard-board:has(.trade-panel) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    aspect-ratio: auto;
+    height: auto;
+  }
+  .dashboard-board:has(.trade-panel) .board-panel {
+    aspect-ratio: 1 / 1.12;
+    height: auto;
+  }
+  .trade-panel {
+    position: static;
+    width: auto;
+    backdrop-filter: none;
+  }
+  .trade-picker select,
+  .trade-buttons button {
+    min-height: 44px;
+  }
+}
+
+/* Short-lived game animations (GameEffects and fresh board pieces). */
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-fx);
+  overflow: hidden;
+}
+.fx-token {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid #fff8;
+  box-shadow:
+    0 0 0 3px #0006,
+    0 8px 20px #00000080,
+    inset 0 -3px #00000026;
+  opacity: 0;
+  animation: fx-fly 1200ms cubic-bezier(0.45, 0, 0.3, 1) both;
+}
+@keyframes fx-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dx) * 0.5), calc(-50% + var(--dy) * 0.5 - 70px))
+      scale(1.05);
+  }
+  100% {
+    opacity: 0.2;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.55);
+  }
+}
+.fx-burst {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--player-color, var(--gold)) 80%, #fff);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 800 24px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--player-color, var(--gold)) 45%, transparent),
+    var(--shadow-3);
+  transform: translate(-100%, -50%);
+  opacity: 0;
+  animation: fx-burst 3200ms var(--ease) both;
+}
+.fx-burst .res-chip {
+  width: 34px;
+  height: 34px;
+}
+@keyframes fx-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-100%, -50%) scale(0.4);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-100%, -50%) scale(1.2);
+  }
+  18%,
+  80% {
+    opacity: 1;
+    transform: translate(-100%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-100%, -90%) scale(0.95);
+  }
+}
+.fx-dice {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  min-width: 260px;
+  padding: var(--sp-6) var(--sp-10);
+  border-radius: var(--radius-xl);
+  border: 1px solid #e2b45080;
+  background:
+    radial-gradient(ellipse at 50% 0%, #e2b45026, transparent 70%),
+    #0e1520eb;
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  box-shadow:
+    0 0 0 6px #e2b45014,
+    0 0 60px #e2b45033,
+    var(--shadow-4);
+  transform: translate(-50%, -50%);
+  animation: fx-dice 2200ms var(--ease) both;
+}
+.fx-dice .dice-display {
+  transform: scale(1.8);
+  margin: 20px 0 16px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.fx-dice .dice-total {
+  display: none;
+}
+.fx-dice strong {
+  font: clamp(52px, 9vh, 100px) / 1 var(--font-display);
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 24px #e2b45066;
+}
+.fx-dice span:not(.dice-total) {
+  font: 700 var(--fs-xl) var(--font-ui);
+  color: var(--danger-text);
+}
+.fx-seven {
+  border-color: #e2553f99;
+  background:
+    radial-gradient(ellipse at 50% 0%, #e2553f33, transparent 70%),
+    #0e1520eb;
+  box-shadow:
+    0 0 0 6px #e2553f1a,
+    0 0 60px #e2553f40,
+    var(--shadow-4);
+}
+.fx-seven strong {
+  color: var(--danger-text);
+  text-shadow: 0 0 24px #e2553f80;
+}
+@keyframes fx-dice {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6) rotate(-6deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05) rotate(1deg);
+  }
+  25%,
+  82% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.94);
+  }
+}
+/* Announcements drop in at the top of the board, newest first, never stacked over the hint. */
+.fx-toasts {
+  position: fixed;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  width: min(720px, 70vw);
+}
+.fx-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 22px 10px 16px;
+  border-radius: var(--radius-pill);
+  background: #0e1520f0;
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  font: 600 clamp(15px, 2vh, 22px) / 1.3 var(--font-ui);
+  text-align: center;
+  box-shadow: var(--shadow-3);
+  animation: fx-toast 3800ms var(--ease) both;
+}
+.fx-toast::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--info);
+  box-shadow: 0 0 8px var(--info);
+  flex-shrink: 0;
+}
+.fx-toast-setup::before {
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
+}
+.fx-toast-trade {
+  border-color: #1f8a4c99;
+}
+.fx-toast-trade::before {
+  background: var(--green-strong);
+  box-shadow: 0 0 8px var(--green-strong);
+}
+.fx-toast-win {
+  border-color: var(--gold);
+  color: var(--gold-soft);
+}
+.fx-toast-win::before {
+  background: var(--gold);
+}
+@keyframes fx-toast {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  9%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.fresh-piece {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fx-piece 1500ms var(--ease) both;
+}
+@keyframes fx-piece {
+  0% {
+    transform: scale(0.2);
+    filter: drop-shadow(0 0 0 #ffe9a8);
+  }
+  35% {
+    transform: scale(1.45);
+    filter: drop-shadow(0 0 14px #ffe9a8);
+  }
+  60% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+.robber-landing {
+  animation: fx-robber 1100ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes fx-robber {
+  0% {
+    transform: translateY(-90px) scale(1.6);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(4px) scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+.table-winner {
+  animation: fx-winner 1s var(--ease-spring) both;
+}
+@keyframes fx-winner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+/* index.css turns animations off for reduced motion; keep the cues visible, still. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-burst,
+  .fx-dice,
+  .fx-toast {
+    opacity: 1;
+  }
+}

@@ -3,7 +3,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const config = require("../../../shared/gameConfig.json");
 const store = require("./gameStore");
-const { generateBoard } = require("./boardGenerator");
+const { boardSpec, boardSizeFor, generateBoard } = require("./boardGenerator");
 const {
   clone,
   resourceTemplate,
@@ -46,18 +46,18 @@ function arraySignature(values) {
     .join("|");
 }
 
-function normalizeRegionOrder(regionOrder) {
+function normalizeRegionOrder(regionOrder, spec) {
   if (!regionOrder) {
     return null;
   }
   if (!Array.isArray(regionOrder)) {
     throw createError("regionOrder must be an array of region names.");
   }
-  if (regionOrder.length !== config.regions.length) {
-    throw createError(`regionOrder must include ${config.regions.length} regions.`);
+  if (regionOrder.length !== spec.regions.length) {
+    throw createError(`regionOrder must include ${spec.regions.length} regions.`);
   }
 
-  const knownNames = new Set(config.regions.map((region) => region.name));
+  const knownNames = new Set(spec.regions.map((region) => region.name));
   const usedNames = new Set();
 
   const normalized = regionOrder.map((name) => String(name || "").trim());
@@ -74,15 +74,15 @@ function normalizeRegionOrder(regionOrder) {
   return normalized;
 }
 
-function normalizeNumberOrder(numberOrder) {
+function normalizeNumberOrder(numberOrder, spec) {
   if (!numberOrder) {
     return null;
   }
   if (!Array.isArray(numberOrder)) {
     throw createError("numberOrder must be an array.");
   }
-  if (numberOrder.length !== config.numberTokens.length) {
-    throw createError(`numberOrder must include ${config.numberTokens.length} tokens.`);
+  if (numberOrder.length !== spec.numberTokens.length) {
+    throw createError(`numberOrder must include ${spec.numberTokens.length} tokens.`);
   }
 
   const normalized = numberOrder.map((token) => Number(token));
@@ -90,26 +90,26 @@ function normalizeNumberOrder(numberOrder) {
     throw createError("numberOrder contains invalid values.");
   }
 
-  if (arraySignature(normalized) !== arraySignature(config.numberTokens)) {
+  if (arraySignature(normalized) !== arraySignature(spec.numberTokens)) {
     throw createError("numberOrder must contain the same token values as the default set.");
   }
 
   return normalized;
 }
 
-function normalizeHarborOrder(harborOrder) {
+function normalizeHarborOrder(harborOrder, spec) {
   if (!harborOrder) {
     return null;
   }
   if (!Array.isArray(harborOrder)) {
     throw createError("harborOrder must be an array.");
   }
-  if (harborOrder.length !== config.harborTypes.length) {
-    throw createError(`harborOrder must include ${config.harborTypes.length} harbor labels.`);
+  if (harborOrder.length !== spec.harborTypes.length) {
+    throw createError(`harborOrder must include ${spec.harborTypes.length} harbor labels.`);
   }
 
   const normalized = harborOrder.map((value) => String(value || "").trim());
-  if (arraySignature(normalized) !== arraySignature(config.harborTypes)) {
+  if (arraySignature(normalized) !== arraySignature(spec.harborTypes)) {
     throw createError("harborOrder must contain the same harbor labels as the default set.");
   }
 
@@ -129,10 +129,16 @@ function createPlayer(name, index) {
   };
 }
 
-function setVisualFeedback(game, { producingTileIds = [], resourceDeltas = [] } = {}) {
+// Short-lived animation cues. kind: roll, seven, setup or trade. Each delta names
+// where its cards came from: tileIds for production, fromPlayerId for trades.
+function setVisualFeedback(
+  game,
+  { producingTileIds = [], resourceDeltas = [], kind = "none" } = {},
+) {
   game.visuals = {
     flashId: uuidv4(),
     at: new Date().toISOString(),
+    kind,
     producingTileIds,
     resourceDeltas,
   };
@@ -249,6 +255,7 @@ function initializeSetupFlow(game) {
 
 function initializeActiveMatch(game) {
   game.board = generateBoard({
+    boardSize: game.boardSize,
     regionOrder: game.regionOrder,
     numberOrder: game.numberOrder,
     harborOrder: game.harborOrder,
@@ -261,6 +268,7 @@ function initializeActiveMatch(game) {
   game.turnHasRolled = false;
   game.lastDiceRoll = null;
   game.lastDicePair = null;
+  game.trade = null;
   game.mustMoveRobber = false;
   game.winnerId = null;
   setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
@@ -332,38 +340,38 @@ function distributeResources(game, diceTotal) {
     for (const { owner, tile, amount } of requests) {
       const moved = transferFromBank(game, owner, resource, amount);
       producingTileIds.add(tile.id);
-      if (!gainByPlayer.has(owner.id)) gainByPlayer.set(owner.id, resourceTemplate(0));
-      gainByPlayer.get(owner.id)[resource] += moved;
+      if (!gainByPlayer.has(owner.id))
+        gainByPlayer.set(owner.id, { gain: resourceTemplate(0), tiles: {} });
+      const entry = gainByPlayer.get(owner.id);
+      entry.gain[resource] += moved;
+      entry.tiles[resource] = [...new Set([...(entry.tiles[resource] || []), tile.id])];
     }
   }
 
   if (!gainByPlayer.size) {
     addLog(game, "No settlements produced resources on this roll.");
-    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
+    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "roll" });
     return;
   }
 
   const resourceDeltas = [];
 
-  gainByPlayer.forEach((resourceGain, playerId) => {
-    const player = game.players.find((entry) => entry.id === playerId);
-    const summary = Object.entries(resourceGain)
-      .filter(([, amount]) => amount > 0)
-      .map(([resource, amount]) => `${amount} ${config.resourceLabels[resource]}`)
-      .join(", ");
-
-    addLog(game, `${player.name} receives ${summary}.`);
-
-    Object.entries(resourceGain).forEach(([resource, amount]) => {
+  const names = [];
+  gainByPlayer.forEach(({ gain, tiles }, playerId) => {
+    names.push(game.players.find((entry) => entry.id === playerId).name);
+    Object.entries(gain).forEach(([resource, amount]) => {
       if (amount > 0) {
-        resourceDeltas.push({ playerId, resource, amount });
+        resourceDeltas.push({ playerId, resource, amount, tileIds: tiles[resource] });
       }
     });
   });
+  // Amounts appear only as a brief animation; the lasting log keeps who was paid.
+  addLog(game, `Resources paid out to ${names.join(" and ")}.`);
 
   setVisualFeedback(game, {
     producingTileIds: [...producingTileIds],
     resourceDeltas,
+    kind: "roll",
   });
 }
 
@@ -400,7 +408,6 @@ function stealRandomResource(fromPlayer, toPlayer) {
 }
 
 function grantSecondPlacementResources(game, player, vertex) {
-  const gained = resourceTemplate(0);
   const resourceDeltas = [];
 
   vertex.adjacentTiles.forEach((tileId) => {
@@ -410,22 +417,17 @@ function grantSecondPlacementResources(game, player, vertex) {
     }
     const moved = transferFromBank(game, player, tile.resource, 1);
     if (moved > 0) {
-      gained[tile.resource] += moved;
-      resourceDeltas.push({ playerId: player.id, resource: tile.resource, amount: moved });
+      resourceDeltas.push({
+        playerId: player.id,
+        resource: tile.resource,
+        amount: moved,
+        tileIds: [tile.id],
+      });
     }
   });
 
-  const summary = Object.entries(gained)
-    .filter(([, amount]) => amount > 0)
-    .map(([resource, amount]) => `${amount} ${config.resourceLabels[resource]}`)
-    .join(", ");
-
-  if (summary) {
-    addLog(
-      game,
-      `${player.name} gains starting resources from second placement: ${summary}.`,
-      "setup",
-    );
+  if (resourceDeltas.length) {
+    addLog(game, `${player.name} gains starting resources from their second village.`, "setup");
   }
 
   return resourceDeltas;
@@ -529,6 +531,7 @@ function buildHints(game) {
 }
 
 function serializeGame(game) {
+  const spec = boardSpec(game.boardSize);
   const setupSummary =
     game.phase === "setup-placement"
       ? {
@@ -569,10 +572,11 @@ function serializeGame(game) {
       resourceLabels: config.resourceLabels,
       bankTradeRate: config.bankTradeRate,
       buildingCosts: config.buildingCosts,
-      regions: config.regions,
-      boardLayout: config.boardLayout,
-      numberTokens: config.numberTokens,
-      harborTypes: config.harborTypes,
+      boardSize: spec.size,
+      regions: spec.regions,
+      boardLayout: spec.boardLayout,
+      numberTokens: spec.numberTokens,
+      harborTypes: spec.harborTypes,
     },
     players: game.players.map((player) => ({
       id: player.id,
@@ -589,13 +593,15 @@ function serializeGame(game) {
     bank: game.bank,
     log: game.log.slice(-100),
     visuals: game.visuals,
+    // Open trade requests are public; older saves have none.
+    trade: game.status === "active" && game.phase === "main" ? game.trade || null : null,
     hints: buildHints(game),
   };
 }
 
 function createGame({
   playerNames = [],
-  maxPlayers = config.maxPlayers,
+  maxPlayers = 4,
   regionOrder = null,
   numberOrder = null,
   harborOrder = null,
@@ -607,14 +613,17 @@ function createGame({
     boundedMaxPlayers < config.minPlayers ||
     boundedMaxPlayers > config.maxPlayers
   ) {
-    throw createError("Choose a maximum of 2, 3 or 4 players.");
+    throw createError(`Choose a maximum of ${config.minPlayers} to ${config.maxPlayers} players.`);
   }
   const names = normalizeNames(playerNames);
-  const normalizedOrder = normalizeRegionOrder(regionOrder);
-  const normalizedNumberOrder = normalizeNumberOrder(numberOrder);
-  const normalizedHarborOrder = normalizeHarborOrder(harborOrder);
+  // Five and six players need the larger map.
+  const spec = boardSpec(boardSizeFor(boundedMaxPlayers));
+  const normalizedOrder = normalizeRegionOrder(regionOrder, spec);
+  const normalizedNumberOrder = normalizeNumberOrder(numberOrder, spec);
+  const normalizedHarborOrder = normalizeHarborOrder(harborOrder, spec);
 
-  if (names.length < 1) {
+  // A network room hosted by a table screen starts with no seats.
+  if (names.length < 1 && mode !== "online") {
     throw createError("Provide at least one player name.");
   }
   if (names.length > boundedMaxPlayers) {
@@ -626,6 +635,7 @@ function createGame({
     mode: mode === "online" ? "online" : "local",
     createdAt: new Date().toISOString(),
     maxPlayers: boundedMaxPlayers,
+    boardSize: spec.size,
     status: "lobby",
     phase: "lobby",
     players: names.map((name, index) => createPlayer(name, index)),
@@ -759,8 +769,9 @@ function placeSetup(gameId, { playerId, vertexId, edgeId }) {
   }
 
   setVisualFeedback(game, {
-    producingTileIds: [],
+    producingTileIds: setupResourceDeltas.flatMap((delta) => delta.tileIds),
     resourceDeltas: setupResourceDeltas,
+    kind: "setup",
   });
 
   advanceSetupFlow(game);
@@ -814,7 +825,7 @@ function rollDice(gameId, { playerId }) {
     }
     game.mustMoveRobber = true;
     addLog(game, "The bandit awakens. Move it to a new region.");
-    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
+    setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [], kind: "seven" });
   } else {
     distributeResources(game, total);
   }
@@ -951,6 +962,141 @@ function tradeWithBank(gameId, { playerId, giveResource, getResource }) {
   return serializeGame(game);
 }
 
+// Player-to-player trades: the active player asks for cards, others offer,
+// and the active player accepts one offer. Offers are public, like at a real table.
+const MAX_TRADE_CARDS = 4;
+function tradeAmount(resource, amount) {
+  if (!config.resources.includes(resource)) throw createError("Choose a resource to trade.");
+  const count = Number(amount);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_TRADE_CARDS)
+    throw createError(`Trade between 1 and ${MAX_TRADE_CARDS} cards.`);
+  return count;
+}
+const cards = (amount, resource) => `${amount} ${config.resourceLabels[resource]}`;
+function openTrade(game, requestId) {
+  if (!game.trade || (requestId !== undefined && game.trade.id !== requestId))
+    throw createError("That trade request has closed.", 409);
+  return game.trade;
+}
+
+function requestTrade(gameId, { playerId, resource, amount }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const count = tradeAmount(resource, amount);
+  const player = getPlayerOrThrow(game, playerId);
+  game.trade = { id: uuidv4(), playerId, want: { resource, amount: count }, offers: [] };
+  addLog(game, `${player.name} asks the table for ${cards(count, resource)}.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function offerTrade(gameId, { playerId, requestId, resource, amount }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  const trade = openTrade(game, requestId);
+  if (trade.playerId === playerId) throw createError("Wait for other players to make offers.");
+  const player = getPlayerOrThrow(game, playerId);
+  const count = tradeAmount(resource, amount);
+  if (resource === trade.want.resource)
+    throw createError("Ask for a different resource than the one you give.");
+  if ((player.resources[trade.want.resource] || 0) < trade.want.amount)
+    throw createError(`You need ${cards(trade.want.amount, trade.want.resource)} to offer.`);
+  trade.offers = trade.offers.filter((offer) => offer.playerId !== playerId);
+  trade.offers.push({ id: uuidv4(), playerId, ask: { resource, amount: count } });
+  addLog(
+    game,
+    `${player.name} offers ${cards(trade.want.amount, trade.want.resource)} for ${cards(count, resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function withdrawTradeOffer(gameId, { playerId, requestId }) {
+  const game = getGameOrThrow(gameId);
+  const trade = openTrade(game, requestId);
+  if (!trade.offers.some((offer) => offer.playerId === playerId))
+    throw createError("You have no offer on this request.");
+  trade.offers = trade.offers.filter((offer) => offer.playerId !== playerId);
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} withdrew their offer.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function declineTradeOffer(gameId, { playerId, offerId }) {
+  const game = getGameOrThrow(gameId);
+  assertPlayersTurn(game, playerId);
+  const trade = openTrade(game);
+  const offer = trade.offers.find((entry) => entry.id === offerId);
+  if (!offer) throw createError("That offer was withdrawn.", 409);
+  trade.offers = trade.offers.filter((entry) => entry.id !== offerId);
+  addLog(
+    game,
+    `${getPlayerOrThrow(game, playerId).name} declined ${getPlayerOrThrow(game, offer.playerId).name}'s offer.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function cancelTrade(gameId, { playerId }) {
+  const game = getGameOrThrow(gameId);
+  assertPlayersTurn(game, playerId);
+  openTrade(game);
+  game.trade = null;
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} closed the trade request.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function acceptTradeOffer(gameId, { playerId, offerId }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const trade = openTrade(game);
+  const offer = trade.offers.find((entry) => entry.id === offerId);
+  if (!offer) throw createError("That offer was withdrawn.", 409);
+  const player = getPlayerOrThrow(game, playerId);
+  const partner = getPlayerOrThrow(game, offer.playerId);
+  const { want } = trade;
+  const { ask } = offer;
+  if ((player.resources[ask.resource] || 0) < ask.amount)
+    throw createError(`You need ${cards(ask.amount, ask.resource)} to accept this offer.`);
+  if ((partner.resources[want.resource] || 0) < want.amount)
+    throw createError(`${partner.name} no longer has ${cards(want.amount, want.resource)}.`);
+  player.resources[ask.resource] -= ask.amount;
+  partner.resources[ask.resource] += ask.amount;
+  partner.resources[want.resource] -= want.amount;
+  player.resources[want.resource] += want.amount;
+  game.trade = null;
+  setVisualFeedback(game, {
+    producingTileIds: [],
+    resourceDeltas: [
+      {
+        playerId: player.id,
+        resource: want.resource,
+        amount: want.amount,
+        fromPlayerId: partner.id,
+      },
+      { playerId: partner.id, resource: ask.resource, amount: ask.amount, fromPlayerId: player.id },
+    ],
+    kind: "trade",
+  });
+  addLog(
+    game,
+    `${player.name} traded ${cards(ask.amount, ask.resource)} to ${partner.name} for ${cards(want.amount, want.resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
 function moveRobber(gameId, { playerId, tileId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
@@ -1011,6 +1157,7 @@ function endTurn(gameId, { playerId }) {
   game.turnHasRolled = false;
   game.lastDiceRoll = null;
   game.lastDicePair = null;
+  game.trade = null;
 
   const nextPlayer = getCurrentPlayer(game);
   addLog(game, `Turn ${game.turn}: ${nextPlayer.name}'s turn starts.`);
@@ -1035,6 +1182,12 @@ module.exports = {
   buildVillage,
   upgradeCity,
   tradeWithBank,
+  requestTrade,
+  offerTrade,
+  withdrawTradeOffer,
+  declineTradeOffer,
+  cancelTrade,
+  acceptTradeOffer,
   moveRobber,
   endTurn,
   getSampleMatchData,

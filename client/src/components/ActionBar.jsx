@@ -1,30 +1,9 @@
 import { useState } from "react";
-import ResourceIcon from "./ResourceIcon";
+import Icon from "./Icon";
+import ResourceChip from "./ResourceChip";
 
-function ActionIcon({ kind }) {
-  const paths = {
-    road: "M4 20L10 4h4l6 16M12 5v3m0 3v3m0 3v3",
-    village: "M3 11l9-8 9 8M6 9v12h12V9M10 21v-7h4v7",
-    city: "M3 21V9h7v12M10 21V3h11v18M13 7h5m-5 4h5m-5 4h5",
-    roll: "M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2M8 8h.01M16 16h.01M12 12h.01",
-    end: "M4 12h16m-6-6 6 6-6 6",
-  };
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={paths[kind]} />
-    </svg>
-  );
-}
+const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
+
 export default function ActionBar({
   game,
   currentPlayer,
@@ -44,6 +23,20 @@ export default function ActionBar({
   const [receive, setReceive] = useState("wheat");
   const hints = game.hints || {};
   const rate = hints.tradeRates?.[give] || 4;
+  const costText = (building) =>
+    Object.entries(game.settings.buildingCosts[building] || {})
+      .map(([resource, amount]) => `${amount} ${LABELS[resource]}`)
+      .join(", ");
+  const soundButton = (
+    <button
+      className="quiet-button sound-button"
+      aria-pressed={soundEnabled}
+      onClick={onToggleSound}
+    >
+      <Icon name={soundEnabled ? "soundOn" : "soundOff"} />
+      Sound {soundEnabled ? "on" : "off"}
+    </button>
+  );
   const costs = (
     <div className="build-cost-inline">
       {Object.entries(game.settings.buildingCosts).map(([building, cost]) => (
@@ -51,7 +44,7 @@ export default function ActionBar({
           <b>{building}</b>
           {Object.entries(cost).map(([resource, amount]) => (
             <span key={resource} title={`${amount} ${resource}`}>
-              <ResourceIcon resource={resource} size={15} />
+              <ResourceChip resource={resource} size={13} />
               {amount}
             </span>
           ))}
@@ -79,9 +72,7 @@ export default function ActionBar({
               Change site
             </button>
           )}
-          <button className="quiet-button" onClick={onToggleSound}>
-            Sound {soundEnabled ? "on" : "off"}
-          </button>
+          {soundButton}
         </div>
         {costs}
       </section>
@@ -94,7 +85,7 @@ export default function ActionBar({
           onClick={onRoll}
           disabled={busy || !hints.canRoll}
         >
-          <ActionIcon kind="roll" />
+          <Icon name="roll" />
           Roll dice
         </button>
         {[
@@ -104,17 +95,30 @@ export default function ActionBar({
         ].map(([key, label, positions]) => (
           <button
             key={key}
-            className={`icon-action-btn ${selectedAction === key ? "selected" : ""}`}
+            className={`icon-action-btn build-btn ${selectedAction === key ? "selected" : ""}`}
             disabled={busy || !positions?.length}
+            aria-pressed={selectedAction === key}
             onClick={() => onSelectAction(selectedAction === key ? null : key)}
             title={
               positions?.length
-                ? `${positions.length} legal positions`
-                : "Roll first, then gather the required resources and connect a legal site."
+                ? `${label} costs ${costText(key)}. ${positions.length} legal positions.`
+                : `${label} costs ${costText(key)}. Roll first, then gather the resources and connect a legal site.`
             }
           >
-            <ActionIcon kind={key} />
-            {label}
+            <Icon name={key} />
+            <span className="btn-text">
+              {label}
+              <span className="btn-cost" aria-hidden="true">
+                {Object.entries(game.settings.buildingCosts[key] || {}).map(
+                  ([resource, amount]) => (
+                    <span key={resource}>
+                      <ResourceChip resource={resource} size={12} />
+                      {amount}
+                    </span>
+                  ),
+                )}
+              </span>
+            </span>
           </button>
         ))}
         <button
@@ -123,11 +127,9 @@ export default function ActionBar({
           disabled={busy || !hints.canEndTurn}
         >
           End turn
-          <ActionIcon kind="end" />
+          <Icon name="end" />
         </button>
-        <button className="quiet-button sound-button" onClick={onToggleSound}>
-          Sound {soundEnabled ? "on" : "off"}
-        </button>
+        {soundButton}
       </div>
       <div className="action-lower-row">
         <div className="inline-trade">
@@ -139,7 +141,7 @@ export default function ActionBar({
           >
             {game.settings.resources.map((resource) => (
               <option key={resource} value={resource}>
-                {resource}
+                {LABELS[resource]}
               </option>
             ))}
           </select>
@@ -151,7 +153,7 @@ export default function ActionBar({
           >
             {game.settings.resources.map((resource) => (
               <option key={resource} value={resource}>
-                {resource}
+                {LABELS[resource]}
               </option>
             ))}
           </select>
@@ -181,7 +183,6 @@ export default function ActionBar({
                   : "Build, trade, or pass the dice."}
         </span>
       </div>
-      {costs}
     </section>
   );
 }

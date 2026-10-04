@@ -8,3 +8,15 @@ export const HEX_PRESET_ASSETS = [
 ];
 export const DEFAULT_ASSET_BY_RESOURCE = Object.fromEntries(HEX_PRESET_ASSETS.map((asset) => [asset.resource, asset.id]));
 export function presetMapById() { return Object.fromEntries(HEX_PRESET_ASSETS.map((asset) => [asset.id, asset])); }
+// Painted territory art (webp) where it exists; the generated flat scenes (svg)
+// cover the rest, and uploads or unknown names fall back to the resource art.
+const slug = (region) => region.toLowerCase().replace(/[^a-z]+/g, "-");
+const PAINTED = new Set([
+  "afrin-highlands", "aleppo", "badiya", "damascus", "daraa", "deir-ez-zor", "hama",
+  "hasakah", "homs", "idlib", "jabal-ansariyah", "latakia", "manbij", "palmyra-foothills",
+  "quneitra-plains", "raqqa-steppe", "rif-dimashq", "suwayda", "tartus",
+]);
+export const regionArtUrl = (region) => {
+  const name = slug(region);
+  return `/terrain/regions/${name}.${PAINTED.has(name) ? "webp" : "svg"}`;
+};

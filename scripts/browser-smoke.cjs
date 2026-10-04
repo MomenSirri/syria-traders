@@ -13,7 +13,7 @@ const dataDirectory = fs.mkdtempSync(path.join(output, "browser-matches-"));
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const errors = [];
 const measurements = [];
-let server, browser, port;
+let server, browser, port, tvPort;
 
 async function availablePort() {
   const probe = net.createServer();
@@ -36,7 +36,12 @@ async function startServer() {
   server = spawn(process.execPath, ["server/src/index.js"], {
     cwd: root,
     windowsHide: true,
-    env: { ...process.env, PORT: String(port), GAME_DATA_DIR: dataDirectory },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      TV_PORT: String(tvPort),
+      GAME_DATA_DIR: dataDirectory,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   server.stdout.on("data", (chunk) =>
@@ -68,7 +73,7 @@ async function settled(page, revision = 0) {
       game?.revision > previous &&
       Boolean(
         document.querySelector(".connection-dot.live") ||
-          document.querySelector(".lobby-footer")?.textContent.includes("live"),
+        document.querySelector(".lobby-footer")?.textContent.includes("live"),
       )
     );
   }, revision);
@@ -155,6 +160,7 @@ async function checkLayout(page, width, height, filename) {
 }
 (async () => {
   port = await availablePort();
+  tvPort = await availablePort();
   await startServer();
   const installed = [
     process.env.CHROME_PATH,
@@ -245,9 +251,10 @@ async function checkLayout(page, width, height, filename) {
   );
   assert.ok((await local.locator(".resource-popup:not(.resource-popup-fading)").count()) > 0);
   await local.clock.fastForward(120);
-  assert.ok((await local.locator(".resource-popup-fading").count()) > 0);
+  // React renders after the fired timer, so wait for the DOM rather than reading it at once.
+  await local.locator(".resource-popup-fading").first().waitFor({ timeout: 3000 });
   await local.clock.fastForward(710);
-  assert.equal(await local.locator(".resource-popup").count(), 0);
+  await local.locator(".resource-popup").first().waitFor({ state: "detached", timeout: 3000 });
   console.log("PASS browser gain badges hold for 30 seconds and fade/clear");
 
   const host = await pageFor(base);
@@ -342,6 +349,250 @@ async function checkLayout(page, width, height, filename) {
   }
   assert.equal((await snapshot(players[1])).turn, 2);
   console.log("PASS complete host restart preserves matches, media and browser seats");
+
+  // TV table screen: hosts a room without a seat; players use phones.
+  const tvPayloads = [];
+  const tv = await pageFor(base);
+  tv.on("response", async (response) => {
+    if (!/\/api\/games(\/|$)/.test(response.url()) || response.url().endsWith("/events")) return;
+    tvPayloads.push(await response.json().catch(() => ({})));
+  });
+  await tv.getByRole("button", { name: "TV screen", exact: true }).click();
+  await tv.getByRole("button", { name: "Open a room on this TV" }).click();
+  await tv.locator(".table-lobby .qr-code").waitFor();
+  const tvCode = (await snapshot(tv)).roomCode;
+  const phones = [];
+  for (const name of ["Nour", "Yazan"]) {
+    const phone = await pageFor(`${base}/?room=${tvCode}`);
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.getByLabel("Player 1 name").fill(name);
+    await phone.getByRole("button", { name: "Join the table" }).click();
+    await phone.locator(".lobby").waitFor();
+    phones.push(phone);
+  }
+  assert.equal(await phones[0].getByRole("button", { name: "Start the match" }).count(), 1);
+  assert.equal(await phones[1].getByRole("button", { name: "Start the match" }).count(), 0);
+  await tv.getByRole("button", { name: "Start the match" }).waitFor();
+  await tv.screenshot({ path: path.join(output, "tv-lobby.png") });
+  await tv.getByRole("button", { name: "Start the match" }).click();
+  for (const page of [tv, ...phones]) await page.locator(".dashboard-16x9").waitFor();
+  for (let i = 0; i < 4; i++) {
+    const state = await snapshot(tv);
+    const activeId = state.players[state.currentPlayerIndex].id;
+    const phone = (
+      await Promise.all(
+        phones.map(async (page) => ({ page, id: (await snapshot(page)).viewer.playerId })),
+      )
+    ).find((entry) => entry.id === activeId).page;
+    await place(phone);
+    // The final placement pays starting cards: the TV flies them to that player.
+    if (i === 3) {
+      await tv.locator(".fx-token").first().waitFor({ state: "attached", timeout: 4000 });
+      await tv.locator(".fresh-piece").first().waitFor({ state: "attached", timeout: 4000 });
+      await tv.screenshot({ path: path.join(output, "tv-animation.png") });
+      await tv.locator(".fx-burst").first().waitFor({ state: "attached", timeout: 4000 });
+    }
+    const revision = (await snapshot(phone)).revision;
+    await tv.waitForFunction(
+      (revision) =>
+        JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.revision >= revision,
+      revision,
+    );
+  }
+  // Every effect cleans itself up.
+  await tv.locator(".fx-layer").waitFor({ state: "detached", timeout: 8000 });
+  const tvState = await snapshot(tv);
+  assert.equal(tvState.phase, "main");
+  assert.equal(tvState.viewer.role, "table");
+  assert.ok(tvState.players.every((player) => player.resources === null));
+  assert.ok(tvState.players.some((player) => player.resourceTotal > 0));
+  assert.deepEqual(tvState.gainEvents, []);
+  assert.equal(tvState.hints, null);
+  for (const payload of tvPayloads) {
+    assert.ok(payload.game, "TV request failed");
+    assert.ok(payload.game.players.every((player) => player.resources === null));
+    assert.deepEqual(payload.game.gainEvents, []);
+  }
+  assert.equal(await tv.locator(".resource-row").count(), 0);
+  assert.equal(await tv.locator(".private-hand").count(), 2);
+  assert.equal(await tv.getByRole("button", { name: "Roll dice" }).count(), 0);
+  assert.equal(await tv.locator(".table-status").count(), 1);
+  assert.equal(await tv.locator(".tile-layer .tile-group").count(), 19);
+  await tv.screenshot({ path: path.join(output, "tv-dashboard.png") });
+  for (const phone of phones) {
+    await phone.locator(".seat-hand").waitFor();
+    assert.equal(await phone.locator(".seat-card").count(), 5);
+    assert.equal(await phone.locator(".player-resources").count(), 1);
+    assert.equal(await phone.locator(".private-hand").count(), 1);
+  }
+  const overflow = await phones[0].evaluate(
+    () => document.documentElement.scrollWidth > innerWidth,
+  );
+  assert.equal(overflow, false, "Phone seat scrolls horizontally");
+  // The phone's hand is sticky; capture from the top so it sits in its own slot.
+  await phones[0].evaluate(() => window.scrollTo(0, 0));
+  await phones[0].screenshot({ path: path.join(output, "phone-seat.png"), fullPage: true });
+  assert.equal(await tv.locator(".table-cost-row").count(), 3, "TV shows building costs");
+
+  // Player-to-player trade: the active phone asks, the other offers, the TV watches.
+  const seatOf = async (id) =>
+    (
+      await Promise.all(
+        phones.map(async (page) => ({ page, id: (await snapshot(page)).viewer.playerId })),
+      )
+    ).find((entry) => entry.id === id).page;
+  const turnState = await snapshot(tv);
+  const asker = await seatOf(turnState.players[turnState.currentPlayerIndex].id);
+  const offerer = phones.find((page) => page !== asker);
+  await asker.getByRole("button", { name: "Roll dice", exact: true }).click();
+  await asker.waitForFunction(
+    () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
+  );
+  if ((await snapshot(asker)).mustMoveRobber) {
+    await asker
+      .getByRole("button", { name: /^Move bandit to/ })
+      .first()
+      .click();
+    await asker.waitForFunction(
+      () => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
+    );
+  }
+  const own = async (page) => {
+    const state = await snapshot(page);
+    return state.players.find((player) => player.id === state.viewer.playerId).resources;
+  };
+  const [askerHand, offererHand] = [await own(asker), await own(offerer)];
+  const wanted = Object.keys(offererHand).find((resource) => offererHand[resource] > 0);
+  const price = Object.keys(askerHand).find(
+    (resource) => resource !== wanted && askerHand[resource] > 0,
+  );
+  if (wanted && price) {
+    await asker.getByLabel("Wanted resource").selectOption(wanted);
+    await asker.getByRole("button", { name: "Ask players" }).click();
+    await offerer.locator(".trade-panel").getByRole("button", { name: "Offer" }).waitFor();
+    await offerer.getByLabel("Asked resource").selectOption(price);
+    await offerer.locator(".trade-panel").getByRole("button", { name: "Offer" }).click();
+    await tv.locator(".trade-offers li").waitFor();
+    await tv.screenshot({ path: path.join(output, "tv-trade.png") });
+    await asker.evaluate(() => window.scrollTo(0, 0));
+    await asker.screenshot({ path: path.join(output, "phone-trade.png"), fullPage: true });
+    assert.equal(await tv.locator(".trade-panel button").count(), 0, "TV trade view is read-only");
+    await asker.getByRole("button", { name: "Accept" }).click();
+    await asker.waitForFunction(
+      () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.trade === null,
+    );
+    const [askerAfter, offererAfter] = [await own(asker), await own(offerer)];
+    assert.equal(askerAfter[wanted], askerHand[wanted] + 1);
+    assert.equal(askerAfter[price], askerHand[price] - 1);
+    await offerer.waitForFunction(
+      () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.trade === null,
+    );
+    assert.equal((await own(offerer))[wanted], offererHand[wanted] - 1);
+    const tvAfter = await snapshot(tv);
+    assert.ok(tvAfter.players.every((player) => player.resources === null));
+    const label = require("../shared/gameConfig.json").resourceLabels[wanted];
+    assert.ok(tvAfter.log.at(-1).message.endsWith(`for 1 ${label}.`), tvAfter.log.at(-1).message);
+    console.log("PASS players trade from their phones and the TV shows it without hands");
+  } else console.log("SKIP player trade: dealt hands had no tradeable pair this run");
+  await tv.reload();
+  await tv.locator(".table-status").waitFor();
+  assert.equal((await snapshot(tv)).viewer.role, "table");
+  console.log("PASS TV table screen hosts a room, hides every hand and reconnects as a table");
+
+  // A TV can also show a room that a phone hosts, mid-match, from a link.
+  const watcher = await pageFor(`${base}/?room=${code}&tv=1`);
+  await watcher.getByRole("button", { name: "Show this room on the TV" }).click();
+  await watcher.locator(".table-status").waitFor();
+  const watched = await snapshot(watcher);
+  assert.equal(watched.viewer.isHost, false);
+  assert.equal(watched.players.length, 4);
+  assert.ok(watched.players.every((player) => player.resources === null));
+  watcher.once("dialog", (dialog) => dialog.accept());
+  await watcher.getByRole("button", { name: "Close TV screen" }).click();
+  await watcher.getByRole("button", { name: "TV screen", exact: true }).waitFor();
+  console.log("PASS TV screen joins a phone-hosted match by link and closes cleanly");
+  // Five or six players use the 30-territory map and a compact merchants panel.
+  const six = await pageFor(base);
+  for (let i = 3; i <= 6; i++) {
+    await six.getByRole("button", { name: "+ Add player", exact: true }).click();
+    await six.getByLabel(`Player ${i} name`).fill(`Merchant ${i}`);
+  }
+  await six.getByText("30 territories / 11 ports").waitFor();
+  assert.equal(await six.locator(".arrangement-tile").count(), 30);
+  await six.screenshot({ path: path.join(output, "setup-six-players.png") });
+  await six.getByRole("button", { name: "Begin the journey" }).click();
+  await settled(six);
+  assert.equal(await six.locator(".tile-layer .tile-group").count(), 30);
+  assert.equal(await six.locator(".player-card").count(), 6);
+  for (let i = 0; i < 12; i++) await place(six);
+  assert.equal((await snapshot(six)).phase, "main");
+  for (const [width, height] of [
+    [1920, 1080],
+    [1280, 720],
+  ]) {
+    await six.setViewportSize({ width, height });
+    await six.screenshot({ path: path.join(output, `six-players-${width}.png`) });
+    const overflow = await six
+      .locator(".player-card")
+      .evaluateAll((cards) =>
+        cards.filter(
+          (card) =>
+            card.querySelector(".player-card-footer").getBoundingClientRect().bottom >
+            card.getBoundingClientRect().bottom - 3,
+        ),
+      );
+    assert.equal(overflow.length, 0, `Six player cards overflow at ${width}x${height}`);
+  }
+  console.log("PASS six players on the large map, setup to first turn, cards fit");
+
+  // A smart TV's own browser uses the plain-HTTP address, which only opens table screens.
+  const smartTv = await pageFor(`http://127.0.0.1:${tvPort}/tv`);
+  const tabs = await smartTv.locator(".mode-tabs button").allTextContents();
+  assert.deepEqual(tabs, ["TV screen"]);
+  assert.equal(
+    await smartTv.evaluate(() => document.activeElement.textContent),
+    "Open a room on this TV",
+    "The remote's OK button starts the room",
+  );
+  await smartTv.keyboard.press("Enter");
+  await smartTv.locator(".table-lobby").waitFor();
+  const invite = await smartTv.locator(".lobby-link").textContent();
+  assert.match(
+    invite,
+    new RegExp(`^https://[^/]+:${port}/\\?room=`),
+    "Phones are invited to HTTPS",
+  );
+  const tvRoom = (await snapshot(smartTv)).roomCode;
+  const tvGuest = await pageFor(`${base}/?room=${tvRoom}`);
+  await tvGuest.getByLabel("Player 1 name").fill("Mira");
+  await tvGuest.getByRole("button", { name: "Join the table" }).click();
+  await smartTv.getByText("Mira", { exact: true }).waitFor();
+  const refused = await smartTv.evaluate(async (code) => {
+    const response = await fetch(`/api/games/${code}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Sneaky" }),
+    });
+    return response.status;
+  }, tvRoom);
+  assert.equal(refused, 403, "Phones cannot join on the plain-HTTP address");
+  // Google TV browsers report about 960x540; the TV is still laid out 1920 wide.
+  const googleTv = await (
+    await browser.newContext({
+      viewport: { width: 960, height: 540 },
+      deviceScaleFactor: 2,
+      isMobile: true,
+    })
+  ).newPage();
+  googleTv.on("pageerror", (error) => errors.push(error.message));
+  await googleTv.goto(`http://127.0.0.1:${tvPort}/tv`);
+  await googleTv.getByLabel("Room code (optional)").fill(tvRoom);
+  await googleTv.getByRole("button", { name: "Show this room on the TV" }).click();
+  await googleTv.locator(".table-lobby").waitFor();
+  assert.equal(await googleTv.evaluate(() => innerWidth), 1920, "TV page is laid out 1920 wide");
+  await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
+  console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
+
   assert.deepEqual(errors, [], "Browser runtime errors");
   fs.writeFileSync(
     path.join(output, "layout-measurements.json"),
