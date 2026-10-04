@@ -406,6 +406,31 @@
   pointer-events: none;
   transition: stroke var(--dur) var(--ease);
 }
+/* Resource badge above each territory name: the glyph on its tinted disc. */
+.tile-resource {
+  background: none !important;
+  pointer-events: none;
+}
+.tile-resource circle {
+  stroke: #fff8e6;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 2px 2px #00000059);
+}
+.tile-resource.resource-wheat circle {
+  fill: var(--res-wheat);
+}
+.tile-resource.resource-wood circle {
+  fill: var(--res-wood);
+}
+.tile-resource.resource-stone circle {
+  fill: var(--res-stone);
+}
+.tile-resource.resource-brick circle {
+  fill: var(--res-brick);
+}
+.tile-resource.resource-sheep circle {
+  fill: var(--res-sheep);
+}
 .tile-label-bg {
   fill: #fdf7ea;
   fill-opacity: 0.94;

@@ -224,9 +224,14 @@ export default function GameBoard({
                     points={points(tile.vertexIds.map((id) => vertices[id]))}
                     fill="none"
                   />
-                  <g transform={`translate(${tile.center.x - 12},${tile.center.y - 66})`}>
-                    <ResourceIcon resource={tile.resource} size={24} />
-                  </g>
+                  {tile.resource !== "desert" && (
+                    <g className={`tile-resource resource-${tile.resource}`}>
+                      <circle cx={tile.center.x} cy={tile.center.y - 53} r="16" />
+                      <g transform={`translate(${tile.center.x - 11},${tile.center.y - 64})`}>
+                        <ResourceIcon resource={tile.resource} size={22} />
+                      </g>
+                    </g>
+                  )}
                   <rect
                     className="tile-label-bg"
                     x={tile.center.x - 73}

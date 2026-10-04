@@ -442,3 +442,7 @@
     font-size: var(--fs-sm);
   }
 }
+/* On the green gain badge the glyph reads better as a light silhouette. */
+.resource-popup .resource-glyph {
+  filter: brightness(0) invert(1);
+}
