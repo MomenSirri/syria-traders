@@ -14,6 +14,7 @@ import TableStatus from "./components/TableStatus";
 import SeatHand from "./components/SeatHand";
 import TradePanel from "./components/TradePanel";
 import GameEffects from "./components/GameEffects";
+import Icon from "./components/Icon";
 
 export default function App() {
   const match = useMatch();
@@ -54,6 +55,12 @@ export default function App() {
     };
   }, [game?.visuals?.flashId]);
   useEffect(() => () => clearTimeout(rollTimer.current), []);
+  useEffect(() => {
+    if (!help) return;
+    const close = (event) => event.key === "Escape" && setHelp(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [help]);
 
   async function action(route, payload) {
     const success = await act(route, payload);
@@ -132,12 +139,16 @@ export default function App() {
             {game.mode === "online" ? `Room ${game.roomCode}` : "Shared table"}
             <small>{connection === "live" ? "Saved on host" : "Reconnecting..."}</small>
           </div>
-          <button className="quiet-button" onClick={() => setHelp(true)}>
-            How to play
-          </button>
-          <button className="quiet-button" onClick={match.leave}>
-            {table ? "Close TV screen" : "New table"}
-          </button>
+          <div className="header-actions">
+            <button className="quiet-button" onClick={() => setHelp(true)}>
+              <Icon name="help" />
+              <span className="btn-label">How to play</span>
+            </button>
+            <button className="quiet-button" onClick={match.leave}>
+              <Icon name="exit" />
+              <span className="btn-label">{table ? "Close TV screen" : "New table"}</span>
+            </button>
+          </div>
         </header>
         {game.mode === "online" && !table && <SeatHand game={game} gains={resourcePopups} />}
         <aside className="dashboard-players">
@@ -220,6 +231,7 @@ export default function App() {
               onClick={(event) => event.stopPropagation()}
             >
               <button className="quiet-button modal-close" onClick={() => setHelp(false)} autoFocus>
+                <Icon name="close" />
                 Close
               </button>
               <span className="eyebrow">Welcome to the table</span>

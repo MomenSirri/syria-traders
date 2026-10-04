@@ -1,5 +1,6 @@
 import { useState } from "react";
 import QrCode from "./QrCode";
+import Icon from "./Icon";
 
 export default function Lobby({ game, media, busy, connection, error, onStart, onLeave }) {
   const [copied, setCopied] = useState(false);
@@ -35,6 +36,7 @@ export default function Lobby({ game, media, busy, connection, error, onStart, o
               <small>Room code</small>
               <strong>{game.roomCode}</strong>
               <button className="secondary-btn" onClick={copy}>
+                <Icon name="copy" />
                 {copied ? "Link copied" : "Copy invite link"}
               </button>
             </div>

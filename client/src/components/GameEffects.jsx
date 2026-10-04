@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ResourceIcon from "./ResourceIcon";
+import ResourceChip from "./ResourceChip";
 import DiceDisplay from "./DiceDisplay";
 
 const FRESH_MS = 4000;
@@ -129,15 +130,13 @@ export default function GameEffects({ game, table }) {
   const middle = stage
     ? { left: stage.left + stage.width / 2, top: stage.top + stage.height / 2 }
     : undefined;
-  const lower = stage
-    ? { left: stage.left + stage.width / 2, top: stage.bottom - 24, bottom: "auto" }
-    : undefined;
+  const upper = stage ? { left: stage.left + stage.width / 2, top: stage.top + 12 } : undefined;
   return createPortal(
     <div className="fx-layer" aria-hidden="true">
       {flights.map((flight) => (
         <span
           key={flight.id}
-          className="fx-token"
+          className={`fx-token resource-${flight.resource}`}
           style={{
             left: flight.x,
             top: flight.y,
@@ -161,7 +160,7 @@ export default function GameEffects({ game, table }) {
           }}
         >
           +{burst.amount}
-          <ResourceIcon resource={burst.resource} size={26} />
+          <ResourceChip resource={burst.resource} size={24} />
         </span>
       ))}
       {dice && (
@@ -172,8 +171,8 @@ export default function GameEffects({ game, table }) {
         </div>
       )}
       {toasts.length > 0 && (
-        <div className="fx-toasts" style={lower}>
-          {toasts.map((entry) => (
+        <div className="fx-toasts" style={upper}>
+          {[...toasts].reverse().map((entry) => (
             <p key={entry.id} className={`fx-toast fx-toast-${entry.type}`}>
               {entry.message}
             </p>

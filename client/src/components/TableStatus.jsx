@@ -1,4 +1,4 @@
-import ResourceIcon from "./ResourceIcon";
+import ResourceChip from "./ResourceChip";
 
 const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
 const BUILDINGS = { road: "Road", village: "Village", city: "City" };
@@ -29,7 +29,7 @@ export default function TableStatus({ game, currentPlayer }) {
         <span className="eyebrow">Bank</span>
         {game.settings.resources.map((resource) => (
           <span key={resource} title={`${LABELS[resource]} left in the bank`}>
-            <ResourceIcon resource={resource} size={20} />
+            <ResourceChip resource={resource} size={16} />
             <b>{game.bank[resource]}</b>
           </span>
         ))}
@@ -43,7 +43,7 @@ export default function TableStatus({ game, currentPlayer }) {
             </b>
             {Object.entries(cost).map(([resource, amount]) => (
               <span key={resource}>
-                <ResourceIcon resource={resource} size={22} />
+                <ResourceChip resource={resource} size={16} />
                 {amount} {LABELS[resource]}
               </span>
             ))}

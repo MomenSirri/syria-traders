@@ -1,10 +1,10 @@
 import { useState } from "react";
-import ResourceIcon from "./ResourceIcon";
+import ResourceChip from "./ResourceChip";
 
 const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
 const cards = ({ resource, amount }) => (
   <span className="trade-cards">
-    <ResourceIcon resource={resource} size={16} />
+    <ResourceChip resource={resource} size={14} />
     {amount} {LABELS[resource]}
   </span>
 );

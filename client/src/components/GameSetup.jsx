@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
+import Icon from "./Icon";
 import { DEFAULT_ASSET_BY_RESOURCE, presetMapById } from "../config/hexPresets";
 
 const PRESETS = presetMapById();
@@ -211,7 +212,9 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                       ) : (
                         name[0]?.toUpperCase() || "?"
                       )}
-                      <span className="avatar-edit">+</span>
+                      <span className="avatar-edit">
+                        <Icon name="plus" className="" />
+                      </span>
                     </button>
                     <label>
                       <span>Player {index + 1}</span>
@@ -240,7 +243,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                           })
                         }
                       >
-                        x
+                        <Icon name="close" className="" />
                       </button>
                     )}
                   </article>
@@ -317,6 +320,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                   })
                 }
               >
+                <Icon name="shuffle" />
                 Shuffle map
               </button>
             </div>
@@ -395,6 +399,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
               disabled={uploading || viewing}
               onClick={() => chooseImage({ type: "hex", name: regionName })}
             >
+              <Icon name="upload" />
               Upload territory photo
             </button>
             <button
@@ -415,6 +420,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
               disabled={viewing}
               onClick={() => setSwapFrom(swapFrom === null ? selected : null)}
             >
+              <Icon name="swap" />
               {swapFrom === null ? "Swap this territory" : "Cancel swap"}
             </button>
             {!draft.balanced && region.resource !== "desert" && (

@@ -423,6 +423,8 @@ async function checkLayout(page, width, height, filename) {
     () => document.documentElement.scrollWidth > innerWidth,
   );
   assert.equal(overflow, false, "Phone seat scrolls horizontally");
+  // The phone's hand is sticky; capture from the top so it sits in its own slot.
+  await phones[0].evaluate(() => window.scrollTo(0, 0));
   await phones[0].screenshot({ path: path.join(output, "phone-seat.png"), fullPage: true });
   assert.equal(await tv.locator(".table-cost-row").count(), 3, "TV shows building costs");
 
@@ -463,6 +465,7 @@ async function checkLayout(page, width, height, filename) {
     await offerer.locator(".trade-panel").getByRole("button", { name: "Offer" }).click();
     await tv.locator(".trade-offers li").waitFor();
     await tv.screenshot({ path: path.join(output, "tv-trade.png") });
+    await asker.evaluate(() => window.scrollTo(0, 0));
     await asker.screenshot({ path: path.join(output, "phone-trade.png"), fullPage: true });
     assert.equal(await tv.locator(".trade-panel button").count(), 0, "TV trade view is read-only");
     await asker.getByRole("button", { name: "Accept" }).click();
