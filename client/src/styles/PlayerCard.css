@@ -92,6 +92,14 @@
   background: var(--player-color);
   opacity: 0.75;
 }
+/* A seat whose phone dropped: the match waits for it, nobody is removed. */
+.player-card.away-player .player-state {
+  color: var(--warning);
+  font-weight: 700;
+}
+.player-card.away-player .player-avatar {
+  opacity: 0.55;
+}
 .player-card.active-player {
   border-color: color-mix(in srgb, var(--player-color) 70%, transparent);
   box-shadow:

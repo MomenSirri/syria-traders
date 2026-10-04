@@ -4,6 +4,7 @@ const service = require("./gameService");
 const { lanAddresses } = require("../utils/network");
 const { boardSpec } = require("./boardGenerator");
 const ports = require("../utils/ports");
+const presence = require("./presence");
 
 function fail(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -76,9 +77,11 @@ function view(game, session, includeMedia = false) {
   }
   if (game.mode === "online") {
     // Opponent hands and private gain events never leave the server.
-    result.players = result.players.map((player) =>
-      ownId && player.id === ownId ? player : { ...player, resources: null, devCards: null },
-    );
+    // "away" marks a seat whose phone has dropped; it is public and never saved.
+    result.players = result.players.map((player) => ({
+      ...(ownId && player.id === ownId ? player : { ...player, resources: null, devCards: null }),
+      away: presence.isAway(game.id, player.id),
+    }));
     result.gainEvents = result.gainEvents
       .map((event) => ({
         ...event,
@@ -153,11 +156,40 @@ function watch(id) {
   return { game: view(store.getGame(game.id), session, true), token };
 }
 
+// A phone that lost its saved seat (cleared browser, another browser, "New table")
+// gets it back by entering the room code and the name it played with. Only a seat
+// with no live connection can be taken, and the table log tells everyone.
+function rejoin(game, payload) {
+  const name = typeof payload.name === "string" ? payload.name.trim().toLowerCase() : "";
+  const player = game.players.find((entry) => entry.name.trim().toLowerCase() === name);
+  if (!player)
+    fail(
+      `This match has already started. To take your seat back, enter the name you played with: ${game.players.map((entry) => entry.name).join(", ")}.`,
+    );
+  if (presence.isOnline(game.id, player.id))
+    fail(`${player.name} is still connected on another device. Close the game there first.`, 409);
+  const seats = game.sessions.filter((seat) => !isTable(seat) && seat.playerId === player.id);
+  const host = seats.some((seat) => seat.host) || game.hostPlayerId === player.id;
+  // Keep the newest old device working too, without growing the save forever.
+  const stale = new Set(seats.slice(0, Math.max(0, seats.length - 2)));
+  game.sessions = game.sessions.filter((seat) => !stale.has(seat));
+  game.log.push({
+    id: randomBytes(12).toString("hex"),
+    at: new Date().toISOString(),
+    type: "info",
+    message: `${player.name} rejoined the table.`,
+  });
+  game.log = game.log.slice(-180);
+  const { token, session } = issue(game, player.id, host);
+  return { game: view(store.getGame(game.id), session, true), token };
+}
+
 function join(id, payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
     fail("A player name is required.");
   const game = store.getGame(id);
   if (!game || game.mode !== "online") fail("Network room not found.", 404);
+  if (!["lobby", "closed"].includes(game.phase)) return rejoin(game, payload);
   const avatar = image(payload.avatar);
   service.joinGame(game.id, payload);
   const next = store.getGame(game.id);

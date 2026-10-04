@@ -224,8 +224,10 @@ export default function App() {
             </div>
           )}
           {connection !== "live" && (
-            <div className="connection-banner">
-              Connecting to the host. Moves will unlock when the connection returns.
+            <div className="connection-banner" role="status">
+              {match.stalled
+                ? "Still reconnecting. Your seat and cards are safe on the host. Check Wi-Fi, keep the host window open, and close other Syria Traders tabs in this browser."
+                : "Reconnecting to the host. Your seat and cards are kept; moves unlock when the connection returns."}
             </div>
           )}
         </section>
