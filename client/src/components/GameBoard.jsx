@@ -124,7 +124,9 @@ export default function GameBoard({
     <section className="board-panel">
       <div className="board-caption">
         <span className="eyebrow">The caravan coast</span>
-        <span>19 territories / 9 harbors</span>
+        <span>
+          {tiles.length} territories / {seaTiles.filter((sea) => sea.harbor).length} harbors
+        </span>
       </div>
       <div className="board-stage">
         <svg
