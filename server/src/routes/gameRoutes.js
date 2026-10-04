@@ -53,6 +53,14 @@ router.get(
       "X-Accel-Buffering": "no",
     });
     res.flushHeaders();
+    // Notice a phone that vanished (sleep, Wi-Fi drop) instead of holding a dead socket.
+    req.socket.setKeepAlive(true, 30000);
+    const who = sessions.isTable(req.session)
+      ? "TV screen"
+      : req.game.players.find((player) => player.id === req.session.playerId)?.name || "A player";
+    const note = (what) =>
+      console.log(`[${new Date().toLocaleTimeString()}] Room ${req.game.roomCode}: ${who} ${what}`);
+    if (req.game.mode === "online") note(`connected (${req.ip})`);
     // Tiny revision notifications avoid repeatedly sending images or unchanged boards.
     const send = (revision) => res.write(`data: ${JSON.stringify({ revision })}\n\n`);
     send(req.game.revision);
@@ -61,6 +69,7 @@ router.get(
     res.on("close", () => {
       clearInterval(heartbeat);
       store.updates.off(req.game.id, send);
+      if (req.game.mode === "online") note("disconnected");
     });
   }),
 );

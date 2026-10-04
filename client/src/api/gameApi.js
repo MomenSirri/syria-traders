@@ -91,7 +91,7 @@ export const gameApi = {
 };
 
 // A fetch-based SSE stream keeps the secret in a header, out of URLs and logs.
-export async function watchMatch(id, token, signal, onRevision, onConnected) {
+export async function watchMatch(id, token, signal, onRevision, onConnected, onBeat) {
   // A dead Wi-Fi connection can leave a TCP stream open. Missing three server
   // heartbeats aborts it so useMatch can establish a fresh connection.
   const heartbeat = new AbortController();
@@ -120,6 +120,7 @@ export async function watchMatch(id, token, signal, onRevision, onConnected) {
       if (done) break;
       clearTimeout(timer);
       timer = setTimeout(() => heartbeat.abort(), 45000);
+      onBeat?.();
       buffer += decoder.decode(value, { stream: true });
       let boundary;
       while ((boundary = buffer.indexOf("\n\n")) >= 0) {

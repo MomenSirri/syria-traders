@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { anySignal, gameApi, watchMatch } from "../api/gameApi";
 import { readSave, saveMatch, saveArtwork, clearSave } from "../utils/storage";
+import { announceTab, shouldPark, shouldRestart } from "../utils/tabs";
 
 export default function useMatch() {
   const [game, setGame] = useState(null);
@@ -13,19 +14,60 @@ export default function useMatch() {
   const [saveError, setSaveError] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [reconnectKey, setReconnectKey] = useState(0);
+  const [stalled, setStalled] = useState(false);
   const gameRef = useRef(null);
   const actionLock = useRef(false);
+  // A parked tab has handed its live stream to another tab of this browser.
+  const parked = useRef(false);
+  const lastBeat = useRef(Date.now());
+  const artworkFor = useRef("");
 
   useEffect(() => {
     const offline = () => setConnection("reconnecting");
     const online = () => setReconnectKey((key) => key + 1);
+    // A phone waking from sleep, or a tab coming back into view, reconnects at
+    // once instead of waiting for the heartbeat to notice a dead stream.
+    const wake = () => {
+      const state = {
+        hidden: document.hidden,
+        parked: parked.current,
+        lastBeat: lastBeat.current,
+        now: Date.now(),
+      };
+      if (!shouldRestart(state)) return;
+      parked.current = false;
+      lastBeat.current = Date.now();
+      setReconnectKey((key) => key + 1);
+    };
+    const yieldStream = (event) => {
+      if (parked.current || !shouldPark(event, document.hidden)) return;
+      parked.current = true;
+      setReconnectKey((key) => key + 1);
+    };
     window.addEventListener("offline", offline);
     window.addEventListener("online", online);
+    window.addEventListener("focus", wake);
+    window.addEventListener("pageshow", wake);
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("storage", yieldStream);
     return () => {
       window.removeEventListener("offline", offline);
       window.removeEventListener("online", online);
+      window.removeEventListener("focus", wake);
+      window.removeEventListener("pageshow", wake);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("storage", yieldStream);
     };
   }, []);
+
+  // Say more once a reconnect is taking long enough to worry about.
+  const live = connection === "live";
+  useEffect(() => {
+    setStalled(false);
+    if (live) return;
+    const timer = setTimeout(() => setStalled(true), 8000);
+    return () => clearTimeout(timer);
+  }, [live]);
 
   const accept = useCallback((next) => {
     if (gameRef.current?.id === next.id && gameRef.current.revision > next.revision) return;
@@ -33,6 +75,7 @@ export default function useMatch() {
     // Use the host's clock for gain lifetimes, even on a phone with clock skew.
     snapshot.clockOffset = (next.serverTime || Date.now()) - Date.now();
     if (artwork) {
+      artworkFor.current = next.id;
       setMedia(artwork);
       try {
         saveArtwork(next.id, artwork);
@@ -76,9 +119,14 @@ export default function useMatch() {
 
   useEffect(() => {
     if (!game?.id || !token) return;
+    if (parked.current) {
+      setConnection("reconnecting");
+      return;
+    }
     const controller = new AbortController();
     let retryTimer,
       stream,
+      failures = 0,
       refreshing = false,
       requested = 0;
     const refresh = async (revision, includeMedia = false) => {
@@ -103,9 +151,11 @@ export default function useMatch() {
     const connect = async () => {
       if (controller.signal.aborted) return;
       setConnection("connecting");
+      lastBeat.current = Date.now();
       let linked;
       try {
-        await refresh(0, true);
+        // Photos are fetched once; a reconnect only needs the small game state.
+        await refresh(0, artworkFor.current !== game.id);
         stream = new AbortController();
         linked = anySignal([controller.signal, stream.signal]);
         await watchMatch(
@@ -120,7 +170,12 @@ export default function useMatch() {
                 stream.abort();
               });
           },
-          () => setConnection("live"),
+          () => {
+            failures = 0;
+            setConnection("live");
+            announceTab(localStorage);
+          },
+          () => (lastBeat.current = Date.now()),
         );
       } catch (failure) {
         if (!controller.signal.aborted && [401, 404].includes(failure.status))
@@ -129,7 +184,8 @@ export default function useMatch() {
       linked?.release();
       if (!controller.signal.aborted) {
         setConnection("reconnecting");
-        retryTimer = setTimeout(connect, 2500);
+        // Retry a dropped stream quickly once, then at a steady pace.
+        retryTimer = setTimeout(connect, failures++ ? 2500 : 600);
       }
     };
     connect();
@@ -256,6 +312,7 @@ export default function useMatch() {
     loading,
     busy,
     connection,
+    stalled,
     error,
     saveError,
     soundEnabled,
