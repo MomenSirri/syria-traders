@@ -556,8 +556,9 @@
   position: fixed;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px 4px 14px;
+  gap: 14px;
+  padding: 6px 8px 6px 16px;
+  white-space: nowrap;
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--player-color, var(--gold)) 80%, #fff);
   background: var(--surface-2);
@@ -567,31 +568,36 @@
   box-shadow:
     0 0 24px color-mix(in srgb, var(--player-color, var(--gold)) 45%, transparent),
     var(--shadow-3);
-  transform: translate(-100%, -50%);
+  transform: translate(-50%, -50%);
   opacity: 0;
   animation: fx-burst 3200ms var(--ease) both;
 }
+.fx-burst-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 .fx-burst .res-chip {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
 }
 @keyframes fx-burst {
   0% {
     opacity: 0;
-    transform: translate(-100%, -50%) scale(0.4);
+    transform: translate(-50%, -50%) scale(0.4);
   }
   10% {
     opacity: 1;
-    transform: translate(-100%, -50%) scale(1.2);
+    transform: translate(-50%, -50%) scale(1.15);
   }
   18%,
   80% {
     opacity: 1;
-    transform: translate(-100%, -50%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-100%, -90%) scale(0.95);
+    transform: translate(-50%, -90%) scale(0.95);
   }
 }
 .fx-dice {

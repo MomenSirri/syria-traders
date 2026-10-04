@@ -112,16 +112,22 @@ export default function GameEffects({ game, table }) {
             }
           });
         if (table) {
-          const index = (perPlayer[delta.playerId] = (perPlayer[delta.playerId] ?? -1) + 1);
-          newBursts.push({
-            id: nextId++,
-            resource: delta.resource,
-            amount: delta.amount,
-            color: game.players.find((player) => player.id === delta.playerId)?.color,
-            x: end.box.right - 12,
-            y: end.box.top + 18 + index * 40,
-            delay: reducedMotion() ? 0 : FLIGHT_MS * 0.8 + delay,
-          });
+          // One burst per merchant, gathering every resource they gained, so
+          // a four-resource payout reads as a single tidy row, not a stack.
+          let burst = perPlayer[delta.playerId];
+          if (!burst) {
+            burst = perPlayer[delta.playerId] = {
+              id: nextId++,
+              items: [],
+              color: game.players.find((player) => player.id === delta.playerId)?.color,
+              x: end.box.left + end.box.width / 2,
+              y: end.box.top + end.box.height * 0.55,
+              delay: 0,
+            };
+            newBursts.push(burst);
+          }
+          burst.items.push({ resource: delta.resource, amount: delta.amount });
+          burst.delay = Math.max(burst.delay, reducedMotion() ? 0 : FLIGHT_MS * 0.8 + delay);
         }
       }
       if (newFlights.length) {
@@ -194,8 +200,12 @@ export default function GameEffects({ game, table }) {
             animationDelay: `${burst.delay}ms`,
           }}
         >
-          +{burst.amount}
-          <ResourceChip resource={burst.resource} size={24} />
+          {burst.items.map((item) => (
+            <span key={item.resource} className="fx-burst-item">
+              +{item.amount}
+              <ResourceChip resource={item.resource} size={22} />
+            </span>
+          ))}
         </span>
       ))}
       {dice && (
