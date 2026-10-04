@@ -525,6 +525,59 @@ async function checkSmartTv(base) {
   }
   console.log("PASS a seven lets the roller choose whom to rob, privately");
 
+  // A seven with two big hands: each player picks which cards to return, on their
+  // own phone, and the bandit waits for both.
+  const sevenBack = players.map((page) =>
+    page.waitForResponse(
+      (response) => response.url().endsWith("/events") && response.status() === 200,
+      { timeout: 20000 },
+    ),
+  );
+  await stopServer();
+  const sevenSave = JSON.parse(fs.readFileSync(robFile, "utf8"));
+  const owedBy = {};
+  for (const [id, extra] of [
+    [firstId, 9],
+    [secondId, 8],
+  ]) {
+    const seat = sevenSave.players.find((player) => player.id === id);
+    seat.resources.wood += extra;
+    sevenSave.bank.wood -= extra;
+    owedBy[id] = Math.floor(Object.values(seat.resources).reduce((a, b) => a + b, 0) / 2);
+  }
+  sevenSave.pendingDiscards = owedBy;
+  sevenSave.discardsSince = new Date().toISOString();
+  sevenSave.mustMoveRobber = true;
+  fs.writeFileSync(robFile, JSON.stringify(sevenSave));
+  await startServer();
+  await Promise.all(sevenBack);
+  await robber.locator(".discard-waiting li").nth(1).waitFor();
+  for (const id of [firstId, secondId]) {
+    const page = seatsById[id];
+    const panel = page.locator(".discard-panel");
+    await panel.waitFor();
+    const confirm = panel.getByRole("button", { name: /^Return \d+ of \d+ cards$/ });
+    for (let i = 0; i < owedBy[id] && (await confirm.isDisabled()); i++)
+      await panel
+        .getByRole("button", { name: /^Return one / })
+        .and(page.locator(":enabled"))
+        .first()
+        .click();
+    if (id === firstId) await page.screenshot({ path: path.join(output, "discard-picker.png") });
+    const before = (await snapshot(page)).players.find((player) => player.id === id).resources;
+    await confirm.click();
+    await page.waitForFunction(
+      (id) => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.pendingDiscards[id],
+      id,
+    );
+    const after = (await snapshot(page)).players.find((player) => player.id === id).resources;
+    const dropped = Object.keys(before).reduce((sum, r) => sum + before[r] - after[r], 0);
+    assert.equal(dropped, owedBy[id], "The player returns exactly the cards they chose");
+  }
+  await robber.locator(".discard-panel").waitFor({ state: "detached" });
+  await moveBandit(robber);
+  console.log("PASS on a seven, big hands choose their own cards to return");
+
   // TV table screen: hosts a room without a seat; players use phones.
   const tvPayloads = [];
   const tv = await pageFor(base);

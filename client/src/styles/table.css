@@ -1016,3 +1016,95 @@
   background: var(--danger-text);
   box-shadow: 0 0 8px var(--danger-text);
 }
+
+/* After a seven: a big hand picks which cards go back to the bank. */
+.discard-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-banner);
+  width: min(440px, 94%);
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  background: #121a26f5;
+  backdrop-filter: blur(8px);
+  border-color: #e2553f99;
+  box-shadow:
+    0 0 40px #e2553f33,
+    var(--shadow-4);
+  animation: robber-in var(--dur-slow) var(--ease);
+}
+.discard-panel > .eyebrow {
+  color: var(--danger-text);
+}
+.discard-panel p {
+  margin: 0;
+  color: var(--text-2);
+}
+.discard-panel p b {
+  color: var(--text);
+}
+.discard-cards {
+  display: grid;
+  gap: 6px;
+}
+.discard-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+}
+.discard-card > span:nth-child(2) {
+  flex: 1;
+}
+.discard-card small {
+  color: var(--text-muted);
+}
+.discard-card.picked {
+  border-color: #e2553f99;
+  background: #e2553f1f;
+}
+.discard-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.discard-stepper button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+.discard-stepper b {
+  min-width: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.discard-waiting {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--text-2);
+}
+.discard-waiting li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.discard-waiting b {
+  color: var(--text);
+}

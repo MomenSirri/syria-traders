@@ -117,7 +117,9 @@ export default function GameBoard({
         ? "Choose a glowing site for your village."
         : "Connect your village with one glowing road."
       : selectedAction === "robber"
-        ? "Choose a new region for the bandit."
+        ? hints.validRobberTiles?.length
+          ? "Choose a new region for the bandit."
+          : "The bandit moves once big hands have returned their cards."
         : selectedAction
           ? `Choose a highlighted place for your ${selectedAction}.`
           : "Follow the coast. Build a route. Reach 10 points.";

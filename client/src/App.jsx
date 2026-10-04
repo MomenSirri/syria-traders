@@ -15,6 +15,7 @@ import SeatHand from "./components/SeatHand";
 import TradePanel from "./components/TradePanel";
 import DevCardPanel from "./components/DevCardPanel";
 import RobberPicker from "./components/RobberPicker";
+import DiscardPanel from "./components/DiscardPanel";
 import GameEffects from "./components/GameEffects";
 import Icon from "./components/Icon";
 import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
@@ -177,6 +178,11 @@ export default function App() {
             onAction={action}
           />
           <DevCardPanel game={game} busy={!interactive} onAction={action} />
+          <DiscardPanel
+            game={game}
+            busy={busy || connection !== "live" || game.status !== "active"}
+            onAction={action}
+          />
           {robberTile !== null && interactive && game.mustMoveRobber && (
             <RobberPicker
               game={game}
@@ -284,8 +290,8 @@ export default function App() {
                   for that port's resource.
                 </li>
                 <li>
-                  A seven automatically returns half of any hand over seven to the bank, chosen
-                  randomly. Move the bandit to block any territory, then pick a player with a
+                  On a seven, anyone holding more than seven cards chooses half of them to return to
+                  the bank. Move the bandit to block any territory, then pick a player with a
                   village or city there and take one random card from them.
                 </li>
                 <li>

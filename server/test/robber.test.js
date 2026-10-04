@@ -113,3 +113,97 @@ test("only the thief and the victim learn which card was stolen", () => {
   assert.deepEqual(table.gainEvents, []);
   assert.ok(table.players.every((player) => player.resources === null));
 });
+
+// A seven with Yazan holding 9 cards and Lina 10: each must return half.
+function sevenWithBigHands() {
+  const game = finishSetup(service.createGame({ playerNames: ["Nour", "Yazan", "Lina"] }));
+  const saved = store.getGame(game.id);
+  const hands = [{ wood: 2 }, { wheat: 5, sheep: 4 }, { stone: 6, brick: 4 }];
+  saved.players.forEach((player, index) => {
+    for (const [resource, amount] of Object.entries(player.resources))
+      saved.bank[resource] += amount;
+    player.resources = { ...empty(), ...hands[index] };
+    for (const [resource, amount] of Object.entries(player.resources))
+      saved.bank[resource] -= amount;
+  });
+  saved.turnHasRolled = false;
+  saved.mustMoveRobber = false;
+  store.saveGame(saved);
+  const original = Math.random;
+  let state;
+  try {
+    // Each die is floor(random * 6) + 1: 0.4 and 0.5 roll 3 + 4.
+    let call = 0;
+    Math.random = () => (call++ === 0 ? 0.4 : 0.5);
+    state = service.rollDice(game.id, { playerId: saved.players[0].id });
+  } finally {
+    Math.random = original;
+  }
+  assert.equal(state.lastDiceRoll, 7);
+  return { state, ids: saved.players.map((player) => player.id) };
+}
+
+test("on a seven, big hands choose which half of their cards to return", () => {
+  const { state, ids } = sevenWithBigHands();
+  const [nour, yazan, lina] = ids;
+  assert.deepEqual(state.pendingDiscards, { [yazan]: 4, [lina]: 5 });
+  assert.deepEqual(state.hints.validRobberTiles, [], "The bandit waits for the discards");
+  assert.throws(
+    () => service.moveRobber(state.id, { playerId: nour, tileId: 0 }),
+    /Waiting for Yazan and Lina/,
+  );
+  assert.throws(() => service.discardCards(state.id, { playerId: nour, cards: {} }), /no cards/);
+  assert.throws(
+    () => service.discardCards(state.id, { playerId: yazan, cards: { wheat: 3 } }),
+    /exactly 4/,
+  );
+  assert.throws(
+    () => service.discardCards(state.id, { playerId: yazan, cards: { wheat: 6 } }),
+    /only have 5/,
+  );
+  assert.throws(
+    () => service.discardCards(state.id, { playerId: yazan, cards: { gold: 4 } }),
+    /from your hand/,
+  );
+  let after = service.discardCards(state.id, {
+    playerId: yazan,
+    cards: { wheat: 1, sheep: 3 },
+  });
+  assert.deepEqual(after.players[1].resources, { ...empty(), wheat: 4, sheep: 1 });
+  assert.deepEqual(after.pendingDiscards, { [lina]: 5 });
+  assert.equal(after.log.at(-1).message, "Yazan returned 4 cards to the bank.");
+  assert.throws(
+    () => service.discardCards(state.id, { playerId: yazan, cards: { wheat: 4 } }),
+    /no cards/,
+  );
+  after = service.discardCards(state.id, { playerId: lina, cards: { brick: 4, stone: 1 } });
+  assert.deepEqual(after.pendingDiscards, {});
+  assert.equal(after.discardsSince, null);
+  assert.ok(after.hints.validRobberTiles.length > 0, "Now the bandit can move");
+  assert.equal(after.bank.sheep, state.bank.sheep + 3, "Returned cards go to the bank");
+  assert.equal(after.bank.brick, state.bank.brick + 4);
+});
+
+test("a player who never chooses can be discarded for at random after a wait", () => {
+  const { state, ids } = sevenWithBigHands();
+  const [nour, yazan, lina] = ids;
+  assert.throws(
+    () => service.discardCards(state.id, { playerId: nour, forPlayerId: yazan }),
+    /a moment/,
+  );
+  assert.throws(
+    () => service.discardCards(state.id, { playerId: lina, forPlayerId: yazan }),
+    /turn/i,
+    "Only the roller may hurry someone",
+  );
+  const saved = store.getGame(state.id);
+  saved.discardsSince = new Date(Date.now() - 61000).toISOString();
+  store.saveGame(saved);
+  const after = service.discardCards(state.id, { playerId: nour, forPlayerId: yazan });
+  assert.equal(
+    Object.values(after.players[1].resources).reduce((a, b) => a + b, 0),
+    5,
+  );
+  assert.match(after.log.at(-1).message, /Yazan took too long/);
+  assert.deepEqual(after.pendingDiscards, { [lina]: 5 });
+});

@@ -3,6 +3,11 @@ import Icon from "./Icon";
 import ResourceChip from "./ResourceChip";
 
 const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
+const waitingFor = (game) =>
+  game.players
+    .filter((player) => game.pendingDiscards?.[player.id] > 0)
+    .map((player) => player.name)
+    .join(" and ");
 const BUILDINGS = { road: "Road", village: "Village", city: "City", development: "Card" };
 
 export default function ActionBar({
@@ -203,13 +208,15 @@ export default function ActionBar({
             ? "The match is complete."
             : !myTurn
               ? `Waiting for ${currentPlayer.name}`
-              : game.mustMoveRobber
-                ? "Move the bandit to a different territory."
-                : hints.freeRoads
-                  ? `Place ${hints.freeRoads} free ${hints.freeRoads === 1 ? "road" : "roads"}.`
-                  : !game.turnHasRolled
-                    ? "Roll to start your turn."
-                    : "Build, trade, or pass the dice."}
+              : waitingFor(game)
+                ? `Waiting for ${waitingFor(game)} to return cards.`
+                : game.mustMoveRobber
+                  ? "Move the bandit to a different territory."
+                  : hints.freeRoads
+                    ? `Place ${hints.freeRoads} free ${hints.freeRoads === 1 ? "road" : "roads"}.`
+                    : !game.turnHasRolled
+                      ? "Roll to start your turn."
+                      : "Build, trade, or pass the dice."}
         </span>
       </div>
     </section>

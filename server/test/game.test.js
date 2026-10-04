@@ -147,7 +147,7 @@ test("city produces two; blocked tiles and bank shortages don't unfairly pay the
   }
 });
 
-test("seven discards half of large hands, blocks end turn, then theft records a gain", () => {
+test("seven makes large hands return half, blocks end turn, then theft records a gain", () => {
   let game = store.getGame(finishSetup(newGame()).id);
   game.players[1].resources = { wheat: 10, wood: 0, stone: 0, brick: 0, sheep: 0 };
   store.saveGame(game);
@@ -160,6 +160,8 @@ test("seven discards half of large hands, blocks end turn, then theft records a 
     Math.random = original;
   }
   assert.equal(game.lastDiceRoll, 7);
+  assert.deepEqual(game.pendingDiscards, { [game.players[1].id]: 5 });
+  game = service.discardCards(game.id, { playerId: game.players[1].id, cards: { wheat: 5 } });
   assert.equal(game.players[1].resources.wheat, 5);
   assert.throws(() => service.endTurn(game.id, { playerId: game.players[0].id }), /bandit/);
   const tile = game.board.tiles.find(
