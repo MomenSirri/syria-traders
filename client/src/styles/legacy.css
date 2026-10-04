@@ -1,0 +1,15 @@
+/* Older smart-TV browsers have no aspect-ratio. TVs are 16:9, so the frame
+   simply fills the screen there. Current browsers skip this block. */
+@supports not (aspect-ratio: 1 / 1) {
+  .dashboard-16x9,
+  .setup-dashboard {
+    height: calc(100vh - 24px);
+  }
+}
+
+/* Browsers without flex gap (before Chrome 84): space the TV's status rows. */
+.no-flex-gap .table-bank > span,
+.no-flex-gap .table-cost-row > *,
+.no-flex-gap .turn-status > * {
+  margin-right: 10px;
+}

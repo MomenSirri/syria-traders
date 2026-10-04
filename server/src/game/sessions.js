@@ -3,6 +3,7 @@ const store = require("./gameStore");
 const service = require("./gameService");
 const { networkInterfaces } = require("node:os");
 const { boardSpec } = require("./boardGenerator");
+const ports = require("../utils/ports");
 
 function fail(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -73,6 +74,8 @@ function view(game, session, includeMedia = false) {
       .flat()
       .filter((entry) => entry.family === "IPv4" && !entry.internal)
       .map((entry) => entry.address);
+    // Phones are always invited to HTTPS; the TV address is shown to the host.
+    result.hostPorts = { secure: ports.secure, tv: ports.tv };
   }
   if (game.mode === "online") {
     // Opponent hands and private gain events never leave the server.

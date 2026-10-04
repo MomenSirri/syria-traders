@@ -8,9 +8,13 @@ import { boardSizeFor, boardSpec } from "../config/boards";
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
 // ?room=CODE opens the join form; adding &tv=1 opens it as a TV table screen.
+// /tv is the short address typed on a smart TV's own browser.
+// The host's plain-HTTP address only serves table screens, so it opens as one.
+const tvAddress = location.protocol === "http:";
 function linkedMode() {
   const params = new URLSearchParams(location.search);
-  return params.has("tv") ? "tv" : params.has("room") ? "join" : null;
+  if (tvAddress || params.has("tv") || location.pathname.replace(/\/+$/, "") === "/tv") return "tv";
+  return params.has("room") ? "join" : null;
 }
 const mapFor = (size) => {
   const spec = boardSpec(size);
@@ -208,16 +212,18 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 ["online", "Host room"],
                 ["join", "Join room"],
                 ["tv", "TV screen"],
-              ].map(([value, label]) => (
-                <button
-                  type="button"
-                  key={value}
-                  className={draft.mode === value ? "selected" : ""}
-                  onClick={() => update({ mode: value })}
-                >
-                  {label}
-                </button>
-              ))}
+              ]
+                .filter(([value]) => !tvAddress || value === "tv")
+                .map(([value, label]) => (
+                  <button
+                    type="button"
+                    key={value}
+                    className={draft.mode === value ? "selected" : ""}
+                    onClick={() => update({ mode: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
             </div>
             <p className="muted">
               {tv
@@ -322,7 +328,13 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
               </label>
             )}
             <div className="setup-submit">
-              <button type="submit" className="primary-btn" disabled={busy || uploading}>
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={busy || uploading}
+                // A TV remote's OK button should start straight away.
+                autoFocus={linkedMode() === "tv"}
+              >
                 {busy
                   ? "Opening your table..."
                   : uploading

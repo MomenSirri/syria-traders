@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { gameApi, watchMatch } from "../api/gameApi";
+import { anySignal, gameApi, watchMatch } from "../api/gameApi";
 import { readSave, saveMatch, saveArtwork, clearSave } from "../utils/storage";
 
 export default function useMatch() {
@@ -103,14 +103,15 @@ export default function useMatch() {
     const connect = async () => {
       if (controller.signal.aborted) return;
       setConnection("connecting");
+      let linked;
       try {
         await refresh(0, true);
         stream = new AbortController();
-        const signal = AbortSignal.any([controller.signal, stream.signal]);
+        linked = anySignal([controller.signal, stream.signal]);
         await watchMatch(
           game.id,
           token,
-          signal,
+          linked.signal,
           (revision) => {
             // Restart the stream after a failed refresh, even if no more moves arrive.
             if (revision > (gameRef.current?.revision || 0))
@@ -125,6 +126,7 @@ export default function useMatch() {
         if (!controller.signal.aborted && [401, 404].includes(failure.status))
           setError(failure.message);
       }
+      linked?.release();
       if (!controller.signal.aborted) {
         setConnection("reconnecting");
         retryTimer = setTimeout(connect, 2500);
