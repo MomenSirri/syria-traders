@@ -332,6 +332,138 @@ ${sheep(60, 264, 1.15)}${sheep(250, 262, 1.1, true)}${sheep(150, 296, 1)}${sheep
 ${camel(56, 150, 1.1, "#7a5432")}${camel(110, 156, 0.9, "#7a5432")}${camel(260, 214, 1.2, "#5e3f24")}
 <path d="M30 300q20-10 40 0M210 306q24-10 48 0" fill="none" stroke="#e8c088" stroke-width="3" stroke-linecap="round"/>`,
     ),
+  // ---- Regions of the 30-territory map for five and six players ----------
+  Qamishli: () =>
+    svg(
+      "#f4dd96",
+      `${sun(70, 60, 20, "#fff3c8")}
+${wheatRows(150, "#e9c65d", "#c79a2f")}
+<path d="M0 148h330v10H0z" fill="#d4ab45"/>
+<!-- Qamishli's railway station on the old Baghdad line -->
+<rect x="196" y="92" width="96" height="56" fill="#e7d9b6"/><path d="M190 94l54-26 54 26Z" fill="#b8693f"/>
+<g fill="#7b5a3a"><rect x="208" y="108" width="14" height="22" rx="7"/><rect x="236" y="108" width="14" height="22" rx="7"/><rect x="264" y="108" width="14" height="22" rx="7"/></g>
+<rect x="232" y="56" width="22" height="16" fill="#e7d9b6"/><circle cx="243" cy="64" r="5" fill="#fff8e6" stroke="#7b5a3a" stroke-width="2"/>
+<path d="M20 146h150" stroke="#6d5a46" stroke-width="3"/><path d="M20 140h150" stroke="#6d5a46" stroke-width="2" stroke-dasharray="4 6"/>
+${stalks(60, 306, "#9a7320")}${stalks(262, 304, "#9a7320")}`,
+    ),
+  "Al-Ghab Plain": () =>
+    svg(
+      "#ecd892",
+      `<path d="M0 96Q60 50 120 84T200 70 330 92V160H0Z" fill="#5e8a52"/>
+<path d="M0 120Q90 96 170 118T330 108V180H0Z" fill="#4a7440"/>
+<!-- The drained valley floor: dark rich soil between gold fields -->
+${wheatRows(176, "#e4c05a", "#5b4a33")}
+<path d="M-10 160Q120 150 330 164V174Q150 160 -10 172Z" fill="#4f93a0"/>
+${olive(44, 128, 0.9, "#6f8a3a")}${olive(282, 124, 0.95, "#6f8a3a")}
+${stalks(150, 306, "#9a7320")}${stalks(196, 300, "#9a7320")}`,
+    ),
+  "Kessab Forest": () =>
+    svg(
+      "#c6e0d6",
+      `<path d="M0 120L70 50 120 96 180 30 250 100 330 60V330H0Z" fill="#7a9488"/>
+<path d="M158 52l22-22 22 22-10 4-12-8-12 8Z" fill="#f4f7f2"/>
+${pine(30, 150, 1.3, "#1f5440")}${pine(74, 142, 1.1, "#2b6a4a")}${pine(244, 146, 1.2, "#1f5440")}${pine(290, 138, 1.35, "#2b6a4a")}
+<path d="M0 180Q80 160 160 176T330 168V330H0Z" fill="#3e8257"/>
+<!-- An Armenian church roof among the pines -->
+<rect x="128" y="226" width="64" height="42" fill="#efe5cf"/><path d="M122 228l38-24 38 24Z" fill="#b8693f"/><rect x="154" y="182" width="12" height="26" fill="#efe5cf"/><path d="M150 184l10-12 10 12Z" fill="#b8693f"/>
+${pine(40, 300, 1, "#245a42")}${pine(290, 304, 1.1, "#245a42")}${pine(92, 310, 0.8, "#1f5440")}`,
+    ),
+  "Slenfeh Woods": () =>
+    svg(
+      "#d5e4e4",
+      `<path d="M0 160Q80 140 160 152T330 146V330H0Z" fill="#e8eeee" opacity=".7"/>
+<path d="M0 90Q90 40 170 80T330 70V330H0Z" fill="#2f6b4f"/>
+${pine(36, 120, 1.25, "#1f5440")}${pine(80, 106, 1, "#2b6a4a")}${pine(242, 112, 1.1, "#1f5440")}${pine(288, 100, 1.3, "#2b6a4a")}
+<!-- Summer haze over the mountain resort -->
+<path d="M-10 150Q100 132 200 150T340 144V172Q220 168 120 176T-10 170Z" fill="#eef4f2" opacity=".85"/>
+<path d="M0 200Q80 186 160 198T330 192V330H0Z" fill="#3e8257"/>
+${roundTree(60, 270, 1.2, "#5f9c6b")}${roundTree(262, 266, 1.3, "#5f9c6b")}
+${pine(150, 312, 0.9, "#245a42")}${pine(200, 304, 1, "#1f5440")}`,
+    ),
+  Salamiyah: () =>
+    svg(
+      "#dbe9c4",
+      `${sun(250, 60, 22, "#fff6d4")}
+<path d="M0 150Q100 124 200 146T330 138V330H0Z" fill="#bcd57e"/>
+<!-- The Ismaili castle mound of Shmemis above the steppe edge -->
+<path d="M20 150q30-60 64-64t64 64Z" fill="#a39a7e"/>
+<g fill="#cdbf98"><rect x="54" y="80" width="64" height="26"/><rect x="50" y="74" width="10" height="10"/><rect x="70" y="74" width="10" height="10"/><rect x="90" y="74" width="10" height="10"/><rect x="110" y="74" width="10" height="10"/></g>
+<path d="M0 220Q120 200 330 222V330H0Z" fill="#8bab61"/>
+${sheep(62, 262, 1.1)}${sheep(250, 258, 1.15, true)}${sheep(160, 298, 1)}${sheep(290, 304, 0.8, true)}`,
+    ),
+  Jarabulus: () =>
+    svg(
+      "#d4e7c8",
+      `<path d="M0 120Q100 98 200 116T330 108V330H0Z" fill="#a9c873"/>
+<!-- The ancient tell of Carchemish above the upper Euphrates -->
+<path d="M180 124q40-62 80-64t76 64Z" fill="#b8a77e"/><path d="M206 92h70" stroke="#93845e" stroke-width="4"/>
+${roundTree(40, 120, 1, "#5f8f4a")}${roundTree(76, 116, 0.85, "#6fa058")}
+<path d="M-10 156Q120 140 180 160T340 150V190Q200 200 140 184T-10 192Z" fill="#4f93a0"/>
+${waves(172, "#9fd1d4", 4)}
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#8bab61"/>
+${sheep(60, 262, 1.1)}${sheep(236, 258, 1.15, true)}${sheep(150, 300, 1)}`,
+    ),
+  "Bosra Basalt": () =>
+    svg(
+      "#e2dcc8",
+      `${sun(64, 60, 20, "#fff6dc")}
+<path d="M0 150Q100 130 200 146T330 140V330H0Z" fill="#7c8a8f"/>
+<!-- The basalt citadel that wraps Bosra's theatre -->
+<g transform="translate(-30 0)"><g fill="#2e2e33"><rect x="186" y="76" width="112" height="72"/><rect x="176" y="62" width="30" height="86"/><rect x="278" y="62" width="30" height="86"/></g>
+<g fill="#55555c"><rect x="176" y="56" width="8" height="8"/><rect x="190" y="56" width="8" height="8"/><rect x="278" y="56" width="8" height="8"/><rect x="292" y="56" width="8" height="8"/></g>
+<rect x="228" y="110" width="28" height="38" rx="14" fill="#1b1b1f"/></g>
+<!-- Black and white basalt blocks in the field -->
+<g fill="#3a3a3f"><rect x="24" y="226" width="40" height="22"/><rect x="70" y="236" width="30" height="16"/><rect x="232" y="240" width="46" height="24"/></g>
+<g fill="#e7dfc9"><rect x="40" y="276" width="34" height="18"/><rect x="250" y="282" width="38" height="18"/></g>`,
+    ),
+  Maaloula: () =>
+    svg(
+      "#d8e2ea",
+      `<path d="M0 30L100 40 112 330H0Z" fill="#cbbf9f"/><path d="M330 30L220 44 208 330H330Z" fill="#cbbf9f"/>
+<path d="M100 40 112 330H140L124 60Z" fill="#a89a77"/><path d="M220 44 208 330H180L198 62Z" fill="#a89a77"/>
+<!-- Cream and pale blue houses stacked on the Qalamoun cliffs -->
+<g fill="#f2ecdc"><rect x="16" y="70" width="28" height="22"/><rect x="50" y="84" width="30" height="24"/><rect x="22" y="104" width="26" height="22"/><rect x="242" y="78" width="30" height="24"/><rect x="278" y="64" width="28" height="22"/><rect x="250" y="112" width="30" height="22"/></g>
+<g fill="#9fc3dc"><rect x="56" y="58" width="22" height="20"/><rect x="286" y="96" width="24" height="20"/><rect x="18" y="138" width="28" height="18"/></g>
+<g fill="#5f6f80"><rect x="24" y="78" width="6" height="8"/><rect x="60" y="92" width="6" height="8"/><rect x="250" y="86" width="6" height="8"/><rect x="286" y="72" width="6" height="8"/></g>
+<path d="M140 330V250q20-24 40 0v80Z" fill="#e7dfc9"/>
+<path d="M0 270h112M208 280h122" stroke="#8a7d5e" stroke-width="3"/>`,
+    ),
+  "Al-Mayadin": () =>
+    svg(
+      "#f2d6bb",
+      `${sun(70, 58, 20, "#fff1dc")}
+<path d="M0 130Q100 112 200 128T330 122V170H0Z" fill="#dd9572"/>
+<!-- The Rahba castle on its mound above the Euphrates mud banks -->
+<g transform="translate(-24 0)"><path d="M180 132q44-66 82-68t70 68Z" fill="#c98a5e"/>
+<g fill="#a85e38"><rect x="214" y="70" width="72" height="30"/><rect x="208" y="60" width="16" height="40"/><rect x="276" y="60" width="16" height="40"/></g></g>
+<path d="M-10 166Q120 152 200 170T340 160V196Q220 206 140 192T-10 200Z" fill="#4f93a0"/>
+${waves(180, "#9fd1d4", 4)}
+${bricks(24, 228, 120, 48, "#b8693f", "#f0cfb0")}
+<g fill="#b8693f"><rect x="214" y="240" width="22" height="12"/><rect x="240" y="240" width="22" height="12"/><rect x="266" y="240" width="22" height="12"/><rect x="227" y="226" width="22" height="12"/><rect x="253" y="226" width="22" height="12"/></g>`,
+    ),
+  Douma: () =>
+    svg(
+      "#f1d3b6",
+      `<path d="M0 140Q100 120 200 136T330 130V330H0Z" fill="#dd9572"/>
+<!-- Ghouta orchards and the domed brick kilns -->
+${roundTree(34, 132, 1.05, "#6f9a52")}${roundTree(72, 126, 0.9, "#7fab5f")}${roundTree(108, 134, 0.95, "#6f9a52")}
+<path d="M210 140v-34a34 34 0 0 1 68 0v34Z" fill="#b8693f"/><path d="M234 140v-18a10 10 0 0 1 20 0v18Z" fill="#5a2e1a"/>
+<rect x="274" y="70" width="12" height="44" fill="#9a5434"/><path d="M280 60q-10-14 4-26" fill="none" stroke="#c9b8a6" stroke-width="5" stroke-linecap="round"/>
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#c98258"/>
+${bricks(30, 238, 100, 40, "#a85e38", "#f0cfb0")}
+<g fill="#b8693f"><rect x="210" y="258" width="24" height="12"/><rect x="238" y="258" width="24" height="12"/><rect x="266" y="258" width="24" height="12"/><rect x="224" y="244" width="24" height="12"/><rect x="252" y="244" width="24" height="12"/><rect x="238" y="230" width="24" height="12"/></g>`,
+    ),
+  "Al-Hamad": () =>
+    svg(
+      "#f2d7a6",
+      `${sun(250, 64, 26, "#fff0c8")}
+<path d="M-10 150h340V330H-10Z" fill="#d7a96a"/>
+<!-- A flat stony plateau: mesas, scattered stones and a lone caravan -->
+<path d="M14 150l14-40h70l14 40Z" fill="#b97f45"/><path d="M28 110h70v8H28z" fill="#a46d38"/>
+<path d="M-10 214h340V330H-10Z" fill="#c8915a"/>
+<g fill="#8d6239"><ellipse cx="40" cy="236" rx="12" ry="5"/><ellipse cx="120" cy="252" rx="8" ry="4"/><ellipse cx="210" cy="240" rx="10" ry="4"/><ellipse cx="290" cy="262" rx="12" ry="5"/><ellipse cx="70" cy="290" rx="9" ry="4"/><ellipse cx="180" cy="300" rx="12" ry="5"/></g>
+${camel(240, 140, 0.9, "#6b4a2c")}${camel(286, 144, 0.75, "#6b4a2c")}`,
+    ),
 };
 
 for (const [name, draw] of Object.entries(scenes)) {

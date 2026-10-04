@@ -1162,6 +1162,10 @@ g[role="button"]:focus-visible {
 .arrangement-row + .arrangement-row {
   margin-top: calc(var(--hex-w) / -3.464 + 3px);
 }
+/* The 30-territory map has seven rows, six hexes across at its widest. */
+.arrangement-rows.large-map {
+  --hex-w: min(15.2cqw, calc(17.6cqh * 0.866));
+}
 .hex-clip,
 .arrangement-tile,
 .arrangement-tile img {

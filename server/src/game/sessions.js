@@ -1,8 +1,8 @@
 const { randomBytes, createHash } = require("node:crypto");
 const store = require("./gameStore");
 const service = require("./gameService");
-const config = require("../../../shared/gameConfig.json");
 const { networkInterfaces } = require("node:os");
+const { boardSpec } = require("./boardGenerator");
 
 function fail(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -27,7 +27,8 @@ function mediaFor(payload, players) {
   players.forEach((player, index) => {
     playerImages[player.id] = image(payload.playerProfiles?.[index]?.avatar);
   });
-  for (const region of config.regions) {
+  // The large map includes every classic region plus its own.
+  for (const region of boardSpec("large").regions) {
     const value = payload.hexTexturesByRegion?.[region.name];
     if (value) hexTexturesByRegion[region.name] = image(value);
   }

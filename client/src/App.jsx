@@ -84,7 +84,6 @@ export default function App() {
   if (!game)
     return (
       <GameSetup
-        maxPlayers={4}
         onCreateGame={match.create}
         onJoinGame={match.join}
         onWatchGame={match.watch}

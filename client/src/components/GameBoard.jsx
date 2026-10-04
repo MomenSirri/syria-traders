@@ -3,7 +3,9 @@ import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../confi
 import ResourceIcon from "./ResourceIcon";
 import config from "../../../shared/gameConfig.json";
 const PRESETS = presetMapById();
-const REGION_NAMES = new Set(config.regions.map((region) => region.name));
+const REGION_NAMES = new Set(
+  [...config.regions, ...(config.largeBoard?.extraRegions ?? [])].map((region) => region.name),
+);
 const SIZE = 90;
 const CORNERS = [-30, 30, 90, 150, 210, 270];
 const corners = (center) =>
@@ -126,7 +128,9 @@ export default function GameBoard({
     <section className="board-panel">
       <div className="board-caption">
         <span className="eyebrow">The caravan coast</span>
-        <span>19 territories / 9 harbors</span>
+        <span>
+          {tiles.length} territories / {seaTiles.filter((sea) => sea.harbor).length} harbors
+        </span>
       </div>
       <div className="board-stage">
         <svg

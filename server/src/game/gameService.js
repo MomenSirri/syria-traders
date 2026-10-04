@@ -3,7 +3,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const config = require("../../../shared/gameConfig.json");
 const store = require("./gameStore");
-const { generateBoard } = require("./boardGenerator");
+const { boardSpec, boardSizeFor, generateBoard } = require("./boardGenerator");
 const {
   clone,
   resourceTemplate,
@@ -46,18 +46,18 @@ function arraySignature(values) {
     .join("|");
 }
 
-function normalizeRegionOrder(regionOrder) {
+function normalizeRegionOrder(regionOrder, spec) {
   if (!regionOrder) {
     return null;
   }
   if (!Array.isArray(regionOrder)) {
     throw createError("regionOrder must be an array of region names.");
   }
-  if (regionOrder.length !== config.regions.length) {
-    throw createError(`regionOrder must include ${config.regions.length} regions.`);
+  if (regionOrder.length !== spec.regions.length) {
+    throw createError(`regionOrder must include ${spec.regions.length} regions.`);
   }
 
-  const knownNames = new Set(config.regions.map((region) => region.name));
+  const knownNames = new Set(spec.regions.map((region) => region.name));
   const usedNames = new Set();
 
   const normalized = regionOrder.map((name) => String(name || "").trim());
@@ -74,15 +74,15 @@ function normalizeRegionOrder(regionOrder) {
   return normalized;
 }
 
-function normalizeNumberOrder(numberOrder) {
+function normalizeNumberOrder(numberOrder, spec) {
   if (!numberOrder) {
     return null;
   }
   if (!Array.isArray(numberOrder)) {
     throw createError("numberOrder must be an array.");
   }
-  if (numberOrder.length !== config.numberTokens.length) {
-    throw createError(`numberOrder must include ${config.numberTokens.length} tokens.`);
+  if (numberOrder.length !== spec.numberTokens.length) {
+    throw createError(`numberOrder must include ${spec.numberTokens.length} tokens.`);
   }
 
   const normalized = numberOrder.map((token) => Number(token));
@@ -90,26 +90,26 @@ function normalizeNumberOrder(numberOrder) {
     throw createError("numberOrder contains invalid values.");
   }
 
-  if (arraySignature(normalized) !== arraySignature(config.numberTokens)) {
+  if (arraySignature(normalized) !== arraySignature(spec.numberTokens)) {
     throw createError("numberOrder must contain the same token values as the default set.");
   }
 
   return normalized;
 }
 
-function normalizeHarborOrder(harborOrder) {
+function normalizeHarborOrder(harborOrder, spec) {
   if (!harborOrder) {
     return null;
   }
   if (!Array.isArray(harborOrder)) {
     throw createError("harborOrder must be an array.");
   }
-  if (harborOrder.length !== config.harborTypes.length) {
-    throw createError(`harborOrder must include ${config.harborTypes.length} harbor labels.`);
+  if (harborOrder.length !== spec.harborTypes.length) {
+    throw createError(`harborOrder must include ${spec.harborTypes.length} harbor labels.`);
   }
 
   const normalized = harborOrder.map((value) => String(value || "").trim());
-  if (arraySignature(normalized) !== arraySignature(config.harborTypes)) {
+  if (arraySignature(normalized) !== arraySignature(spec.harborTypes)) {
     throw createError("harborOrder must contain the same harbor labels as the default set.");
   }
 
@@ -255,6 +255,7 @@ function initializeSetupFlow(game) {
 
 function initializeActiveMatch(game) {
   game.board = generateBoard({
+    boardSize: game.boardSize,
     regionOrder: game.regionOrder,
     numberOrder: game.numberOrder,
     harborOrder: game.harborOrder,
@@ -530,6 +531,7 @@ function buildHints(game) {
 }
 
 function serializeGame(game) {
+  const spec = boardSpec(game.boardSize);
   const setupSummary =
     game.phase === "setup-placement"
       ? {
@@ -570,10 +572,11 @@ function serializeGame(game) {
       resourceLabels: config.resourceLabels,
       bankTradeRate: config.bankTradeRate,
       buildingCosts: config.buildingCosts,
-      regions: config.regions,
-      boardLayout: config.boardLayout,
-      numberTokens: config.numberTokens,
-      harborTypes: config.harborTypes,
+      boardSize: spec.size,
+      regions: spec.regions,
+      boardLayout: spec.boardLayout,
+      numberTokens: spec.numberTokens,
+      harborTypes: spec.harborTypes,
     },
     players: game.players.map((player) => ({
       id: player.id,
@@ -598,7 +601,7 @@ function serializeGame(game) {
 
 function createGame({
   playerNames = [],
-  maxPlayers = config.maxPlayers,
+  maxPlayers = 4,
   regionOrder = null,
   numberOrder = null,
   harborOrder = null,
@@ -610,12 +613,14 @@ function createGame({
     boundedMaxPlayers < config.minPlayers ||
     boundedMaxPlayers > config.maxPlayers
   ) {
-    throw createError("Choose a maximum of 2, 3 or 4 players.");
+    throw createError(`Choose a maximum of ${config.minPlayers} to ${config.maxPlayers} players.`);
   }
   const names = normalizeNames(playerNames);
-  const normalizedOrder = normalizeRegionOrder(regionOrder);
-  const normalizedNumberOrder = normalizeNumberOrder(numberOrder);
-  const normalizedHarborOrder = normalizeHarborOrder(harborOrder);
+  // Five and six players need the larger map.
+  const spec = boardSpec(boardSizeFor(boundedMaxPlayers));
+  const normalizedOrder = normalizeRegionOrder(regionOrder, spec);
+  const normalizedNumberOrder = normalizeNumberOrder(numberOrder, spec);
+  const normalizedHarborOrder = normalizeHarborOrder(harborOrder, spec);
 
   // A network room hosted by a table screen starts with no seats.
   if (names.length < 1 && mode !== "online") {
@@ -630,6 +635,7 @@ function createGame({
     mode: mode === "online" ? "online" : "local",
     createdAt: new Date().toISOString(),
     maxPlayers: boundedMaxPlayers,
+    boardSize: spec.size,
     status: "lobby",
     phase: "lobby",
     players: names.map((name, index) => createPlayer(name, index)),

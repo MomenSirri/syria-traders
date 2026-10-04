@@ -3,6 +3,7 @@ import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
 import Icon from "./Icon";
 import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
+import { boardSizeFor, boardSpec } from "../config/boards";
 
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
@@ -11,20 +12,27 @@ function linkedMode() {
   const params = new URLSearchParams(location.search);
   return params.has("tv") ? "tv" : params.has("room") ? "join" : null;
 }
+const mapFor = (size) => {
+  const spec = boardSpec(size);
+  return {
+    regionOrder: shuffled(spec.regions.map((region) => region.name)),
+    numberOrder: [...spec.numberTokens],
+    harborOrder: [...spec.harborTypes],
+  };
+};
 const defaults = () => ({
   mode: linkedMode() || "local",
   names: ["Nour", "Yazan"],
   avatars: ["", ""],
-  regionOrder: shuffled(config.regions.map((region) => region.name)),
-  numberOrder: [...config.numberTokens],
-  harborOrder: [...config.harborTypes],
+  seats: 4,
+  ...mapFor("standard"),
   hexTexturesByRegion: {},
   balanced: true,
 });
 function initial() {
   try {
     const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
-    const draft = saved?.regionOrder?.length === 19 ? { ...defaults(), ...saved } : defaults();
+    const draft = saved?.regionOrder?.length ? { ...defaults(), ...saved } : defaults();
     if (linkedMode()) draft.mode = linkedMode();
     return draft;
   } catch {
@@ -39,10 +47,15 @@ function shuffled(list) {
   }
   return copy;
 }
-const rows = [-2, -1, 0, 1, 2].map((r) =>
-  config.boardLayout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
+const rowsOf = (layout) =>
+  [...new Set(layout.map((coord) => coord.r))]
+    .sort((a, b) => a - b)
+    .map((r) =>
+      layout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
+    );
+const regions = Object.fromEntries(
+  boardSpec("large").regions.map((region) => [region.name, region]),
 );
-const regions = Object.fromEntries(config.regions.map((region) => [region.name, region]));
 
 export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy, error }) {
   const [draft, setDraft] = useState(initial);
@@ -59,7 +72,23 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
   const tv = draft.mode === "tv";
   // A TV either opens a new room (and arranges its map) or shows an existing one.
   const viewing = draft.mode === "join" || (tv && room.trim() !== "");
-  const regionName = draft.regionOrder[selected];
+  // Seats decide the map: one device counts its players, a room uses its seat choice.
+  const seats = network ? draft.seats : draft.names.length;
+  const spec = boardSpec(boardSizeFor(seats));
+  const rows = rowsOf(spec.boardLayout);
+  const mapMatches =
+    draft.regionOrder.length === spec.regions.length &&
+    draft.regionOrder.every((name) => spec.regions.some((region) => region.name === name)) &&
+    draft.numberOrder.length === spec.numberTokens.length &&
+    draft.harborOrder.length === spec.harborTypes.length;
+  useEffect(() => {
+    if (!mapMatches) {
+      update({ ...mapFor(spec.size), balanced: true });
+      setSelected(0);
+      setSwapFrom(null);
+    }
+  }, [mapMatches, spec.size]);
+  const regionName = draft.regionOrder[selected] || draft.regionOrder[0];
   const region = regions[regionName];
   const texture = (name) =>
     draft.hexTexturesByRegion[name] ||
@@ -118,6 +147,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
           tableHost: true,
           playerNames: [],
           playerProfiles: [],
+          maxPlayers: seats,
           regionOrder: draft.regionOrder,
           numberOrder: draft.balanced ? null : draft.numberOrder,
           harborOrder: draft.harborOrder,
@@ -141,6 +171,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
       mode: draft.mode,
       playerNames: names,
       playerProfiles: names.map((_, i) => ({ avatar: draft.avatars[i] })),
+      maxPlayers: network ? seats : names.length > 4 ? 6 : 4,
       regionOrder: draft.regionOrder,
       numberOrder: draft.balanced ? null : draft.numberOrder,
       harborOrder: draft.harborOrder,
@@ -193,7 +224,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 ? "Show the whole table on a big screen. Players join and play on their own phones; their hands never appear here."
                 : network
                   ? "Each player joins from their own browser. Your resource hand stays private."
-                  : "Pass the screen between 2 to 4 players. Everyone's hand is visible."}
+                  : "Pass the screen between 2 to 6 players. Everyone's hand is visible."}
             </p>
             {!tv && (
               <div className="setup-player-list">
@@ -250,7 +281,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 ))}
               </div>
             )}
-            {!network && draft.names.length < 4 && (
+            {!network && draft.names.length < config.maxPlayers && (
               <button
                 type="button"
                 className="secondary-btn"
@@ -266,6 +297,18 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 ? "Leave the room code empty to open a new room on this screen, or enter one to show a room that already exists."
                 : "Click a portrait to upload a photo. Profiles and map art lock when you start."}
             </p>
+            {network && !viewing && (
+              <label className="room-field">
+                Seats
+                <select
+                  value={draft.seats > 4 ? 6 : 4}
+                  onChange={(event) => update({ seats: Number(event.target.value) })}
+                >
+                  <option value={4}>Up to 4 players (classic map)</option>
+                  <option value={6}>Up to 6 players (large map)</option>
+                </select>
+              </label>
+            )}
             {(draft.mode === "join" || tv) && (
               <label className="room-field">
                 {tv ? "Room code (optional)" : "Room code"}
@@ -314,8 +357,8 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 onClick={() =>
                   update({
                     regionOrder: shuffled(draft.regionOrder),
-                    numberOrder: shuffled(config.numberTokens),
-                    harborOrder: shuffled(config.harborTypes),
+                    numberOrder: shuffled(spec.numberTokens),
+                    harborOrder: shuffled(spec.harborTypes),
                     balanced: true,
                   })
                 }
@@ -331,8 +374,8 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                   ? "Choose another territory to exchange its position."
                   : "Drag territories to rearrange. Select one to change its artwork."}
             </p>
-            <div className="arrangement-rows">
-              {rows.map((row, i) => (
+            <div className={`arrangement-rows ${spec.size === "large" ? "large-map" : ""}`}>
+              {(mapMatches ? rows : []).map((row, i) => (
                 <div className="arrangement-row" key={i}>
                   {row.map(({ index }) => {
                     const name = draft.regionOrder[index];
@@ -379,7 +422,10 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 />{" "}
                 Balanced dice numbers
               </label>
-              <span>19 territories / 9 ports / 10 points to win</span>
+              <span>
+                {spec.regions.length} territories / {spec.harborTypes.length} ports /{" "}
+                {config.winPoints} points to win
+              </span>
             </div>
             <p className="muted">
               Balanced numbers keep high-production 6 and 8 tokens apart. The sea ring is added when

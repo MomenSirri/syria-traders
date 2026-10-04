@@ -68,7 +68,7 @@ async function settled(page, revision = 0) {
       game?.revision > previous &&
       Boolean(
         document.querySelector(".connection-dot.live") ||
-          document.querySelector(".lobby-footer")?.textContent.includes("live"),
+        document.querySelector(".lobby-footer")?.textContent.includes("live"),
       )
     );
   }, revision);
@@ -443,7 +443,10 @@ async function checkLayout(page, width, height, filename) {
     () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
   );
   if ((await snapshot(asker)).mustMoveRobber) {
-    await asker.getByRole("button", { name: /^Move bandit to/ }).first().click();
+    await asker
+      .getByRole("button", { name: /^Move bandit to/ })
+      .first()
+      .click();
     await asker.waitForFunction(
       () => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
     );
@@ -502,6 +505,40 @@ async function checkLayout(page, width, height, filename) {
   await watcher.getByRole("button", { name: "Close TV screen" }).click();
   await watcher.getByRole("button", { name: "TV screen", exact: true }).waitFor();
   console.log("PASS TV screen joins a phone-hosted match by link and closes cleanly");
+  // Five or six players use the 30-territory map and a compact merchants panel.
+  const six = await pageFor(base);
+  for (let i = 3; i <= 6; i++) {
+    await six.getByRole("button", { name: "+ Add player", exact: true }).click();
+    await six.getByLabel(`Player ${i} name`).fill(`Merchant ${i}`);
+  }
+  await six.getByText("30 territories / 11 ports").waitFor();
+  assert.equal(await six.locator(".arrangement-tile").count(), 30);
+  await six.screenshot({ path: path.join(output, "setup-six-players.png") });
+  await six.getByRole("button", { name: "Begin the journey" }).click();
+  await settled(six);
+  assert.equal(await six.locator(".tile-layer .tile-group").count(), 30);
+  assert.equal(await six.locator(".player-card").count(), 6);
+  for (let i = 0; i < 12; i++) await place(six);
+  assert.equal((await snapshot(six)).phase, "main");
+  for (const [width, height] of [
+    [1920, 1080],
+    [1280, 720],
+  ]) {
+    await six.setViewportSize({ width, height });
+    await six.screenshot({ path: path.join(output, `six-players-${width}.png`) });
+    const overflow = await six
+      .locator(".player-card")
+      .evaluateAll((cards) =>
+        cards.filter(
+          (card) =>
+            card.querySelector(".player-card-footer").getBoundingClientRect().bottom >
+            card.getBoundingClientRect().bottom - 3,
+        ),
+      );
+    assert.equal(overflow.length, 0, `Six player cards overflow at ${width}x${height}`);
+  }
+  console.log("PASS six players on the large map, setup to first turn, cards fit");
+
   assert.deepEqual(errors, [], "Browser runtime errors");
   fs.writeFileSync(
     path.join(output, "layout-measurements.json"),
