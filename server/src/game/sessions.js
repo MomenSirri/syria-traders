@@ -77,7 +77,7 @@ function view(game, session, includeMedia = false) {
   if (game.mode === "online") {
     // Opponent hands and private gain events never leave the server.
     result.players = result.players.map((player) =>
-      ownId && player.id === ownId ? player : { ...player, resources: null },
+      ownId && player.id === ownId ? player : { ...player, resources: null, devCards: null },
     );
     result.gainEvents = result.gainEvents
       .map((event) => ({

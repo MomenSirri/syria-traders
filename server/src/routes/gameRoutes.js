@@ -99,6 +99,8 @@ for (const [route, action] of Object.entries({
   "trade/cancel": "cancelTrade",
   "trade/accept": "acceptTradeOffer",
   "robber/move": "moveRobber",
+  "dev/buy": "buyDevelopmentCard",
+  "dev/play": "playDevelopmentCard",
   "end-turn": "endTurn",
 })) {
   router.post(

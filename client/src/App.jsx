@@ -13,6 +13,7 @@ import Lobby from "./components/Lobby";
 import TableStatus from "./components/TableStatus";
 import SeatHand from "./components/SeatHand";
 import TradePanel from "./components/TradePanel";
+import DevCardPanel from "./components/DevCardPanel";
 import GameEffects from "./components/GameEffects";
 import Icon from "./components/Icon";
 import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
@@ -39,6 +40,11 @@ export default function App() {
     setSelectedAction(game?.mustMoveRobber ? "robber" : null);
     setSelectedSetupVertex(null);
   }, [game?.id, game?.turn, game?.currentPlayerIndex, game?.phase, game?.mustMoveRobber]);
+  // Road Building hands out free roads: show the road sites straight away.
+  const freeRoads = myTurn ? game?.hints?.freeRoads || 0 : 0;
+  useEffect(() => {
+    if (freeRoads) setSelectedAction("road");
+  }, [freeRoads]);
   useEffect(() => {
     if (
       !game?.visuals ||
@@ -162,6 +168,7 @@ export default function App() {
             busy={busy || connection !== "live" || game.status !== "active"}
             onAction={action}
           />
+          <DevCardPanel game={game} busy={!interactive} onAction={action} />
           <GameBoard
             game={game}
             selectedAction={selectedAction}
@@ -212,6 +219,7 @@ export default function App() {
               onSelectAction={setSelectedAction}
               onRoll={roll}
               onEndTurn={() => action("end-turn")}
+              onBuyCard={() => action("dev/buy")}
               onTrade={(giveResource, getResource) =>
                 action("trade/bank", { giveResource, getResource })
               }
@@ -258,6 +266,13 @@ export default function App() {
                 <li>
                   A seven automatically returns half of any hand over seven to the bank, chosen
                   randomly. Move the bandit and steal a random card from an adjacent opponent.
+                </li>
+                <li>
+                  After rolling, buy a development card for 1 Wheat, 1 Sheep and 1 Stone. Play one
+                  card a turn, but not on the turn you bought it: a Knight moves the bandit (three
+                  knights earn the Largest Army, worth 2 points), Road Building gives two free
+                  roads, Year of Plenty takes two resources, Monopoly collects one resource from
+                  everyone. Victory Point cards stay hidden until they win.
                 </li>
                 <li>
                   Reach 10 points: villages are worth one, cities two. Each player has 15 roads, 5
