@@ -14,6 +14,7 @@ import TableStatus from "./components/TableStatus";
 import SeatHand from "./components/SeatHand";
 import TradePanel from "./components/TradePanel";
 import GameEffects from "./components/GameEffects";
+import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
 
 export default function App() {
   const match = useMatch();
@@ -28,6 +29,8 @@ export default function App() {
   const current = game?.players[game.currentPlayerIndex];
   // A TV table screen watches the match; it never holds a seat or takes turns.
   const table = game?.viewer?.role === "table";
+  const tvLayout = table || (!game && onTvAddress());
+  useEffect(() => fitTvViewport(tvLayout), [tvLayout]);
   const myTurn = !table && (game?.mode !== "online" || current?.id === game?.viewer.playerId);
   const interactive = myTurn && !busy && connection === "live" && game?.status === "active";
 

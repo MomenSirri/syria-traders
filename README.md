@@ -33,6 +33,7 @@ Everyone plays on their own phone while a TV shows the shared table.
 - That address is plain HTTP so TV browsers don't block the self-signed certificate. Only table screens can use it: the server refuses player seats and joins there, and the TV never receives hands. The QR code still sends phones to HTTPS.
 - The build includes a fallback bundle for older TV browsers. It was checked in Chromium 63 and 69 (roughly 2019-2020 Samsung and LG TVs), but not on a real TV.
 - Set `TV_PORT` to change port 8080, or `TV_PORT=off` to turn the address off.
+- Google TV and Android TV have no browser built in: install one from the Play Store, such as TV Bro. These browsers report a small screen (about 960x540), so table screens ask to be laid out 1920 wide and scaled to fit. If a browser ignores that and the TV shows the narrow layout, cast a Chrome tab from a laptop instead.
 
 The TV always shows what a road, village and city cost.
 

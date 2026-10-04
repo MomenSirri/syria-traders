@@ -572,6 +572,21 @@ async function checkLayout(page, width, height, filename) {
     return response.status;
   }, tvRoom);
   assert.equal(refused, 403, "Phones cannot join on the plain-HTTP address");
+  // Google TV browsers report about 960x540; the TV is still laid out 1920 wide.
+  const googleTv = await (
+    await browser.newContext({
+      viewport: { width: 960, height: 540 },
+      deviceScaleFactor: 2,
+      isMobile: true,
+    })
+  ).newPage();
+  googleTv.on("pageerror", (error) => errors.push(error.message));
+  await googleTv.goto(`http://127.0.0.1:${tvPort}/tv`);
+  await googleTv.getByLabel("Room code (optional)").fill(tvRoom);
+  await googleTv.getByRole("button", { name: "Show this room on the TV" }).click();
+  await googleTv.locator(".table-lobby").waitFor();
+  assert.equal(await googleTv.evaluate(() => innerWidth), 1920, "TV page is laid out 1920 wide");
+  await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
   console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
 
   assert.deepEqual(errors, [], "Browser runtime errors");
