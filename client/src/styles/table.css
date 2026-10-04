@@ -100,96 +100,79 @@
   }
   .table-view .table-status {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: none;
     align-content: start;
     gap: var(--sp-4);
-    padding: var(--sp-4);
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
   }
   .table-view .table-costs {
     grid-column: auto;
     grid-row: auto;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
-    align-content: start;
-  }
-  .table-view .table-cost-row {
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding: 6px var(--sp-3);
-  }
-  .table-view .table-cost-row b {
-    flex: 0 0 auto;
-    flex-basis: auto;
-    min-width: 4.2em;
-    font-size: clamp(16px, 1.9vh, 22px);
-  }
-  .table-view .table-cost-row em {
-    display: none;
-  }
-  .table-view .table-cost-row > span {
-    gap: 4px;
-    white-space: nowrap;
-  }
-  .table-view .table-bank {
-    gap: 5px;
-  }
-  .table-view .table-bank > span:not(.eyebrow) {
-    padding: 2px 8px 2px 3px;
   }
 }
+/* TV info panel: three quiet sections (turn, bank, costs) split by hairlines,
+   no boxed cards. Costs read like a price list: name left, card icons right. */
 .table-status {
   height: 100%;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
-  grid-template-rows: auto auto;
-  align-content: center;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr);
+  align-items: start;
   gap: var(--sp-3) var(--sp-6);
   padding: var(--sp-3) var(--sp-5);
 }
+.table-status .eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
 .table-status-main {
   position: relative;
-  padding-left: var(--sp-4);
+  padding-left: var(--sp-3);
   min-width: 0;
 }
 .table-status-main::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 2px;
-  bottom: 2px;
-  width: 4px;
-  border-radius: 4px;
+  top: 1px;
+  bottom: 1px;
+  width: 3px;
+  border-radius: 3px;
   background: var(--player-color, var(--gold));
-  box-shadow: 0 0 12px var(--player-color, var(--gold));
+  box-shadow: 0 0 10px var(--player-color, var(--gold));
 }
 .table-status-main .eyebrow {
-  color: var(--gold);
+  margin-bottom: 2px;
+  color: var(--gold-soft);
 }
 .table-status-main p {
-  margin-top: var(--sp-1);
-  font: clamp(18px, 2.2vh, 28px) / 1.2 var(--font-display);
+  font: clamp(16px, 1.9vh, 22px) / 1.25 var(--font-display);
   color: var(--text);
 }
-.table-bank {
+.table-bank,
+.table-costs {
+  min-width: 0;
+}
+.table-view .table-bank,
+.table-view .table-costs {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hairline);
+}
+.table-bank-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-lg);
+  justify-content: space-between;
+  gap: var(--sp-2);
 }
-.table-bank > .eyebrow {
-  flex-basis: 100%;
-}
-.table-bank > span:not(.eyebrow) {
+.table-bank-row > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 4px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-2);
-  border: 1px solid var(--border);
+  gap: 5px;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text);
 }
 .table-bank b {
   font-variant-numeric: tabular-nums;
@@ -204,52 +187,56 @@
     inset 0 -2px #00000026,
     inset 0 1px #ffffff4d;
 }
-.table-costs {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 6px var(--sp-3);
-  align-self: stretch;
-  min-height: 0;
+.table-bank-row .res-chip {
+  width: 22px;
+  height: 22px;
 }
-.table-costs > .eyebrow {
-  grid-column: 1 / -1;
+.table-costs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .table-cost-row {
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 4px 14px;
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, var(--surface-3), #1a2536);
-  box-shadow: var(--inset-top);
-  min-width: 0;
-  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 30px;
+  padding: 3px 0;
+}
+.table-cost-row + .table-cost-row {
+  border-top: 1px solid var(--hairline);
 }
 .table-cost-row b {
-  flex-basis: 100%;
   display: flex;
   align-items: baseline;
   gap: var(--sp-2);
-  font: clamp(17px, 2.1vh, 24px) var(--font-display);
+  min-width: 0;
+  white-space: nowrap;
+  font: clamp(15px, 1.8vh, 19px) var(--font-display);
   color: var(--text);
 }
 .table-cost-row em {
-  font: 600 var(--fs-xs) var(--font-ui);
+  font: 600 11px var(--font-ui);
   font-style: normal;
   color: var(--gold-soft);
 }
-.table-cost-row > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: clamp(13px, 1.6vh, 17px);
-  font-weight: 600;
-  color: var(--text-2);
+.cost-chips {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+.cost-chips .res-chip {
+  width: 20px;
+  height: 20px;
+}
+.table-view .cost-chips .res-chip,
+.table-view .table-bank-row .res-chip {
+  width: 24px;
+  height: 24px;
+}
+.table-view .table-cost-row {
+  min-height: 40px;
 }
 .table-winner {
   position: absolute;
@@ -569,8 +556,9 @@
   position: fixed;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px 4px 14px;
+  gap: 14px;
+  padding: 6px 8px 6px 16px;
+  white-space: nowrap;
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--player-color, var(--gold)) 80%, #fff);
   background: var(--surface-2);
@@ -580,31 +568,36 @@
   box-shadow:
     0 0 24px color-mix(in srgb, var(--player-color, var(--gold)) 45%, transparent),
     var(--shadow-3);
-  transform: translate(-100%, -50%);
+  transform: translate(-50%, -50%);
   opacity: 0;
   animation: fx-burst 3200ms var(--ease) both;
 }
+.fx-burst-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 .fx-burst .res-chip {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
 }
 @keyframes fx-burst {
   0% {
     opacity: 0;
-    transform: translate(-100%, -50%) scale(0.4);
+    transform: translate(-50%, -50%) scale(0.4);
   }
   10% {
     opacity: 1;
-    transform: translate(-100%, -50%) scale(1.2);
+    transform: translate(-50%, -50%) scale(1.15);
   }
   18%,
   80% {
     opacity: 1;
-    transform: translate(-100%, -50%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-100%, -90%) scale(0.95);
+    transform: translate(-50%, -90%) scale(0.95);
   }
 }
 .fx-dice {

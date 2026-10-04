@@ -8,8 +8,11 @@
 }
 
 /* Browsers without flex gap (before Chrome 84): space the TV's status rows. */
-.no-flex-gap .table-bank > span,
+.no-flex-gap .table-bank-row > span,
 .no-flex-gap .table-cost-row > *,
 .no-flex-gap .turn-status > * {
   margin-right: 10px;
+}
+.no-flex-gap .cost-chips > * {
+  margin-right: 3px;
 }
