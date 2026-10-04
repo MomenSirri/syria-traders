@@ -295,8 +295,13 @@
     /* The hand stays in view while scrolling the board on a phone. */
     position: sticky;
     top: var(--sp-2);
-    z-index: var(--z-overlay);
+    /* Above every board panel and banner, so nothing scrolls over the hand. */
+    z-index: var(--z-hand);
     box-shadow: var(--shadow-3), var(--inset-top);
+  }
+  /* The seat's own cards stay together: development cards follow the hand. */
+  .seat-view > .dev-panel {
+    order: 1;
   }
   .seat-view .dashboard-actions {
     order: 2;
@@ -501,6 +506,7 @@
   }
   .trade-panel {
     position: static;
+    z-index: auto;
     width: auto;
     backdrop-filter: none;
   }
@@ -907,6 +913,7 @@
   }
   .dev-panel {
     position: static;
+    z-index: auto;
     width: auto;
     max-height: none;
     backdrop-filter: none;
