@@ -92,13 +92,22 @@ for (const [route, action] of Object.entries({
   "build/village": "buildVillage",
   "build/city": "upgradeCity",
   "trade/bank": "tradeWithBank",
+  "trade/request": "requestTrade",
+  "trade/offer": "offerTrade",
+  "trade/withdraw": "withdrawTradeOffer",
+  "trade/decline": "declineTradeOffer",
+  "trade/cancel": "cancelTrade",
+  "trade/accept": "acceptTradeOffer",
   "robber/move": "moveRobber",
   "end-turn": "endTurn",
 })) {
   router.post(
     `/games/:gameId/${route}`,
     handle((req, res) => {
-      sessions.assertAction(req.game, req.session, req.body, req.get("x-game-revision"));
+      // Trade offers name the request or offer they answer, so several phones can
+      // respond at once without tripping over each other's revisions.
+      const named = route.startsWith("trade/") && route !== "trade/bank";
+      sessions.assertAction(req.game, req.session, req.body, req.get("x-game-revision"), !named);
       service[action](req.game.id, req.body);
       res.json({ game: sessions.view(store.getGame(req.game.id), req.session) });
     }),

@@ -51,12 +51,17 @@
 .table-view .log-list {
   font-size: 13px;
 }
+.table-view.dashboard-16x9 {
+  grid-template-rows: 64px minmax(0, 1fr) 172px;
+}
 .table-status {
+  height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) auto auto;
-  align-items: center;
-  gap: 24px;
-  padding: 14px 18px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 10px 22px;
+  padding: 12px 18px;
 }
 .table-status-main {
   border-left: 5px solid var(--player-color, var(--gold));
@@ -64,34 +69,64 @@
   min-width: 0;
 }
 .table-status-main p {
-  margin-top: 6px;
+  margin-top: 4px;
   font:
-    clamp(18px, 2.2vh, 26px) Georgia,
+    clamp(17px, 2.1vh, 26px) Georgia,
     serif;
 }
-.table-bank,
-.table-hands {
+.table-bank {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 14px;
+  gap: 4px 12px;
   font-size: 15px;
 }
-.table-bank > .eyebrow,
-.table-hands > .eyebrow {
+.table-bank > .eyebrow {
   flex-basis: 100%;
 }
-.table-bank span:not(.eyebrow),
-.table-hands span:not(.eyebrow) {
+.table-bank span:not(.eyebrow) {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
-.table-hands i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--player-color);
+.table-costs {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-self: stretch;
+}
+.table-costs > .eyebrow {
+  grid-column: 1 / -1;
+}
+.table-cost-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffaf0;
+  min-width: 0;
+}
+.table-cost-row b {
+  font:
+    clamp(16px, 2vh, 22px) Georgia,
+    serif;
+}
+.table-cost-row span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(13px, 1.6vh, 17px);
+  font-weight: 600;
+}
+.table-cost-row em {
+  margin-top: auto;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--muted);
 }
 .table-winner {
   position: absolute;
@@ -194,5 +229,9 @@
   }
   .table-status {
     grid-template-columns: 1fr;
+  }
+  .table-costs {
+    grid-column: 1;
+    grid-row: auto;
   }
 }

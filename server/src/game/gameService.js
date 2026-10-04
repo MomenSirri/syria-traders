@@ -261,6 +261,7 @@ function initializeActiveMatch(game) {
   game.turnHasRolled = false;
   game.lastDiceRoll = null;
   game.lastDicePair = null;
+  game.trade = null;
   game.mustMoveRobber = false;
   game.winnerId = null;
   setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
@@ -589,6 +590,8 @@ function serializeGame(game) {
     bank: game.bank,
     log: game.log.slice(-100),
     visuals: game.visuals,
+    // Open trade requests are public; older saves have none.
+    trade: game.status === "active" && game.phase === "main" ? game.trade || null : null,
     hints: buildHints(game),
   };
 }
@@ -952,6 +955,135 @@ function tradeWithBank(gameId, { playerId, giveResource, getResource }) {
   return serializeGame(game);
 }
 
+// Player-to-player trades: the active player asks for cards, others offer,
+// and the active player accepts one offer. Offers are public, like at a real table.
+const MAX_TRADE_CARDS = 4;
+function tradeAmount(resource, amount) {
+  if (!config.resources.includes(resource)) throw createError("Choose a resource to trade.");
+  const count = Number(amount);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_TRADE_CARDS)
+    throw createError(`Trade between 1 and ${MAX_TRADE_CARDS} cards.`);
+  return count;
+}
+const cards = (amount, resource) => `${amount} ${config.resourceLabels[resource]}`;
+function openTrade(game, requestId) {
+  if (!game.trade || (requestId !== undefined && game.trade.id !== requestId))
+    throw createError("That trade request has closed.", 409);
+  return game.trade;
+}
+
+function requestTrade(gameId, { playerId, resource, amount }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const count = tradeAmount(resource, amount);
+  const player = getPlayerOrThrow(game, playerId);
+  game.trade = { id: uuidv4(), playerId, want: { resource, amount: count }, offers: [] };
+  addLog(game, `${player.name} asks the table for ${cards(count, resource)}.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function offerTrade(gameId, { playerId, requestId, resource, amount }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  const trade = openTrade(game, requestId);
+  if (trade.playerId === playerId) throw createError("Wait for other players to make offers.");
+  const player = getPlayerOrThrow(game, playerId);
+  const count = tradeAmount(resource, amount);
+  if (resource === trade.want.resource)
+    throw createError("Ask for a different resource than the one you give.");
+  if ((player.resources[trade.want.resource] || 0) < trade.want.amount)
+    throw createError(`You need ${cards(trade.want.amount, trade.want.resource)} to offer.`);
+  trade.offers = trade.offers.filter((offer) => offer.playerId !== playerId);
+  trade.offers.push({ id: uuidv4(), playerId, ask: { resource, amount: count } });
+  addLog(
+    game,
+    `${player.name} offers ${cards(trade.want.amount, trade.want.resource)} for ${cards(count, resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function withdrawTradeOffer(gameId, { playerId, requestId }) {
+  const game = getGameOrThrow(gameId);
+  const trade = openTrade(game, requestId);
+  if (!trade.offers.some((offer) => offer.playerId === playerId))
+    throw createError("You have no offer on this request.");
+  trade.offers = trade.offers.filter((offer) => offer.playerId !== playerId);
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} withdrew their offer.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function declineTradeOffer(gameId, { playerId, offerId }) {
+  const game = getGameOrThrow(gameId);
+  assertPlayersTurn(game, playerId);
+  const trade = openTrade(game);
+  const offer = trade.offers.find((entry) => entry.id === offerId);
+  if (!offer) throw createError("That offer was withdrawn.", 409);
+  trade.offers = trade.offers.filter((entry) => entry.id !== offerId);
+  addLog(
+    game,
+    `${getPlayerOrThrow(game, playerId).name} declined ${getPlayerOrThrow(game, offer.playerId).name}'s offer.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function cancelTrade(gameId, { playerId }) {
+  const game = getGameOrThrow(gameId);
+  assertPlayersTurn(game, playerId);
+  openTrade(game);
+  game.trade = null;
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} closed the trade request.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function acceptTradeOffer(gameId, { playerId, offerId }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const trade = openTrade(game);
+  const offer = trade.offers.find((entry) => entry.id === offerId);
+  if (!offer) throw createError("That offer was withdrawn.", 409);
+  const player = getPlayerOrThrow(game, playerId);
+  const partner = getPlayerOrThrow(game, offer.playerId);
+  const { want } = trade;
+  const { ask } = offer;
+  if ((player.resources[ask.resource] || 0) < ask.amount)
+    throw createError(`You need ${cards(ask.amount, ask.resource)} to accept this offer.`);
+  if ((partner.resources[want.resource] || 0) < want.amount)
+    throw createError(`${partner.name} no longer has ${cards(want.amount, want.resource)}.`);
+  player.resources[ask.resource] -= ask.amount;
+  partner.resources[ask.resource] += ask.amount;
+  partner.resources[want.resource] -= want.amount;
+  player.resources[want.resource] += want.amount;
+  game.trade = null;
+  setVisualFeedback(game, {
+    producingTileIds: [],
+    resourceDeltas: [
+      { playerId: player.id, resource: want.resource, amount: want.amount },
+      { playerId: partner.id, resource: ask.resource, amount: ask.amount },
+    ],
+  });
+  addLog(
+    game,
+    `${player.name} traded ${cards(ask.amount, ask.resource)} to ${partner.name} for ${cards(want.amount, want.resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
 function moveRobber(gameId, { playerId, tileId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
@@ -1036,6 +1168,12 @@ module.exports = {
   buildVillage,
   upgradeCity,
   tradeWithBank,
+  requestTrade,
+  offerTrade,
+  withdrawTradeOffer,
+  declineTradeOffer,
+  cancelTrade,
+  acceptTradeOffer,
   moveRobber,
   endTurn,
   getSampleMatchData,

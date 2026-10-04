@@ -164,10 +164,10 @@ function assertRevision(game, revision) {
     fail("The match changed. Your screen has been refreshed; please try again.", 409);
 }
 
-function assertAction(game, session, body, revision) {
+function assertAction(game, session, body, revision, checkRevision = true) {
   if (isTable(session)) fail("The table screen only shows the match. Play from a phone.", 403);
   if (!body || typeof body !== "object" || Array.isArray(body)) fail("An action is required.");
-  assertRevision(game, revision);
+  if (checkRevision) assertRevision(game, revision);
   if (game.mode === "online" && body.playerId !== session.playerId)
     fail("You can only act for your own player.", 403);
   for (const key of ["edgeId", "vertexId", "tileId"]) {
