@@ -1144,81 +1144,102 @@ g[role="button"]:focus-visible {
   white-space: nowrap;
   background: #0b1f19b3;
 }
+/* The setup map is laid out as real pointy-top hexes, sized to fit the card. */
 .arrangement-rows {
+  --hex-w: min(17.5cqw, calc(24.4cqh * 0.866));
+  container-type: size;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
   min-height: 0;
 }
 .arrangement-row {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  min-height: 0;
+  gap: 4px;
+  filter: drop-shadow(0 6px 8px #0000004d);
+}
+.arrangement-row + .arrangement-row {
+  margin-top: calc(var(--hex-w) / -3.464 + 3px);
+}
+.hex-clip,
+.arrangement-tile,
+.arrangement-tile img {
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
 }
 .arrangement-tile {
-  width: 18%;
-  border: 1px solid #ffffff2e;
-  border-radius: var(--radius-sm);
+  width: var(--hex-w);
+  aspect-ratio: 0.866;
+  flex: 0 0 auto;
   position: relative;
-  overflow: hidden;
   padding: 0;
-  aspect-ratio: 1.45;
-  background: #e9dfc8;
-  box-shadow: var(--shadow-2);
+  border: 0;
+  border-radius: 0;
+  background: #f6ebcf;
   cursor: grab;
   transition:
     transform var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease),
-    outline-color var(--dur-fast) var(--ease);
+    background var(--dur-fast) var(--ease);
 }
 .arrangement-tile:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-3);
+  transform: translateY(-3px) scale(1.03);
 }
 .arrangement-tile:active:not(:disabled) {
   cursor: grabbing;
 }
+.arrangement-tile:focus-visible {
+  outline: none;
+  background: var(--gold-strong);
+}
 .arrangement-tile img {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
   object-fit: cover;
   display: block;
 }
-.arrangement-tile span {
+.arrangement-tile span,
+.arrangement-tile small {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 14px;
-  font: 12px var(--font-display);
-  color: #1f2b2e;
-  background: #fdf7eaf0;
-  padding: 2px 2px 0;
+  left: 14%;
+  right: 14%;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-radius: 4px;
+}
+.arrangement-tile span {
+  top: 50%;
+  transform: translateY(-50%);
+  font: clamp(10px, 1.1cqw, 15px) / 1.25 var(--font-display);
+  color: #1f2b2e;
+  background: #fdf7eaeb;
+  padding: 2px 3px;
 }
 .arrangement-tile small {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  background: #fdf7eaf0;
-  color: #5d6a52;
-  font-size: 9px;
+  top: calc(50% + clamp(12px, 1.4cqw, 17px));
+  left: 26%;
+  right: 26%;
+  background: #1d2430cc;
+  color: #fdf7ea;
+  font-size: clamp(8px, 0.8cqw, 10px);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  height: 14px;
-  line-height: 14px;
+  line-height: 1.6;
 }
 .arrangement-tile.selected {
-  border-color: var(--gold) !important;
-  background: #e9dfc8 !important;
-  outline: 3px solid var(--gold);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 6px #e2b45033, var(--shadow-3) !important;
+  border: 0 !important;
+  background: var(--gold-strong) !important;
+  box-shadow: none !important;
+  transform: scale(1.06);
+}
+.arrangement-tile.selected img {
+  inset: 5px;
+  width: calc(100% - 10px);
+  height: calc(100% - 10px);
 }
 .map-settings {
   display: flex;
@@ -1652,15 +1673,6 @@ g[role="button"]:focus-visible {
   .muted {
     font-size: var(--fs-md);
   }
-  .arrangement-tile span {
-    font-size: 15px;
-    bottom: 18px;
-  }
-  .arrangement-tile small {
-    font-size: 10px;
-    height: 18px;
-    line-height: 18px;
-  }
   .mode-tabs button,
   .setup-player-card input,
   .texture-studio button {
@@ -1761,9 +1773,6 @@ g[role="button"]:focus-visible {
   }
   .setup-submit .primary-btn {
     min-height: 44px;
-  }
-  .arrangement-tile span {
-    font-size: 11px;
   }
   .build-cost-inline {
     gap: var(--sp-3);

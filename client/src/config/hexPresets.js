@@ -8,3 +8,6 @@ export const HEX_PRESET_ASSETS = [
 ];
 export const DEFAULT_ASSET_BY_RESOURCE = Object.fromEntries(HEX_PRESET_ASSETS.map((asset) => [asset.resource, asset.id]));
 export function presetMapById() { return Object.fromEntries(HEX_PRESET_ASSETS.map((asset) => [asset.id, asset])); }
+// Each named territory has its own scene; uploads and unknown names fall back to the resource art.
+export const regionArtUrl = (region) =>
+  `/terrain/regions/${region.toLowerCase().replace(/[^a-z]+/g, "-")}.svg`;

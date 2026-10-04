@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
 import Icon from "./Icon";
-import { DEFAULT_ASSET_BY_RESOURCE, presetMapById } from "../config/hexPresets";
+import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
 
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
@@ -63,7 +63,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
   const region = regions[regionName];
   const texture = (name) =>
     draft.hexTexturesByRegion[name] ||
-    PRESETS[DEFAULT_ASSET_BY_RESOURCE[regions[name].resource]]?.url;
+    (regions[name] ? regionArtUrl(name) : PRESETS[DEFAULT_ASSET_BY_RESOURCE.wheat]?.url);
 
   useEffect(() => {
     try {
@@ -343,6 +343,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                         draggable={!viewing}
                         disabled={viewing}
                         aria-label={`Customize ${name}`}
+                        title={name}
                         className={`arrangement-tile ${selected === index ? "selected" : ""}`}
                         onClick={() =>
                           swapFrom !== null ? swap(swapFrom, index) : setSelected(index)

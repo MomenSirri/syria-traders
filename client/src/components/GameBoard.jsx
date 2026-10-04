@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_ASSET_BY_RESOURCE, presetMapById } from "../config/hexPresets";
+import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
 import ResourceIcon from "./ResourceIcon";
+import config from "../../../shared/gameConfig.json";
 const PRESETS = presetMapById();
+const REGION_NAMES = new Set(config.regions.map((region) => region.name));
 const SIZE = 90;
 const CORNERS = [-30, 30, 90, 150, 210, 270];
 const corners = (center) =>
@@ -194,7 +196,9 @@ export default function GameBoard({
                 target = validTiles.has(tile.id);
               const texture =
                 hexTexturesByRegion[tile.region] ||
-                PRESETS[DEFAULT_ASSET_BY_RESOURCE[tile.resource]]?.url;
+                (REGION_NAMES.has(tile.region)
+                  ? regionArtUrl(tile.region)
+                  : PRESETS[DEFAULT_ASSET_BY_RESOURCE[tile.resource]]?.url);
               return (
                 <g
                   key={tile.id}
