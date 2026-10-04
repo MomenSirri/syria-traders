@@ -3,18 +3,27 @@
   "version": "1.0.0",
   "private": true,
   "description": "Syria Traders - a Syrian-themed, Catan-inspired strategy game.",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix client install",
+    "install:ci": "npm ci && npm --prefix server ci && npm --prefix client ci",
     "generate:cert": "node server/src/scripts/generateCert.js",
     "dev": "npm run generate:cert && concurrently \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
     "start": "npm --prefix server run start",
+    "start:preview": "npm run build && node scripts/start-preview.cjs",
     "test": "node --test server/test/*.test.js client/test/*.test.mjs",
-    "test:browser": "node scripts/browser-smoke.cjs"
+    "test:browser": "node scripts/browser-smoke.cjs",
+    "browsers:install": "playwright install chromium"
   },
   "dependencies": {
     "concurrently": "^9.2.1"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
   }
 }

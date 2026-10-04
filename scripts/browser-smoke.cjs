@@ -5,11 +5,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const net = require("node:net");
+const http = require("node:http");
 const https = require("node:https");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, "test-results");
 fs.mkdirSync(output, { recursive: true });
 const dataDirectory = fs.mkdtempSync(path.join(output, "browser-matches-"));
+// HTTPS=0 runs the same checks against the plain-HTTP cloud preview mode.
+const useHttps = !["0", "false", "off"].includes(String(process.env.HTTPS).toLowerCase());
+const scheme = useHttps ? "https" : "http";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const errors = [];
 const measurements = [];
@@ -24,11 +28,15 @@ async function availablePort() {
 }
 function health() {
   return new Promise((resolve) =>
-    https
-      .get(`https://localhost:${port}/api/health`, { rejectUnauthorized: false }, (response) => {
-        response.resume();
-        resolve(response.statusCode === 200);
-      })
+    (useHttps ? https : http)
+      .get(
+        `${scheme}://localhost:${port}/api/health`,
+        { rejectUnauthorized: false },
+        (response) => {
+          response.resume();
+          resolve(response.statusCode === 200);
+        },
+      )
       .on("error", () => resolve(false)),
   );
 }
@@ -36,7 +44,13 @@ async function startServer() {
   server = spawn(process.execPath, ["server/src/index.js"], {
     cwd: root,
     windowsHide: true,
-    env: { ...process.env, PORT: String(port), GAME_DATA_DIR: dataDirectory },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      LISTEN_HOST: "0.0.0.0",
+      HTTPS: useHttps ? "1" : "0",
+      GAME_DATA_DIR: dataDirectory,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   server.stdout.on("data", (chunk) =>
@@ -165,7 +179,7 @@ async function checkLayout(page, width, height, filename) {
     headless: true,
     ...(installed ? { executablePath: installed } : {}),
   });
-  const base = `https://localhost:${port}`;
+  const base = `${scheme}://localhost:${port}`;
   const local = await pageFor(base);
   await local.getByRole("button", { name: "+ Add player", exact: true }).click();
   await local.getByLabel("Player 3 name").fill("Hala");

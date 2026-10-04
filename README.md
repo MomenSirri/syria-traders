@@ -4,7 +4,7 @@ An original Syrian-inspired resource, trading, and settlement game. React, plain
 
 ## Start Playing (Windows)
 
-Install **Node.js 22 or newer**, then double-click **run-game.bat**. It installs missing dependencies, builds the latest UI, starts HTTPS, and opens **https://localhost:8443**. Keep its window open while playing; Ctrl+C stops the host.
+Install **Node.js 24 or newer**, then double-click **run-game.bat**. It installs missing dependencies, builds the latest UI, starts HTTPS, and opens **https://localhost:8443**. Keep its window open while playing; Ctrl+C stops the host.
 
 The certificate is self-signed. A warning is expected on your own host and your friends' devices. Verify the address belongs to your host PC before proceeding. No certificate trust or firewall settings are changed automatically. Stop any previous game/dev server first if port 8443 is busy.
 
@@ -41,7 +41,17 @@ npm run build
 npm start
 ```
 
-Server options: `PORT` (default 8443), `GAME_DATA_DIR` (default `server/data`), optional comma-separated `ALLOWED_ORIGINS` for a separately hosted frontend. Same-origin is the default. `VITE_API_BASE_URL` is an optional client build-time override. Do not expose this development server directly to the public internet.
+Server options: `PORT` (default 8443), `LISTEN_HOST` (default `0.0.0.0`, all interfaces for LAN play), `HTTPS` (default on; `HTTPS=0` serves plain HTTP), `GAME_DATA_DIR` (default `server/data`), optional comma-separated `ALLOWED_ORIGINS` for a separately hosted frontend. Same-origin is the default. `VITE_API_BASE_URL` is an optional client build-time override. Do not expose this development server directly to the public internet.
+
+### Cloud Preview
+
+For a cloud workspace whose preview proxy already provides HTTPS:
+
+```sh
+npm run start:preview
+```
+
+It builds, then serves plain HTTP on `0.0.0.0:8080`. `PORT`, `LISTEN_HOST` and `HTTPS` override those defaults. For Vite hot reload behind a preview proxy, set `HTTPS=0`, `DEV_PORT` and `DEV_ALLOWED_HOSTS` (comma-separated preview domains) before `npm run dev`. Local play, `npm start` and `run-game.bat` are unchanged and still use HTTPS on 8443.
 
 ## Rules and Feedback
 
@@ -158,11 +168,14 @@ npm run build
 
 Node tests cover topology, placement for 2/3/4 players, production, shortages, robber/discards, road blocking, ports, limits, victory, disk reload, authorization, stale actions, SSE, popup timing, and save helpers.
 
-For browser tests, install Playwright without changing package metadata: `npm install --no-save --package-lock=false playwright`. Installed Chrome/Edge is used automatically on Windows; otherwise run `npx playwright install chromium`. Then:
+Playwright is a pinned dev dependency. Installed Chrome/Edge is used automatically on Windows; otherwise install its matching Chromium once with `npm run browsers:install`. Then:
 
 ```sh
 npm run build
 npm run test:browser
+HTTPS=0 npm run test:browser   # same checks in cloud preview (HTTP) mode
 ```
+
+GitHub Actions runs the Node tests, build and both browser runs on Node 24 for every pull request.
 
 Optional `CHROME_PATH` selects a browser executable; `PLAYWRIGHT_MODULE` selects an existing Playwright installation. Tests launch an isolated HTTPS host with separate data in `test-results`, drive four independent browser contexts, verify layouts and refresh/restart recovery, and save screenshots. They do not use your real saved matches.
