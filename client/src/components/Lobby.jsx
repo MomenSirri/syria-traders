@@ -9,7 +9,12 @@ export default function Lobby({ game, media, busy, connection, error, onStart, o
   const addresses = game.hostAddresses || [];
   const preferred = addresses.find((ip) => ip.startsWith("192.168.")) || addresses[0];
   const hostname = address || (local && preferred ? preferred : location.hostname);
-  const link = `${location.protocol}//${hostname}${location.port ? `:${location.port}` : ""}/?room=${game.roomCode}`;
+  // Phones always join over HTTPS, even when this screen is on the TV's HTTP address.
+  const ports = game.hostPorts || {};
+  const securePort =
+    location.protocol === "https:" ? location.port : String(ports.secure || location.port);
+  const link = `https://${hostname}${securePort ? `:${securePort}` : ""}/?room=${game.roomCode}`;
+  const tvLink = ports.tv ? `http://${hostname}:${ports.tv}/tv` : null;
   async function copy() {
     try {
       await navigator.clipboard.writeText(link);
@@ -64,8 +69,18 @@ export default function Lobby({ game, media, busy, connection, error, onStart, o
         </div>
         {!table && (
           <p className="muted tv-hint">
-            Playing around a TV? Open this site on it, choose <b>TV screen</b> and enter room code{" "}
-            {game.roomCode}. It shows the board and scores, never anyone&apos;s hand.
+            Playing around a TV?{" "}
+            {tvLink ? (
+              <>
+                In the TV&apos;s own browser, open <b>{tvLink}</b>
+              </>
+            ) : (
+              <>
+                Open this site on it, choose <b>TV screen</b>
+              </>
+            )}{" "}
+            and enter room code {game.roomCode}. It shows the board and scores, never anyone&apos;s
+            hand.
           </p>
         )}
         <div className="lobby-players">

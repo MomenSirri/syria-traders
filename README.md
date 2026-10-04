@@ -28,6 +28,12 @@ Everyone plays on their own phone while a TV shows the shared table.
 2. Players scan the QR code (or open the link) on the same Wi-Fi, enter their names and join. Phones show your own hand first, then the actions and board.
 3. Press **Start the match** on the TV. The first phone to join can start it too.
 
+**Without a PC on the TV:** open the TV's own browser at the **Smart TV browser** address the host window prints, for example `http://192.168.1.20:8080/tv`. It opens straight to the TV screen with **Open a room on this TV** selected, so the remote's OK button starts a room. To show a room a phone already hosts, enter its room code there instead. Hosts also see this address in their lobby.
+
+- That address is plain HTTP so TV browsers don't block the self-signed certificate. Only table screens can use it: the server refuses player seats and joins there, and the TV never receives hands. The QR code still sends phones to HTTPS.
+- The build includes a fallback bundle for older TV browsers. It was checked in Chromium 63 and 69 (roughly 2019-2020 Samsung and LG TVs), but not on a real TV.
+- Set `TV_PORT` to change port 8080, or `TV_PORT=off` to turn the address off.
+
 The TV always shows what a road, village and city cost.
 
 **Animations:** when anyone rolls, every screen tumbles its dice and the TV shows a big dice roll. Paid-out cards fly from the producing tiles to each player's card on the TV with a short "+2" badge (trades fly between the two players), new roads and buildings pop onto the board, the bandit drops onto its new region, and each new event is announced briefly over the board. Amounts are never kept on the TV: the server sends them to the TV for 8 seconds only, and the log now says who was paid, not how much. Each phone still shows its own gains. Reduced-motion settings turn the movement off.
@@ -61,7 +67,7 @@ npm run build
 npm start
 ```
 
-Server options: `PORT` (default 8443), `GAME_DATA_DIR` (default `server/data`), optional comma-separated `ALLOWED_ORIGINS` for a separately hosted frontend. Same-origin is the default. `VITE_API_BASE_URL` is an optional client build-time override. Do not expose this development server directly to the public internet.
+Server options: `PORT` (default 8443), `TV_PORT` (plain-HTTP smart-TV address, default 8080, `off` to disable), `GAME_DATA_DIR` (default `server/data`), optional comma-separated `ALLOWED_ORIGINS` for a separately hosted frontend. Same-origin is the default. `VITE_API_BASE_URL` is an optional client build-time override. Do not expose this development server directly to the public internet.
 
 ## Rules and Feedback
 
