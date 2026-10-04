@@ -30,7 +30,8 @@ if not exist "server\node_modules" (
   if errorlevel 1 goto :fail
 )
 
-if not exist "client\node_modules" (
+rem Reinstall when a newer client dependency (the TV QR code) is missing.
+if not exist "client\node_modules\qrcode-generator" (
   echo Installing client dependencies...
   call npm --prefix client install
   if errorlevel 1 goto :fail
