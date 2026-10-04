@@ -414,6 +414,64 @@ async function checkLayout(page, width, height, filename) {
   );
   assert.equal(overflow, false, "Phone seat scrolls horizontally");
   await phones[0].screenshot({ path: path.join(output, "phone-seat.png"), fullPage: true });
+  assert.equal(await tv.locator(".table-cost-row").count(), 3, "TV shows building costs");
+
+  // Player-to-player trade: the active phone asks, the other offers, the TV watches.
+  const seatOf = async (id) =>
+    (
+      await Promise.all(
+        phones.map(async (page) => ({ page, id: (await snapshot(page)).viewer.playerId })),
+      )
+    ).find((entry) => entry.id === id).page;
+  const turnState = await snapshot(tv);
+  const asker = await seatOf(turnState.players[turnState.currentPlayerIndex].id);
+  const offerer = phones.find((page) => page !== asker);
+  await asker.getByRole("button", { name: "Roll dice", exact: true }).click();
+  await asker.waitForFunction(
+    () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
+  );
+  if ((await snapshot(asker)).mustMoveRobber) {
+    await asker.getByRole("button", { name: /^Move bandit to/ }).first().click();
+    await asker.waitForFunction(
+      () => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
+    );
+  }
+  const own = async (page) => {
+    const state = await snapshot(page);
+    return state.players.find((player) => player.id === state.viewer.playerId).resources;
+  };
+  const [askerHand, offererHand] = [await own(asker), await own(offerer)];
+  const wanted = Object.keys(offererHand).find((resource) => offererHand[resource] > 0);
+  const price = Object.keys(askerHand).find(
+    (resource) => resource !== wanted && askerHand[resource] > 0,
+  );
+  if (wanted && price) {
+    await asker.getByLabel("Wanted resource").selectOption(wanted);
+    await asker.getByRole("button", { name: "Ask players" }).click();
+    await offerer.locator(".trade-panel").getByRole("button", { name: "Offer" }).waitFor();
+    await offerer.getByLabel("Asked resource").selectOption(price);
+    await offerer.locator(".trade-panel").getByRole("button", { name: "Offer" }).click();
+    await tv.locator(".trade-offers li").waitFor();
+    await tv.screenshot({ path: path.join(output, "tv-trade.png") });
+    await asker.screenshot({ path: path.join(output, "phone-trade.png"), fullPage: true });
+    assert.equal(await tv.locator(".trade-panel button").count(), 0, "TV trade view is read-only");
+    await asker.getByRole("button", { name: "Accept" }).click();
+    await asker.waitForFunction(
+      () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.trade === null,
+    );
+    const [askerAfter, offererAfter] = [await own(asker), await own(offerer)];
+    assert.equal(askerAfter[wanted], askerHand[wanted] + 1);
+    assert.equal(askerAfter[price], askerHand[price] - 1);
+    await offerer.waitForFunction(
+      () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.trade === null,
+    );
+    assert.equal((await own(offerer))[wanted], offererHand[wanted] - 1);
+    const tvAfter = await snapshot(tv);
+    assert.ok(tvAfter.players.every((player) => player.resources === null));
+    const label = require("../shared/gameConfig.json").resourceLabels[wanted];
+    assert.ok(tvAfter.log.at(-1).message.endsWith(`for 1 ${label}.`), tvAfter.log.at(-1).message);
+    console.log("PASS players trade from their phones and the TV shows it without hands");
+  } else console.log("SKIP player trade: dealt hands had no tradeable pair this run");
   await tv.reload();
   await tv.locator(".table-status").waitFor();
   assert.equal((await snapshot(tv)).viewer.role, "table");

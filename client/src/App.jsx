@@ -12,6 +12,7 @@ import DiceDisplay from "./components/DiceDisplay";
 import Lobby from "./components/Lobby";
 import TableStatus from "./components/TableStatus";
 import SeatHand from "./components/SeatHand";
+import TradePanel from "./components/TradePanel";
 
 export default function App() {
   const match = useMatch();
@@ -136,6 +137,11 @@ export default function App() {
           <Sidebar game={game} playerImages={media.playerImages} resourcePopups={resourcePopups} />
         </aside>
         <section className="dashboard-board">
+          <TradePanel
+            game={game}
+            busy={busy || connection !== "live" || game.status !== "active"}
+            onAction={action}
+          />
           <GameBoard
             game={game}
             selectedAction={selectedAction}

@@ -28,6 +28,10 @@ Everyone plays on their own phone while a TV shows the shared table.
 2. Players scan the QR code (or open the link) on the same Wi-Fi, enter their names and join. Phones show your own hand first, then the actions and board.
 3. Press **Start the match** on the TV. The first phone to join can start it too.
 
+The TV always shows what a road, village and city cost.
+
+**Trading between players (network rooms):** after rolling, the active player chooses a resource and amount and presses **Ask players**. Other phones that hold those cards can offer them for something in return (1-4 cards of one resource). The active player accepts one offer or declines them; the server swaps the cards only if both hands still have them. Requests and offers are public, like at a real table, and the TV shows them read-only. An open request closes at the end of the turn.
+
 To show a room a phone already hosts, choose **TV screen** and enter its room code, or open `/?room=CODE&tv=1`. This works mid-match.
 
 The TV is a read-only seat-less viewer. The server never sends it hands, gain details or move hints; it shows the board, dice, turn, scores, piece counts, card counts per hand, the bank and the log (the same public information every player already sees). Moves sent with a TV token are rejected. **Close TV screen** revokes its token without touching any seat. Anyone with the room code on your network can open a TV view, so it shows nothing private.
@@ -64,7 +68,7 @@ Server options: `PORT` (default 8443), `GAME_DATA_DIR` (default `server/data`), 
 - Bank trades cost four identical cards. Occupy a port endpoint for 3:1 on any resource or 2:1 on its specific resource. Piers show the exact port sites.
 - On seven, hands over seven cards automatically discard half (rounded down), randomly selected. Move the bandit, then steal a random card from an eligible adjacent opponent. Automatic discard is a deliberate simplified rule.
 - If the bank cannot fulfill all claims for a resource on a roll, nobody receives that resource. Other resources still pay normally.
-- First to 10 points wins. Villages are worth 1; cities 2. No development cards, longest-road bonuses, AI players, or player-to-player trades yet.
+- First to 10 points wins. Villages are worth 1; cities 2. No development cards, longest-road bonuses or AI players yet. Player-to-player trades work in network rooms.
 
 Gain badges stay beside resource counts for **30 seconds**, fade over 700 ms, then clear. Simultaneous resources use separate rows. Repeated gains aggregate while each event retains its expiry. Dice production also briefly lights up producing tiles. Uploaded art locks after setup.
 
@@ -99,7 +103,8 @@ client/
     components/
       GameSetup.jsx         Names, avatars, map arrangement, custom art
       Lobby.jsx             Invitations, seats, host-controlled start, TV QR code
-      TableStatus.jsx       TV screen turn summary, bank and hand counts
+      TableStatus.jsx       TV screen turn summary, bank and building costs
+      TradePanel.jsx        Player-to-player trade requests and offers
       SeatHand.jsx          Phone strip with your own hand
       QrCode.jsx            Invite link as an SVG QR code
       GameBoard.jsx         SVG map, ports, placement targets
@@ -135,6 +140,7 @@ server/
       gameStore.js          Atomic disk saves and revision events
   test/game.test.js
   test/table.test.js        TV screen never receives private data
+  test/trade.test.js        Player trades swap only the agreed cards
   data/                     Generated saves (ignored)
 shared/gameConfig.json      Regions, resources, colors, costs, tokens
 scripts/
@@ -161,6 +167,7 @@ The following routes require `Authorization: Bearer <token>`. Mutations also req
 - `POST /api/games/:id/build/village`
 - `POST /api/games/:id/build/city`
 - `POST /api/games/:id/trade/bank`
+- `POST /api/games/:id/trade/request`, `trade/offer`, `trade/withdraw`, `trade/accept`, `trade/decline`, `trade/cancel` (player trades; these name the request or offer instead of needing the latest revision)
 - `POST /api/games/:id/robber/move`
 - `POST /api/games/:id/end-turn`
 

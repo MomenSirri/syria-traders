@@ -2,7 +2,7 @@ import ResourceIcon from "./ResourceIcon";
 
 const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
 const BUILDINGS = { road: "Road", village: "Village", city: "City" };
-const POINTS = { road: "Connects", village: "1 point", city: "2 points, replaces a village" };
+const POINTS = { road: "", village: "1 point", city: "2 points, on a village" };
 
 // The TV's action area: what the table is waiting for, plus public counts.
 export default function TableStatus({ game, currentPlayer }) {
@@ -38,14 +38,15 @@ export default function TableStatus({ game, currentPlayer }) {
         <span className="eyebrow">What it costs</span>
         {Object.entries(game.settings.buildingCosts).map(([building, cost]) => (
           <div key={building} className="table-cost-row">
-            <b>{BUILDINGS[building] || building}</b>
+            <b>
+              {BUILDINGS[building] || building} <em>{POINTS[building]}</em>
+            </b>
             {Object.entries(cost).map(([resource, amount]) => (
               <span key={resource}>
                 <ResourceIcon resource={resource} size={22} />
                 {amount} {LABELS[resource]}
               </span>
             ))}
-            <em>{POINTS[building]}</em>
           </div>
         ))}
       </div>

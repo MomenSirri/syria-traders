@@ -1144,6 +1144,7 @@ function endTurn(gameId, { playerId }) {
   game.turnHasRolled = false;
   game.lastDiceRoll = null;
   game.lastDicePair = null;
+  game.trade = null;
 
   const nextPlayer = getCurrentPlayer(game);
   addLog(game, `Turn ${game.turn}: ${nextPlayer.name}'s turn starts.`);
