@@ -1,8 +1,13 @@
 import ResourceChip from "./ResourceChip";
 
 const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
-const BUILDINGS = { road: "Road", village: "Village", city: "City" };
-const POINTS = { road: "", village: "1 point", city: "2 points, on a village" };
+const BUILDINGS = { road: "Road", village: "Village", city: "City", development: "Card" };
+const POINTS = {
+  road: "",
+  village: "1 point",
+  city: "2 points, on a village",
+  development: "a random development card",
+};
 
 // The TV's action area: what the table is waiting for, plus public counts.
 export default function TableStatus({ game, currentPlayer }) {
@@ -35,7 +40,10 @@ export default function TableStatus({ game, currentPlayer }) {
         ))}
       </div>
       <div className="table-costs" aria-label="Building costs">
-        <span className="eyebrow">What it costs</span>
+        <span className="eyebrow">
+          What it costs
+          {game.devDeckCount !== undefined && <small> · {game.devDeckCount} cards left</small>}
+        </span>
         {Object.entries(game.settings.buildingCosts).map(([building, cost]) => (
           <div key={building} className="table-cost-row">
             <b>

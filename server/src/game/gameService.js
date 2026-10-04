@@ -11,6 +11,7 @@ const {
   spendResources,
   getResourceTotal,
   randomItem,
+  shuffle,
 } = require("./helpers");
 const {
   canPlaceInitialVillage,
@@ -129,11 +130,13 @@ function createPlayer(name, index) {
   };
 }
 
-// Short-lived animation cues. kind: roll, seven, setup or trade. Each delta names
-// where its cards came from: tileIds for production, fromPlayerId for trades.
+// Short-lived animation cues. kind: roll, seven, setup, trade, devbuy or devplay.
+// Each delta names where its cards came from: tileIds for production,
+// fromPlayerId for trades. Development-card cues name the player and, once a card
+// is played (and so public), its type; a bought card's type is never included.
 function setVisualFeedback(
   game,
-  { producingTileIds = [], resourceDeltas = [], kind = "none" } = {},
+  { producingTileIds = [], resourceDeltas = [], kind = "none", playerId, card } = {},
 ) {
   game.visuals = {
     flashId: uuidv4(),
@@ -141,8 +144,29 @@ function setVisualFeedback(
     kind,
     producingTileIds,
     resourceDeltas,
+    ...(playerId ? { playerId } : {}),
+    ...(card ? { card } : {}),
   };
 }
+
+// Development cards. The deck lives only on the server; players see their own
+// cards, and everyone else sees how many each player holds.
+const DEV_TYPES = Object.keys(config.developmentCards);
+const devLabel = (type) => config.developmentCardLabels[type] || type;
+function newDevDeck() {
+  return shuffle(DEV_TYPES.flatMap((type) => Array(config.developmentCards[type]).fill(type)));
+}
+// Saves from before development cards get a full deck and empty hands on first use.
+function devState(game) {
+  if (!Array.isArray(game.devDeck)) game.devDeck = newDevDeck();
+  for (const player of game.players) {
+    if (!Array.isArray(player.devCards)) player.devCards = [];
+    player.knightsPlayed ||= 0;
+  }
+  return game;
+}
+const hiddenPoints = (player) =>
+  (player.devCards || []).filter((card) => card.type === "victoryPoint").length;
 
 function addLog(game, message, type = "info") {
   game.log.push({
@@ -271,6 +295,14 @@ function initializeActiveMatch(game) {
   game.trade = null;
   game.mustMoveRobber = false;
   game.winnerId = null;
+  game.devDeck = newDevDeck();
+  game.largestArmyId = null;
+  game.freeRoads = null;
+  game.devCardPlayedTurn = null;
+  for (const player of game.players) {
+    player.devCards = [];
+    player.knightsPlayed = 0;
+  }
   setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
 
   initializeSetupFlow(game);
@@ -288,8 +320,20 @@ function initializeActiveMatch(game) {
   );
 }
 
+// Victory Point cards stay hidden until they win the game.
 function checkWinner(game, player) {
-  if (player.score >= config.winPoints) {
+  const hidden = hiddenPoints(player);
+  if (player.score + hidden >= config.winPoints) {
+    if (hidden) {
+      player.score += hidden;
+      player.devCards = player.devCards.filter((card) => card.type !== "victoryPoint");
+      player.revealedVictoryPoints = hidden;
+      addLog(
+        game,
+        `${player.name} reveals ${hidden} Victory Point card${hidden === 1 ? "" : "s"}.`,
+        "win",
+      );
+    }
     game.status = "finished";
     game.winnerId = player.id;
     addLog(game, `${player.name} reaches ${player.score} points and wins the match!`, "win");
@@ -505,6 +549,23 @@ function buildHints(game) {
 
   const currentPlayer = getCurrentPlayer(game);
   const actionPhase = game.turnHasRolled && !game.mustMoveRobber;
+  // Road Building lets the player place free roads, even before rolling.
+  const freeRoads =
+    game.freeRoads?.playerId === currentPlayer.id && !game.mustMoveRobber
+      ? game.freeRoads.count
+      : 0;
+  const cards = currentPlayer.devCards || [];
+  const canPlayCard =
+    game.status === "active" && !game.mustMoveRobber && game.devCardPlayedTurn !== game.turn;
+  const playable = canPlayCard
+    ? [
+        ...new Set(
+          cards
+            .filter((card) => card.type !== "victoryPoint" && card.boughtTurn !== game.turn)
+            .map((card) => card.type),
+        ),
+      ]
+    : [];
   const canAffordRoad = hasEnoughResources(currentPlayer.resources, config.buildingCosts.road);
   const canAffordVillage = hasEnoughResources(
     currentPlayer.resources,
@@ -518,7 +579,16 @@ function buildHints(game) {
     canEndTurn: actionPhase,
     tradeRates: getTradeRates(game, currentPlayer),
     mustMoveRobber: game.mustMoveRobber,
-    validRoadEdges: actionPhase && canAffordRoad ? getValidRoadIds(game, currentPlayer) : [],
+    validRoadEdges:
+      freeRoads || (actionPhase && canAffordRoad) ? getValidRoadIds(game, currentPlayer) : [],
+    freeRoads,
+    devCards: {
+      canBuy:
+        actionPhase &&
+        (game.devDeck?.length ?? 1) > 0 &&
+        hasEnoughResources(currentPlayer.resources, config.buildingCosts.development),
+      playable,
+    },
     validVillageVertices:
       actionPhase && canAffordVillage ? getValidVillageIds(game, currentPlayer) : [],
     validCityVertices: actionPhase && canAffordCity ? getValidCityIds(game, currentPlayer) : [],
@@ -572,6 +642,9 @@ function serializeGame(game) {
       resourceLabels: config.resourceLabels,
       bankTradeRate: config.bankTradeRate,
       buildingCosts: config.buildingCosts,
+      developmentCards: config.developmentCards,
+      developmentCardLabels: config.developmentCardLabels,
+      largestArmy: config.largestArmy,
       boardSize: spec.size,
       regions: spec.regions,
       boardLayout: spec.boardLayout,
@@ -588,7 +661,18 @@ function serializeGame(game) {
       cities: player.cities,
       score: player.score,
       resourceTotal: getResourceTotal(player.resources),
+      // Hidden from other players by sessions.view; only the count is public.
+      devCards: player.devCards || [],
+      devCardCount: (player.devCards || []).length,
+      knightsPlayed: player.knightsPlayed || 0,
+      ...(player.revealedVictoryPoints
+        ? { revealedVictoryPoints: player.revealedVictoryPoints }
+        : {}),
     })),
+    devDeckCount: Array.isArray(game.devDeck)
+      ? game.devDeck.length
+      : Object.values(config.developmentCards).reduce((sum, count) => sum + count, 0),
+    largestArmyId: game.largestArmyId || null,
     board: game.board,
     bank: game.bank,
     log: game.log.slice(-100),
@@ -792,6 +876,9 @@ function rollDice(gameId, { playerId }) {
   if (game.turnHasRolled) {
     throw createError("Dice already rolled this turn.");
   }
+  if (game.mustMoveRobber) {
+    throw createError("Move the bandit before rolling.");
+  }
 
   const d1 = Math.floor(Math.random() * 6) + 1;
   const d2 = Math.floor(Math.random() * 6) + 1;
@@ -839,23 +926,29 @@ function buildRoad(gameId, { playerId, edgeId }) {
   assertActiveGame(game);
   assertMainPhase(game);
   assertPlayersTurn(game, playerId);
-  assertActionPhase(game);
+  const free = game.freeRoads?.playerId === playerId && game.freeRoads.count > 0;
+  if (free && game.mustMoveRobber) throw createError("Move the bandit first.");
+  if (!free) assertActionPhase(game);
 
   const player = getPlayerOrThrow(game, playerId);
   const cost = config.buildingCosts.road;
 
-  if (!hasEnoughResources(player.resources, cost)) {
+  if (!free && !hasEnoughResources(player.resources, cost)) {
     throw createError("Not enough resources to build a road.");
   }
   if (!canPlaceRoad(game, player, Number(edgeId))) {
     throw createError("Illegal road placement.");
   }
 
-  spendResources(player.resources, game.bank, cost);
+  if (free) {
+    game.freeRoads.count -= 1;
+    if (!game.freeRoads.count) game.freeRoads = null;
+  } else spendResources(player.resources, game.bank, cost);
   game.board.edges[Number(edgeId)].ownerId = player.id;
   player.roads.push(Number(edgeId));
+  if (game.freeRoads && !getValidRoadIds(game, player).length) game.freeRoads = null;
 
-  addLog(game, `${player.name} built a road.`);
+  addLog(game, `${player.name} built a ${free ? "free " : ""}road.`);
   store.saveGame(game);
   return serializeGame(game);
 }
@@ -1103,8 +1196,8 @@ function moveRobber(gameId, { playerId, tileId }) {
   assertMainPhase(game);
   assertPlayersTurn(game, playerId);
 
-  if (!game.turnHasRolled || !game.mustMoveRobber) {
-    throw createError("The bandit can only move after rolling a 7.");
+  if (!game.mustMoveRobber) {
+    throw createError("The bandit can only move after a 7 or a Knight.");
   }
 
   const nextTileId = Number(tileId);
@@ -1136,6 +1229,137 @@ function moveRobber(gameId, { playerId, tileId }) {
   return serializeGame(game);
 }
 
+function buyDevelopmentCard(gameId, { playerId }) {
+  const game = devState(getGameOrThrow(gameId));
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+
+  const player = getPlayerOrThrow(game, playerId);
+  const cost = config.buildingCosts.development;
+  if (!game.devDeck.length) throw createError("No development cards are left.");
+  if (!hasEnoughResources(player.resources, cost)) {
+    throw createError("A development card costs 1 Wheat, 1 Sheep and 1 Stone.");
+  }
+
+  spendResources(player.resources, game.bank, cost);
+  const type = game.devDeck.pop();
+  player.devCards.push({ id: uuidv4(), type, boughtTurn: game.turn });
+  addLog(game, `${player.name} bought a development card.`);
+  setVisualFeedback(game, { kind: "devbuy", playerId: player.id });
+  checkWinner(game, player);
+
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+// Largest Army: the first to play 3 Knights, then whoever plays more than the holder.
+function updateLargestArmy(game, player) {
+  if (player.knightsPlayed < config.largestArmy.minKnights) return;
+  const holder = game.players.find((entry) => entry.id === game.largestArmyId);
+  if (holder === player || (holder && holder.knightsPlayed >= player.knightsPlayed)) return;
+  if (holder) holder.score -= config.largestArmy.points;
+  player.score += config.largestArmy.points;
+  game.largestArmyId = player.id;
+  addLog(
+    game,
+    `${player.name} now has the Largest Army (+${config.largestArmy.points} points)${
+      holder ? `, taking it from ${holder.name}` : ""
+    }.`,
+    "win",
+  );
+}
+
+function playDevelopmentCard(gameId, { playerId, type, resource, resources }) {
+  const game = devState(getGameOrThrow(gameId));
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  if (game.mustMoveRobber) throw createError("Move the bandit first.");
+  if (!DEV_TYPES.includes(type)) throw createError("Choose a development card to play.");
+  if (type === "victoryPoint") {
+    throw createError("Victory Point cards count by themselves. Keep them hidden.");
+  }
+  if (game.devCardPlayedTurn === game.turn) {
+    throw createError("Only one development card can be played each turn.");
+  }
+
+  const player = getPlayerOrThrow(game, playerId);
+  const owned = player.devCards.filter((card) => card.type === type);
+  const index = player.devCards.findIndex(
+    (card) => card.type === type && card.boughtTurn !== game.turn,
+  );
+  if (index < 0) {
+    throw createError(
+      owned.length
+        ? "A card bought this turn can be played from your next turn."
+        : `You have no ${devLabel(type)} card.`,
+    );
+  }
+
+  // Check the card's choices before using it up.
+  const valid = (entry) => config.resources.includes(entry);
+  if (type === "yearOfPlenty") {
+    if (!Array.isArray(resources) || resources.length !== 2 || !resources.every(valid)) {
+      throw createError("Choose two resources to take from the bank.");
+    }
+    for (const entry of new Set(resources)) {
+      const wanted = resources.filter((value) => value === entry).length;
+      if ((game.bank[entry] || 0) < wanted) {
+        throw createError(`The bank does not have ${wanted} ${config.resourceLabels[entry]}.`);
+      }
+    }
+  }
+  if (type === "monopoly" && !valid(resource)) throw createError("Choose a resource to claim.");
+  if (type === "roadBuilding" && !getValidRoadIds(game, player).length) {
+    throw createError("You have no free road spot to build on.");
+  }
+
+  player.devCards.splice(index, 1);
+  game.devCardPlayedTurn = game.turn;
+  let resourceDeltas = [];
+
+  if (type === "knight") {
+    player.knightsPlayed += 1;
+    game.mustMoveRobber = true;
+    addLog(game, `${player.name} played a Knight. Move the bandit and steal a card.`);
+    updateLargestArmy(game, player);
+  } else if (type === "roadBuilding") {
+    game.freeRoads = { playerId: player.id, count: Math.min(2, 15 - player.roads.length) };
+    addLog(game, `${player.name} played Road Building: two free roads.`);
+  } else if (type === "yearOfPlenty") {
+    for (const entry of resources) transferFromBank(game, player, entry, 1);
+    resourceDeltas = [...new Set(resources)].map((entry) => ({
+      playerId: player.id,
+      resource: entry,
+      amount: resources.filter((value) => value === entry).length,
+      tileIds: [],
+    }));
+    const taken = resourceDeltas.map((delta) => cards(delta.amount, delta.resource));
+    addLog(game, `${player.name} played Year of Plenty and took ${taken.join(" and ")}.`);
+  } else if (type === "monopoly") {
+    let total = 0;
+    for (const other of game.players) {
+      const amount = other.id === player.id ? 0 : other.resources[resource];
+      if (!amount) continue;
+      other.resources[resource] = 0;
+      player.resources[resource] += amount;
+      total += amount;
+      resourceDeltas.push({ playerId: player.id, resource, amount, fromPlayerId: other.id });
+    }
+    addLog(
+      game,
+      `${player.name} played Monopoly on ${config.resourceLabels[resource]} and collected ${total}.`,
+    );
+  }
+
+  setVisualFeedback(game, { kind: "devplay", playerId: player.id, card: type, resourceDeltas });
+  checkWinner(game, player);
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
 function endTurn(gameId, { playerId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
@@ -1158,6 +1382,7 @@ function endTurn(gameId, { playerId }) {
   game.lastDiceRoll = null;
   game.lastDicePair = null;
   game.trade = null;
+  game.freeRoads = null;
 
   const nextPlayer = getCurrentPlayer(game);
   addLog(game, `Turn ${game.turn}: ${nextPlayer.name}'s turn starts.`);
@@ -1189,6 +1414,8 @@ module.exports = {
   cancelTrade,
   acceptTradeOffer,
   moveRobber,
+  buyDevelopmentCard,
+  playDevelopmentCard,
   endTurn,
   getSampleMatchData,
 };

@@ -200,7 +200,9 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  box-shadow: inset 0 -2px #00000026, inset 0 1px #ffffff4d;
+  box-shadow:
+    inset 0 -2px #00000026,
+    inset 0 1px #ffffff4d;
 }
 .table-costs {
   grid-column: 2;
@@ -260,7 +262,11 @@
   border: 1px solid color-mix(in srgb, var(--player-color) 70%, transparent);
   border-radius: var(--radius-xl);
   background:
-    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--player-color) 30%, transparent), transparent 70%),
+    radial-gradient(
+      ellipse at 50% 0%,
+      color-mix(in srgb, var(--player-color) 30%, transparent),
+      transparent 70%
+    ),
     var(--surface-2);
   box-shadow:
     0 0 60px color-mix(in srgb, var(--player-color) 35%, transparent),
@@ -293,7 +299,11 @@
     padding: var(--sp-3);
     border-color: color-mix(in srgb, var(--player-color) 55%, var(--border));
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--player-color) 16%, transparent), transparent 70%),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--player-color) 16%, transparent),
+        transparent 70%
+      ),
       var(--surface-2);
     /* The hand stays in view while scrolling the board on a phone. */
     position: sticky;
@@ -608,9 +618,7 @@
   padding: var(--sp-6) var(--sp-10);
   border-radius: var(--radius-xl);
   border: 1px solid #e2b45080;
-  background:
-    radial-gradient(ellipse at 50% 0%, #e2b45026, transparent 70%),
-    #0e1520eb;
+  background: radial-gradient(ellipse at 50% 0%, #e2b45026, transparent 70%), #0e1520eb;
   backdrop-filter: blur(6px);
   color: var(--text);
   box-shadow:
@@ -642,9 +650,7 @@
 }
 .fx-seven {
   border-color: #e2553f99;
-  background:
-    radial-gradient(ellipse at 50% 0%, #e2553f33, transparent 70%),
-    #0e1520eb;
+  background: radial-gradient(ellipse at 50% 0%, #e2553f33, transparent 70%), #0e1520eb;
   box-shadow:
     0 0 0 6px #e2553f1a,
     0 0 60px #e2553f40,
@@ -797,7 +803,166 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-burst,
   .fx-dice,
+  .fx-devplay,
   .fx-toast {
     opacity: 1;
   }
+}
+
+/* Development cards: the holder's hand floats over the board's left corner. */
+.dev-panel {
+  position: absolute;
+  top: 40px;
+  left: var(--sp-3);
+  z-index: var(--z-overlay);
+  width: min(320px, 40%);
+  max-height: calc(100% - 96px);
+  overflow-y: auto;
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: #121a26f2;
+  backdrop-filter: blur(8px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-3), var(--inset-top);
+  animation: panel-in var(--dur-slow) var(--ease);
+}
+.dev-panel > .eyebrow {
+  color: var(--gold);
+}
+.dev-note {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: #e2b4501f;
+  color: var(--gold-soft);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+.dev-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.dev-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+.dev-card-face {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 40px;
+  border-radius: 5px;
+  border: 2px solid #fff6;
+  background: linear-gradient(160deg, var(--dev-color, #6d5bd0), #1b1530);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: var(--shadow-1);
+}
+.dev-card-text {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.dev-card-text b {
+  color: var(--text);
+}
+.dev-card-text small {
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.dev-knight {
+  --dev-color: #c0473a;
+}
+.dev-roadBuilding {
+  --dev-color: #a8732f;
+}
+.dev-yearOfPlenty {
+  --dev-color: #3f8f4e;
+}
+.dev-monopoly {
+  --dev-color: #6d5bd0;
+}
+.dev-victoryPoint {
+  --dev-color: #c99a2e;
+}
+.dev-choice select {
+  min-height: 32px;
+  padding-block: 2px;
+}
+@media (max-width: 700px) {
+  .dashboard-board:has(.dev-panel) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    aspect-ratio: auto;
+    height: auto;
+  }
+  .dashboard-board:has(.dev-panel) .board-panel {
+    aspect-ratio: 1 / 1.12;
+    height: auto;
+  }
+  .dev-panel {
+    position: static;
+    width: auto;
+    max-height: none;
+    backdrop-filter: none;
+  }
+  .dev-card .small-action-btn,
+  .dev-choice select {
+    min-height: 44px;
+  }
+}
+.fx-devcard {
+  position: fixed;
+  width: 44px;
+  height: 60px;
+  border-radius: 7px;
+  border: 2px solid #fff9;
+  background:
+    repeating-linear-gradient(45deg, #ffffff1a 0 6px, transparent 6px 12px),
+    linear-gradient(160deg, var(--player-color, var(--gold)), #1b1530);
+  box-shadow:
+    0 0 0 3px #0006,
+    0 8px 20px #00000080;
+  opacity: 0;
+  animation: fx-fly 1200ms cubic-bezier(0.45, 0, 0.3, 1) both;
+}
+.fx-devplay {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  min-width: 300px;
+  padding: var(--sp-6) var(--sp-10);
+  border-radius: var(--radius-xl);
+  border: 2px solid var(--dev-color, var(--gold));
+  background: radial-gradient(ellipse at 50% 0%, #ffffff1f, transparent 70%), #0e1520f0;
+  color: var(--text);
+  box-shadow:
+    0 0 60px color-mix(in srgb, var(--dev-color, var(--gold)) 50%, transparent),
+    var(--shadow-4);
+  transform: translate(-50%, -50%);
+  animation: fx-dice 2600ms var(--ease) both;
+}
+.fx-devplay span {
+  font: 700 var(--fs-xl) var(--font-ui);
+  color: var(--player-color, var(--text-2));
+}
+.fx-devplay strong {
+  font: clamp(44px, 8vh, 88px) / 1 var(--font-display);
+  color: var(--gold-soft);
+  text-shadow: 0 0 24px #e2b45066;
 }

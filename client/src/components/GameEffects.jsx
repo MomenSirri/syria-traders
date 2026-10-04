@@ -27,6 +27,8 @@ export default function GameEffects({ game, table }) {
   const [bursts, setBursts] = useState([]);
   const [dice, setDice] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [cardFlight, setCardFlight] = useState(null);
+  const [cardPlay, setCardPlay] = useState(null);
   const lastLog = useRef(null);
   const timers = useRef([]);
   const later = (fn, ms) => timers.current.push(setTimeout(fn, ms));
@@ -41,8 +43,40 @@ export default function GameEffects({ game, table }) {
       setDice(roll);
       later(() => setDice((current) => (current?.id === roll.id ? null : current)), 2200);
     }
+    const player = game.players.find((entry) => entry.id === visuals.playerId);
+    if (table && visuals.kind === "devplay" && player) {
+      const play = {
+        id: nextId++,
+        name: player.name,
+        color: player.color,
+        card: visuals.card,
+        label: game.settings.developmentCardLabels?.[visuals.card] || "a card",
+      };
+      setCardPlay(play);
+      later(() => setCardPlay((current) => (current?.id === play.id ? null : current)), 2600);
+    }
     // Wait a frame so freshly rendered cards and tiles have their final positions.
     const frame = requestAnimationFrame(() => {
+      // A bought card flies face down from the deck to its new owner.
+      const owner = visuals.kind === "devbuy" && player && targetFor(player.id);
+      const deck = document.querySelector(".board-stage");
+      if (owner && deck && !reducedMotion()) {
+        const start = centerOf(deck);
+        const end = centerOf(owner);
+        const flight = {
+          id: nextId++,
+          color: player.color,
+          x: start.x,
+          y: start.y,
+          dx: end.x - start.x,
+          dy: end.y - start.y,
+        };
+        setCardFlight(flight);
+        later(
+          () => setCardFlight((current) => (current?.id === flight.id ? null : current)),
+          FLIGHT_MS + 300,
+        );
+      }
       const newFlights = [];
       const newBursts = [];
       const perPlayer = {};
@@ -124,7 +158,8 @@ export default function GameEffects({ game, table }) {
     later(() => setToasts((current) => current.filter((entry) => !ids.has(entry.id))), TOAST_MS);
   }, [newest, table]);
 
-  if (!flights.length && !bursts.length && !dice && !toasts.length) return null;
+  if (!flights.length && !bursts.length && !dice && !toasts.length && !cardFlight && !cardPlay)
+    return null;
   // Dice and announcements sit over the middle of the board, not the whole screen.
   const stage = document.querySelector(".board-stage")?.getBoundingClientRect();
   const middle = stage
@@ -168,6 +203,29 @@ export default function GameEffects({ game, table }) {
           <DiceDisplay pair={dice.pair} rolling />
           <strong>{dice.pair[0] + dice.pair[1]}</strong>
           {dice.seven && <span>The bandit awakens!</span>}
+        </div>
+      )}
+      {cardFlight && (
+        <span
+          key={cardFlight.id}
+          className="fx-devcard"
+          style={{
+            left: cardFlight.x,
+            top: cardFlight.y,
+            "--dx": `${cardFlight.dx}px`,
+            "--dy": `${cardFlight.dy}px`,
+            "--player-color": cardFlight.color,
+          }}
+        />
+      )}
+      {cardPlay && (
+        <div
+          key={cardPlay.id}
+          className={`fx-devplay dev-${cardPlay.card}`}
+          style={{ ...middle, "--player-color": cardPlay.color }}
+        >
+          <span>{cardPlay.name} plays</span>
+          <strong>{cardPlay.label}</strong>
         </div>
       )}
       {toasts.length > 0 && (

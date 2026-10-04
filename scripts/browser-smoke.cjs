@@ -432,7 +432,7 @@ async function checkLayout(page, width, height, filename) {
   // The phone's hand is sticky; capture from the top so it sits in its own slot.
   await phones[0].evaluate(() => window.scrollTo(0, 0));
   await phones[0].screenshot({ path: path.join(output, "phone-seat.png"), fullPage: true });
-  assert.equal(await tv.locator(".table-cost-row").count(), 3, "TV shows building costs");
+  assert.equal(await tv.locator(".table-cost-row").count(), 4, "TV shows building costs");
 
   // Player-to-player trade: the active phone asks, the other offers, the TV watches.
   const seatOf = async (id) =>
@@ -494,6 +494,66 @@ async function checkLayout(page, width, height, filename) {
     assert.ok(tvAfter.log.at(-1).message.endsWith(`for 1 ${label}.`), tvAfter.log.at(-1).message);
     console.log("PASS players trade from their phones and the TV shows it without hands");
   } else console.log("SKIP player trade: dealt hands had no tradeable pair this run");
+
+  // Development cards: give the active seat the price and an older Knight, buy one and play it.
+  const cardState = await snapshot(tv);
+  const buyerId = cardState.players[cardState.currentPlayerIndex].id;
+  const buyer = await seatOf(buyerId);
+  const back = [tv, ...phones].map((page) =>
+    page.waitForResponse(
+      (response) => response.url().endsWith("/events") && response.status() === 200,
+      { timeout: 20000 },
+    ),
+  );
+  await stopServer();
+  const saveFile = path.join(dataDirectory, `${cardState.id}.json`);
+  const save = JSON.parse(fs.readFileSync(saveFile, "utf8"));
+  const seat = save.players.find((player) => player.id === buyerId);
+  for (const resource of ["wheat", "sheep", "stone"]) {
+    seat.resources[resource] += 1;
+    save.bank[resource] -= 1;
+  }
+  save.devDeck.splice(save.devDeck.indexOf("knight"), 1);
+  seat.devCards = [{ id: "smoke-knight", type: "knight", boughtTurn: save.turn - 1 }];
+  fs.writeFileSync(saveFile, JSON.stringify(save));
+  await startServer();
+  await Promise.all(back);
+  await buyer.locator(".dev-knight").waitFor();
+  await buyer.getByRole("button", { name: "Card", exact: true }).click();
+  await tv.locator(".fx-devcard").waitFor({ state: "attached", timeout: 4000 });
+  await buyer.waitForFunction(
+    (id) =>
+      JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.players.find(
+        (player) => player.id === id,
+      ).devCards.length === 2,
+    buyerId,
+  );
+  await tv.waitForFunction(() =>
+    JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.players.some(
+      (player) => player.devCardCount === 2,
+    ),
+  );
+  for (const page of [tv, ...phones.filter((page) => page !== buyer)]) {
+    const state = await snapshot(page);
+    for (const player of state.players)
+      if (player.id !== state.viewer.playerId) assert.equal(player.devCards, null);
+  }
+  assert.equal(await tv.locator(".dev-panel").count(), 0, "TV never shows a hand of cards");
+  await buyer.evaluate(() => window.scrollTo(0, 0));
+  await buyer.screenshot({ path: path.join(output, "phone-devcards.png"), fullPage: true });
+  await buyer.locator(".dev-knight").getByRole("button", { name: "Play" }).click();
+  await tv.locator(".fx-devplay", { hasText: "Knight" }).waitFor({ timeout: 4000 });
+  await tv.screenshot({ path: path.join(output, "tv-devcard-play.png") });
+  await buyer
+    .getByRole("button", { name: /^Move bandit to/ })
+    .first()
+    .click();
+  await tv.waitForFunction(() => {
+    const game = JSON.parse(localStorage.getItem("syria_traders_save_v1")).game;
+    return !game.mustMoveRobber && game.players.some((player) => player.knightsPlayed === 1);
+  });
+  await tv.locator(".player-dev-row", { hasText: "Knights 1" }).waitFor();
+  console.log("PASS development cards: bought and played from a phone, hidden from the TV");
   await tv.reload();
   await tv.locator(".table-status").waitFor();
   assert.equal((await snapshot(tv)).viewer.role, "table");

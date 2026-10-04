@@ -16,6 +16,7 @@ export default function Sidebar({ game, resourcePopups = [], playerImages = {} }
             image={playerImages[player.id]}
             active={player.id === currentId}
             yours={game.viewer?.playerId === player.id}
+            largestArmy={game.largestArmyId === player.id}
             gains={resourcePopups.filter((gain) => gain.playerId === player.id)}
             setupCount={
               game.phase === "setup-placement"

@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import ResourceChip from "./ResourceChip";
 
 const LABELS = { wheat: "Wheat", wood: "Wood", stone: "Stone", brick: "Clay", sheep: "Sheep" };
+const BUILDINGS = { road: "Road", village: "Village", city: "City", development: "Card" };
 
 export default function ActionBar({
   game,
@@ -14,6 +15,7 @@ export default function ActionBar({
   onRoll,
   onEndTurn,
   onTrade,
+  onBuyCard,
   soundEnabled,
   onToggleSound,
   selectedSetupVertex,
@@ -41,7 +43,7 @@ export default function ActionBar({
     <div className="build-cost-inline">
       {Object.entries(game.settings.buildingCosts).map(([building, cost]) => (
         <span key={building}>
-          <b>{building}</b>
+          <b>{BUILDINGS[building] || building}</b>
           {Object.entries(cost).map(([resource, amount]) => (
             <span key={resource} title={`${amount} ${resource}`}>
               <ResourceChip resource={resource} size={13} />
@@ -122,6 +124,31 @@ export default function ActionBar({
           </button>
         ))}
         <button
+          className="icon-action-btn build-btn"
+          disabled={busy || !hints.devCards?.canBuy}
+          onClick={onBuyCard}
+          title={
+            game.devDeckCount
+              ? `A development card costs ${costText("development")}. ${game.devDeckCount} left in the deck.`
+              : "The development deck is empty."
+          }
+        >
+          <Icon name="card" />
+          <span className="btn-text">
+            Card
+            <span className="btn-cost" aria-hidden="true">
+              {Object.entries(game.settings.buildingCosts.development || {}).map(
+                ([resource, amount]) => (
+                  <span key={resource}>
+                    <ResourceChip resource={resource} size={12} />
+                    {amount}
+                  </span>
+                ),
+              )}
+            </span>
+          </span>
+        </button>
+        <button
           className="icon-action-btn end-turn"
           onClick={onEndTurn}
           disabled={busy || !hints.canEndTurn}
@@ -178,9 +205,11 @@ export default function ActionBar({
               ? `Waiting for ${currentPlayer.name}`
               : game.mustMoveRobber
                 ? "Move the bandit to a different territory."
-                : !game.turnHasRolled
-                  ? "Roll to start your turn."
-                  : "Build, trade, or pass the dice."}
+                : hints.freeRoads
+                  ? `Place ${hints.freeRoads} free ${hints.freeRoads === 1 ? "road" : "roads"}.`
+                  : !game.turnHasRolled
+                    ? "Roll to start your turn."
+                    : "Build, trade, or pass the dice."}
         </span>
       </div>
     </section>

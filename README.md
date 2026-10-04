@@ -79,7 +79,10 @@ Server options: `PORT` (default 8443), `TV_PORT` (plain-HTTP smart-TV address, d
 - Bank trades cost four identical cards. Occupy a port endpoint for 3:1 on any resource or 2:1 on its specific resource. Piers show the exact port sites.
 - On seven, hands over seven cards automatically discard half (rounded down), randomly selected. Move the bandit, then steal a random card from an eligible adjacent opponent. Automatic discard is a deliberate simplified rule.
 - If the bank cannot fulfill all claims for a resource on a roll, nobody receives that resource. Other resources still pay normally.
-- First to 10 points wins. Villages are worth 1; cities 2. No development cards, longest-road bonuses or AI players yet. Player-to-player trades work in network rooms.
+- Development cards cost 1 Wheat, 1 Sheep and 1 Stone, bought after rolling from a shuffled 25-card deck: 14 Knight, 5 Victory Point, 2 Road Building, 2 Year of Plenty, 2 Monopoly. Play one card per turn, never on the turn you bought it (a Knight may be played before rolling). A Knight moves the bandit and steals; Road Building places two free roads; Year of Plenty takes any two resources from the bank; Monopoly collects every opponent's stock of one resource. Victory Point cards stay hidden and are revealed automatically when they win the match.
+- Largest Army: the first player to play 3 Knights gains 2 points, and loses them to anyone who later plays more.
+- First to 10 points wins. Villages are worth 1; cities 2. No longest-road bonus or AI players yet. Player-to-player trades work in network rooms.
+- Development card hands are private like resources: other phones and the TV see only each player's card count and knights played. Saves from before development cards load with a fresh deck.
 
 Gain badges stay beside resource counts for **30 seconds**, fade over 700 ms, then clear. Simultaneous resources use separate rows. Repeated gains aggregate while each event retains its expiry. Dice production also briefly lights up producing tiles. Uploaded art locks after setup.
 
@@ -179,6 +182,8 @@ The following routes require `Authorization: Bearer <token>`. Mutations also req
 - `POST /api/games/:id/build/city`
 - `POST /api/games/:id/trade/bank`
 - `POST /api/games/:id/trade/request`, `trade/offer`, `trade/withdraw`, `trade/accept`, `trade/decline`, `trade/cancel` (player trades; these name the request or offer instead of needing the latest revision)
+- `POST /api/games/:id/dev/buy`
+- `POST /api/games/:id/dev/play` (`{ "type": "knight" | "roadBuilding" | "yearOfPlenty" | "monopoly" }`, plus `resources: [a, b]` for Year of Plenty or `resource` for Monopoly)
 - `POST /api/games/:id/robber/move`
 - `POST /api/games/:id/end-turn`
 

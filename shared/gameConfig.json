@@ -36,8 +36,28 @@
     "city": {
       "wheat": 2,
       "stone": 3
+    },
+    "development": {
+      "wheat": 1,
+      "sheep": 1,
+      "stone": 1
     }
   },
+  "developmentCards": {
+    "knight": 14,
+    "victoryPoint": 5,
+    "roadBuilding": 2,
+    "yearOfPlenty": 2,
+    "monopoly": 2
+  },
+  "developmentCardLabels": {
+    "knight": "Knight",
+    "victoryPoint": "Victory Point",
+    "roadBuilding": "Road Building",
+    "yearOfPlenty": "Year of Plenty",
+    "monopoly": "Monopoly"
+  },
+  "largestArmy": { "minKnights": 3, "points": 2 },
   "bankTradeRate": 4,
   "startingBank": {
     "wheat": 50,
