@@ -71,7 +71,7 @@ export default function GameBoard({
   const hint = !interactive
     ? game.winnerId
       ? "A journey well played. Start a new table whenever you are ready."
-      : "The table is waiting for the active player."
+      : `Waiting for ${game.players[game.currentPlayerIndex]?.name || "the active player"} to play.`
     : setup
       ? selectedSetupVertex === null
         ? "Choose a glowing site for your village."
@@ -217,12 +217,24 @@ export default function GameBoard({
                       />
                       <text
                         x={tile.center.x}
-                        y={tile.center.y + 50}
+                        y={tile.center.y + 49}
                         textAnchor="middle"
                         className="token-text"
                       >
                         {tile.numberToken}
                       </text>
+                      <g className="token-pips" aria-hidden="true">
+                        {Array.from({ length: 6 - Math.abs(7 - tile.numberToken) }, (_, i) => (
+                          <circle
+                            key={i}
+                            cx={
+                              tile.center.x + (i - (5 - Math.abs(7 - tile.numberToken)) / 2) * 5.5
+                            }
+                            cy={tile.center.y + 56}
+                            r="2"
+                          />
+                        ))}
+                      </g>
                     </g>
                   )}
                   {robberTileId === tile.id && (
