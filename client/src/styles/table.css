@@ -964,8 +964,8 @@
 .robber-picker {
   position: absolute;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  bottom: 60px;
+  transform: translateX(-50%);
   z-index: var(--z-banner);
   width: min(420px, 90%);
   display: grid;
@@ -1107,4 +1107,11 @@
 }
 .discard-waiting b {
   color: var(--text);
+}
+.robber-warning {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: #e2b4501f;
+  color: var(--gold-soft) !important;
+  font-weight: 700;
 }
