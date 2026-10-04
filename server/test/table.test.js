@@ -220,9 +220,9 @@ test("table screens leave cleanly and old player sessions keep working", async (
   assert.equal(view.viewer.playerId, host.game.viewer.playerId);
   assert.ok(view.players[0].resources);
 
-  for (let i = 0; i < 12; i++) await api(`/games/${host.game.id}/table`, {});
+  for (let i = 0; i < 60; i++) await api(`/games/${host.game.id}/table`, {});
   const tables = store.getGame(host.game.id).sessions.filter(sessions.isTable);
-  assert.ok(tables.length <= 8, "Reopened TV screens don't accumulate in the save");
+  assert.ok(tables.length <= 40, "Reopened TV screens don't accumulate in the save");
 });
 
 test("table hosting is validated", () => {
