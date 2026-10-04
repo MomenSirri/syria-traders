@@ -1,7 +1,7 @@
 const { randomBytes, createHash } = require("node:crypto");
 const store = require("./gameStore");
 const service = require("./gameService");
-const { networkInterfaces } = require("node:os");
+const { lanAddresses } = require("../utils/network");
 const { boardSpec } = require("./boardGenerator");
 const ports = require("../utils/ports");
 
@@ -70,10 +70,7 @@ function view(game, session, includeMedia = false) {
     : { playerId: session.playerId, isHost: session.host };
   // The table screen shows the invite link, so it needs the host's LAN addresses.
   if ((session.host || table) && game.mode === "online") {
-    result.hostAddresses = Object.values(networkInterfaces())
-      .flat()
-      .filter((entry) => entry.family === "IPv4" && !entry.internal)
-      .map((entry) => entry.address);
+    result.hostAddresses = lanAddresses();
     // Phones are always invited to HTTPS; the TV address is shown to the host.
     result.hostPorts = { secure: ports.secure, tv: ports.tv };
   }

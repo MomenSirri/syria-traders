@@ -50,8 +50,8 @@ echo Game: https://localhost:8443
 echo For friends: choose Host room and copy the LAN invite link.
 echo Allow Node.js on PRIVATE networks in Windows Firewall if prompted.
 echo A self-signed certificate warning is expected on each device.
-echo Smart TV: open the "Smart TV browser" address printed below in the TV's own
-echo browser (plain HTTP, port 8080, TV screen only). Phones still use HTTPS.
+echo Smart TV: type the "TV:" address shown in the box below into the TV's own
+echo browser (it starts with http:// and ends with :8080/tv). Phones use HTTPS.
 echo Keep this window open while playing. Ctrl+C stops the host.
 echo.
 
