@@ -959,3 +959,60 @@
   color: var(--gold-soft);
   text-shadow: 0 0 24px #e2b45066;
 }
+
+/* Choosing whom the bandit robs, centred over the board. */
+.robber-picker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-banner);
+  width: min(420px, 90%);
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  background: #121a26f5;
+  backdrop-filter: blur(8px);
+  border-color: #e2553f99;
+  box-shadow:
+    0 0 40px #e2553f33,
+    var(--shadow-4);
+  animation: panel-in var(--dur-slow) var(--ease);
+}
+.robber-picker > .eyebrow {
+  color: var(--danger-text);
+}
+.robber-picker p {
+  margin: 0;
+  color: var(--text-2);
+}
+.robber-victims {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--sp-2);
+}
+.robber-victim {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 2px solid var(--player-color, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--player-color, #333) 18%, var(--surface-3));
+  color: var(--text);
+  text-align: left;
+}
+.robber-victim:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--player-color, #333) 32%, var(--surface-3));
+}
+.robber-victim small {
+  color: var(--text-muted);
+}
+.fx-toast-steal {
+  border-color: #e2553f99;
+}
+.fx-toast-steal::before {
+  background: var(--danger-text);
+  box-shadow: 0 0 8px var(--danger-text);
+}

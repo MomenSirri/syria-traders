@@ -91,8 +91,13 @@ function view(game, session, includeMedia = false) {
       const fresh = Date.now() - Date.parse(result.visuals.at) < TABLE_ANIMATION_MS;
       result.visuals = {
         ...result.visuals,
+        // A stolen card is private: only the thief and the victim see which one.
         resourceDeltas: result.visuals.resourceDeltas.filter((gain) =>
-          table ? fresh : gain.playerId === ownId,
+          gain.private
+            ? ownId && (gain.playerId === ownId || gain.fromPlayerId === ownId)
+            : table
+              ? fresh
+              : gain.playerId === ownId,
         ),
       };
     }

@@ -136,7 +136,7 @@ function createPlayer(name, index) {
 // is played (and so public), its type; a bought card's type is never included.
 function setVisualFeedback(
   game,
-  { producingTileIds = [], resourceDeltas = [], kind = "none", playerId, card } = {},
+  { producingTileIds = [], resourceDeltas = [], kind = "none", playerId, card, fromPlayerId } = {},
 ) {
   game.visuals = {
     flashId: uuidv4(),
@@ -146,6 +146,7 @@ function setVisualFeedback(
     resourceDeltas,
     ...(playerId ? { playerId } : {}),
     ...(card ? { card } : {}),
+    ...(fromPlayerId ? { fromPlayerId } : {}),
   };
 }
 
@@ -419,7 +420,8 @@ function distributeResources(game, diceTotal) {
   });
 }
 
-function getRobberVictim(game, tileId, robberPlayerId) {
+// Opponents with a village or city on the tile who hold at least one card.
+function getRobberVictims(game, tileId, robberPlayerId) {
   const tile = game.board.tiles[tileId];
   const adjacentOwners = new Set();
 
@@ -430,11 +432,9 @@ function getRobberVictim(game, tileId, robberPlayerId) {
     }
   });
 
-  const candidates = [...adjacentOwners]
-    .map((ownerId) => game.players.find((player) => player.id === ownerId))
-    .filter((player) => player && getResourceTotal(player.resources) > 0);
-
-  return randomItem(candidates);
+  return game.players.filter(
+    (player) => adjacentOwners.has(player.id) && getResourceTotal(player.resources) > 0,
+  );
 }
 
 function stealRandomResource(fromPlayer, toPlayer) {
@@ -597,6 +597,16 @@ function buildHints(game) {
           .filter((tile) => tile.id !== game.board.robberTileId)
           .map((tile) => tile.id)
       : [],
+    // Who the bandit can steal from on each tile; the roller picks one.
+    robberVictimsByTile: game.mustMoveRobber
+      ? Object.fromEntries(
+          game.board.tiles
+            .filter((tile) => tile.id !== game.board.robberTileId)
+            .map((tile) => [tile.id, getRobberVictims(game, tile.id, currentPlayer.id)])
+            .filter(([, victims]) => victims.length)
+            .map(([id, victims]) => [id, victims.map((player) => player.id)]),
+        )
+      : {},
   };
 }
 
@@ -1190,7 +1200,7 @@ function acceptTradeOffer(gameId, { playerId, offerId }) {
   return serializeGame(game);
 }
 
-function moveRobber(gameId, { playerId, tileId }) {
+function moveRobber(gameId, { playerId, tileId, victimId }) {
   const game = getGameOrThrow(gameId);
   assertActiveGame(game);
   assertMainPhase(game);
@@ -1209,20 +1219,41 @@ function moveRobber(gameId, { playerId, tileId }) {
     throw createError("Choose a different tile.");
   }
 
+  const robberPlayer = getPlayerOrThrow(game, playerId);
+  // The roller chooses whom to rob among the players on that territory.
+  const victims = getRobberVictims(game, nextTileId, playerId);
+  let victim = victims.length === 1 && !victimId ? victims[0] : null;
+  if (victimId) {
+    victim = victims.find((player) => player.id === victimId);
+    if (!victim) throw createError("Choose a player with a village or city on that territory.");
+  } else if (victims.length > 1) {
+    throw createError("Choose who to steal from.");
+  }
+
   game.board.robberTileId = nextTileId;
   game.mustMoveRobber = false;
-
-  const robberPlayer = getPlayerOrThrow(game, playerId);
   addLog(game, `${robberPlayer.name} moved the bandit to ${tile.region}.`);
 
-  const victim = getRobberVictim(game, nextTileId, playerId);
-  if (victim) {
-    const stolenResource = stealRandomResource(victim, robberPlayer);
-    if (stolenResource) {
-      addLog(game, `${robberPlayer.name} stole one card from ${victim.name}.`);
-    }
+  const stolenResource = victim && stealRandomResource(victim, robberPlayer);
+  if (stolenResource) {
+    addLog(game, `${robberPlayer.name} stole a card from ${victim.name}.`);
+    // Only the thief and the victim learn which card it was; see sessions.view.
+    setVisualFeedback(game, {
+      kind: "steal",
+      playerId: robberPlayer.id,
+      fromPlayerId: victim.id,
+      resourceDeltas: [
+        {
+          playerId: robberPlayer.id,
+          fromPlayerId: victim.id,
+          resource: stolenResource,
+          amount: 1,
+          private: true,
+        },
+      ],
+    });
   } else {
-    addLog(game, "No resources could be stolen from adjacent opponents.");
+    addLog(game, "Nobody on that territory had a card to steal.");
   }
 
   store.saveGame(game);

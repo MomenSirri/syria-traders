@@ -14,6 +14,7 @@ import TableStatus from "./components/TableStatus";
 import SeatHand from "./components/SeatHand";
 import TradePanel from "./components/TradePanel";
 import DevCardPanel from "./components/DevCardPanel";
+import RobberPicker from "./components/RobberPicker";
 import GameEffects from "./components/GameEffects";
 import Icon from "./components/Icon";
 import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
@@ -26,6 +27,7 @@ export default function App() {
   const [highlightedTileIds, setHighlightedTileIds] = useState([]);
   const [rolling, setRolling] = useState(false);
   const [help, setHelp] = useState(false);
+  const [robberTile, setRobberTile] = useState(null);
   const rollTimer = useRef();
   const resourcePopups = useResourceGains(game?.gainEvents, game?.clockOffset);
   const current = game?.players[game.currentPlayerIndex];
@@ -38,6 +40,7 @@ export default function App() {
 
   useEffect(() => {
     setSelectedAction(game?.mustMoveRobber ? "robber" : null);
+    setRobberTile(null);
     setSelectedSetupVertex(null);
   }, [game?.id, game?.turn, game?.currentPlayerIndex, game?.phase, game?.mustMoveRobber]);
   // Road Building hands out free roads: show the road sites straight away.
@@ -75,6 +78,11 @@ export default function App() {
     const success = await act(route, payload);
     if (success && match.soundEnabled) playUiSound("tap");
     return success;
+  }
+  // With several opponents on the territory, the roller chooses whom to rob first.
+  function moveBandit(tileId) {
+    if ((game.hints?.robberVictimsByTile?.[tileId] || []).length > 1) setRobberTile(tileId);
+    else action("robber/move", { tileId });
   }
   async function roll() {
     setRolling(true);
@@ -169,6 +177,18 @@ export default function App() {
             onAction={action}
           />
           <DevCardPanel game={game} busy={!interactive} onAction={action} />
+          {robberTile !== null && interactive && game.mustMoveRobber && (
+            <RobberPicker
+              game={game}
+              tileId={robberTile}
+              busy={!interactive}
+              onPick={async (victimId) => {
+                if (await action("robber/move", { tileId: robberTile, victimId }))
+                  setRobberTile(null);
+              }}
+              onCancel={() => setRobberTile(null)}
+            />
+          )}
           <GameBoard
             game={game}
             selectedAction={selectedAction}
@@ -178,7 +198,7 @@ export default function App() {
             hexTexturesByRegion={media.hexTexturesByRegion}
             onEdgeSelect={(edgeId) => action("build/road", { edgeId })}
             onVertexSelect={(vertexId) => action(`build/${selectedAction}`, { vertexId })}
-            onTileSelect={(tileId) => action("robber/move", { tileId })}
+            onTileSelect={moveBandit}
             onSetupVertexSelect={setSelectedSetupVertex}
             onSetupEdgeSelect={async (edgeId) => {
               if (await action("setup/place", { vertexId: selectedSetupVertex, edgeId }))
@@ -265,7 +285,8 @@ export default function App() {
                 </li>
                 <li>
                   A seven automatically returns half of any hand over seven to the bank, chosen
-                  randomly. Move the bandit and steal a random card from an adjacent opponent.
+                  randomly. Move the bandit to block any territory, then pick a player with a
+                  village or city there and take one random card from them.
                 </li>
                 <li>
                   After rolling, buy a development card for 1 Wheat, 1 Sheep and 1 Stone. Play one
