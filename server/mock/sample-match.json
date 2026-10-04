@@ -1,0 +1,13 @@
+{
+  "title": "Syria Traders sample playable match",
+  "description": "Use the payload below with POST /api/games to spawn a ready-to-play local match.",
+  "createGamePayload": {
+    "playerNames": ["Nour", "Yazan", "Lina"],
+    "maxPlayers": 4
+  },
+  "suggestedFirstTurns": [
+    "Player 1 rolls dice, then builds a road if possible, then ends turn.",
+    "Player 2 rolls and tries a village near an existing road.",
+    "Player 3 rolls and uses a bank trade if resources are uneven."
+  ]
+}

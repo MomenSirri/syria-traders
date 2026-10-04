@@ -1,0 +1,179 @@
+{
+  "gameTitle": "Syria Traders",
+  "maxPlayers": 4,
+  "minPlayers": 2,
+  "winPoints": 10,
+  "resources": ["wheat", "wood", "stone", "brick", "sheep"],
+  "resourceLabels": {
+    "wheat": "Wheat",
+    "wood": "Wood",
+    "stone": "Stone (Ore)",
+    "brick": "Brick (Clay)",
+    "sheep": "Sheep (Livestock)",
+    "desert": "Desert"
+  },
+  "resourceColors": {
+    "wheat": "#8caf53",
+    "wood": "#3f6f3f",
+    "stone": "#8b8f95",
+    "brick": "#bb6340",
+    "sheep": "#99b77a",
+    "desert": "#d9bf8e",
+    "sea": "#4a7f98"
+  },
+  "playerColors": ["#c74e3d", "#2a7b9b", "#8f5fb3", "#e0a629"],
+  "buildingCosts": {
+    "road": {
+      "wood": 1,
+      "brick": 1
+    },
+    "village": {
+      "wood": 1,
+      "brick": 1,
+      "wheat": 1,
+      "sheep": 1
+    },
+    "city": {
+      "wheat": 2,
+      "stone": 3
+    }
+  },
+  "bankTradeRate": 4,
+  "startingBank": {
+    "wheat": 50,
+    "wood": 50,
+    "stone": 50,
+    "brick": 50,
+    "sheep": 50
+  },
+  "numberTokens": [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12],
+  "harborTypes": [
+    "3:1",
+    "3:1",
+    "3:1",
+    "3:1",
+    "Wheat",
+    "Wood",
+    "Stone",
+    "Brick",
+    "Sheep"
+  ],
+  "boardLayout": [
+    { "q": 0, "r": -2 },
+    { "q": 1, "r": -2 },
+    { "q": 2, "r": -2 },
+    { "q": -1, "r": -1 },
+    { "q": 0, "r": -1 },
+    { "q": 1, "r": -1 },
+    { "q": 2, "r": -1 },
+    { "q": -2, "r": 0 },
+    { "q": -1, "r": 0 },
+    { "q": 0, "r": 0 },
+    { "q": 1, "r": 0 },
+    { "q": 2, "r": 0 },
+    { "q": -2, "r": 1 },
+    { "q": -1, "r": 1 },
+    { "q": 0, "r": 1 },
+    { "q": 1, "r": 1 },
+    { "q": -2, "r": 2 },
+    { "q": -1, "r": 2 },
+    { "q": 0, "r": 2 }
+  ],
+  "regions": [
+    {
+      "name": "Idlib",
+      "resource": "wheat",
+      "flavor": "Fertile agricultural land with broad farm belts."
+    },
+    {
+      "name": "Hama",
+      "resource": "wheat",
+      "flavor": "River-fed plains and classic grain routes."
+    },
+    {
+      "name": "Daraa",
+      "resource": "wheat",
+      "flavor": "Southern wheat fields and market movement."
+    },
+    {
+      "name": "Hasakah",
+      "resource": "wheat",
+      "flavor": "Large-scale agriculture and productive grain belts."
+    },
+    {
+      "name": "Latakia",
+      "resource": "wood",
+      "flavor": "Coastal forests and maritime access."
+    },
+    {
+      "name": "Tartus",
+      "resource": "wood",
+      "flavor": "Port influence with wooded highland links."
+    },
+    {
+      "name": "Jabal Ansariyah",
+      "resource": "wood",
+      "flavor": "Mountain forests and timber routes."
+    },
+    {
+      "name": "Afrin Highlands",
+      "resource": "wood",
+      "flavor": "Hills, orchards, and woodland corridors."
+    },
+    {
+      "name": "Damascus",
+      "resource": "stone",
+      "flavor": "Historic stone craft and upland quarries."
+    },
+    {
+      "name": "Rif Dimashq",
+      "resource": "stone",
+      "flavor": "Mountain edges and stonemasonry traditions."
+    },
+    {
+      "name": "Palmyra Foothills",
+      "resource": "stone",
+      "flavor": "Rocky caravan approaches and quarry roads."
+    },
+    {
+      "name": "Aleppo",
+      "resource": "brick",
+      "flavor": "Trade workshops and clay-brick heritage."
+    },
+    {
+      "name": "Deir ez-Zor",
+      "resource": "brick",
+      "flavor": "Desert-edge trade towns and kiln craft."
+    },
+    {
+      "name": "Manbij",
+      "resource": "brick",
+      "flavor": "Crossroads for craft goods and clay works."
+    },
+    {
+      "name": "Homs",
+      "resource": "sheep",
+      "flavor": "Pastoral routes linking interior markets."
+    },
+    {
+      "name": "Suwayda",
+      "resource": "sheep",
+      "flavor": "Upland orchards and pastoral communities."
+    },
+    {
+      "name": "Raqqa Steppe",
+      "resource": "sheep",
+      "flavor": "Steppe grazing and caravan exchange."
+    },
+    {
+      "name": "Quneitra Plains",
+      "resource": "sheep",
+      "flavor": "Open grazing plains and farming edges."
+    },
+    {
+      "name": "Badiya",
+      "resource": "desert",
+      "flavor": "Syrian Desert expanse where the bandit roams."
+    }
+  ]
+}
