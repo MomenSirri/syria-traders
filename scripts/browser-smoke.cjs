@@ -5,15 +5,20 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const net = require("node:net");
+const http = require("node:http");
 const https = require("node:https");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, "test-results");
 fs.mkdirSync(output, { recursive: true });
 const dataDirectory = fs.mkdtempSync(path.join(output, "browser-matches-"));
+// HTTPS=0 runs the host in cloud preview mode (plain HTTP) behind a local TLS-terminating
+// proxy, the way a cloud workspace serves it, so browsers still load the game over https.
+const useHttps = !["0", "false", "off"].includes(String(process.env.HTTPS).toLowerCase());
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const errors = [];
 const measurements = [];
-let server, browser, port, tvPort;
+let server, browser, port, tvPort, proxy;
+let hostPort; // The game host's own port; equals port unless the TLS proxy fronts it.
 
 async function availablePort() {
   const probe = net.createServer();
@@ -38,7 +43,9 @@ async function startServer() {
     windowsHide: true,
     env: {
       ...process.env,
-      PORT: String(port),
+      PORT: String(hostPort),
+      LISTEN_HOST: "0.0.0.0",
+      HTTPS: useHttps ? "1" : "0",
       TV_PORT: String(tvPort),
       GAME_DATA_DIR: dataDirectory,
     },
@@ -56,6 +63,34 @@ async function startServer() {
     await delay(150);
   }
   throw new Error("Test server did not become ready.");
+}
+async function startTlsProxy() {
+  const { ensureDevCertificates } = require("../server/src/utils/certificates");
+  const { keyPath, certPath } = ensureDevCertificates();
+  const tls = { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
+  proxy = https.createServer(tls, (request, response) => {
+    const upstream = http.request(
+      {
+        host: "127.0.0.1",
+        port: hostPort,
+        path: request.url,
+        method: request.method,
+        headers: request.headers,
+      },
+      (reply) => {
+        response.writeHead(reply.statusCode, reply.headers);
+        reply.pipe(response);
+        // A host restart cuts live event streams; pass that on so browsers reconnect.
+        reply.on("close", () => reply.complete || response.destroy());
+      },
+    );
+    upstream.on("error", () => {
+      if (!response.headersSent) response.writeHead(502);
+      response.end();
+    });
+    request.pipe(upstream);
+  });
+  await new Promise((resolve) => proxy.listen(port, resolve));
 }
 async function stopServer() {
   if (!server || server.exitCode !== null) return;
@@ -158,8 +193,59 @@ async function checkLayout(page, width, height, filename) {
     assert.ok(Math.abs(result.dashboard[0] / result.dashboard[1] - 16 / 9) < 0.005);
   }
 }
+async function checkSmartTv(base) {
+  // A smart TV's own browser uses the plain-HTTP address, which only opens table screens.
+  const smartTv = await pageFor(`http://127.0.0.1:${tvPort}/tv`);
+  const tabs = await smartTv.locator(".mode-tabs button").allTextContents();
+  assert.deepEqual(tabs, ["TV screen"]);
+  assert.equal(
+    await smartTv.evaluate(() => document.activeElement.textContent),
+    "Open a room on this TV",
+    "The remote's OK button starts the room",
+  );
+  await smartTv.keyboard.press("Enter");
+  await smartTv.locator(".table-lobby").waitFor();
+  const invite = await smartTv.locator(".lobby-link").textContent();
+  assert.match(
+    invite,
+    new RegExp(`^https://[^/]+:${port}/\\?room=`),
+    "Phones are invited to HTTPS",
+  );
+  const tvRoom = (await snapshot(smartTv)).roomCode;
+  const tvGuest = await pageFor(`${base}/?room=${tvRoom}`);
+  await tvGuest.getByLabel("Player 1 name").fill("Mira");
+  await tvGuest.getByRole("button", { name: "Join the table" }).click();
+  await smartTv.getByText("Mira", { exact: true }).waitFor();
+  const refused = await smartTv.evaluate(async (code) => {
+    const response = await fetch(`/api/games/${code}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Sneaky" }),
+    });
+    return response.status;
+  }, tvRoom);
+  assert.equal(refused, 403, "Phones cannot join on the plain-HTTP address");
+  // Google TV browsers report about 960x540; the TV is still laid out 1920 wide.
+  const googleTv = await (
+    await browser.newContext({
+      viewport: { width: 960, height: 540 },
+      deviceScaleFactor: 2,
+      isMobile: true,
+    })
+  ).newPage();
+  googleTv.on("pageerror", (error) => errors.push(error.message));
+  await googleTv.goto(`http://127.0.0.1:${tvPort}/tv`);
+  await googleTv.getByLabel("Room code (optional)").fill(tvRoom);
+  await googleTv.getByRole("button", { name: "Show this room on the TV" }).click();
+  await googleTv.locator(".table-lobby").waitFor();
+  assert.equal(await googleTv.evaluate(() => innerWidth), 1920, "TV page is laid out 1920 wide");
+  await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
+  console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
+}
 (async () => {
   port = await availablePort();
+  hostPort = useHttps ? port : await availablePort();
+  if (!useHttps) await startTlsProxy();
   tvPort = await availablePort();
   await startServer();
   const installed = [
@@ -245,10 +331,12 @@ async function checkLayout(page, width, height, filename) {
   await local.clock.install();
   await local.reload();
   await settled(local);
-  const lastGain = Math.max(...(await snapshot(local)).gainEvents.map((event) => event.at));
-  await local.clock.fastForward(
-    Math.max(0, lastGain + 29900 - (await local.evaluate(() => Date.now()))),
-  );
+  const gainState = await snapshot(local);
+  const lastGain = Math.max(...gainState.gainEvents.map((event) => event.at));
+  // Badges run on the server clock (page time + clockOffset); response latency makes the
+  // offset negative, so ignoring it leaves too little margin on slower CI machines.
+  const serverNow = (await local.evaluate(() => Date.now())) + (gainState.clockOffset || 0);
+  await local.clock.fastForward(Math.max(0, lastGain + 29900 - serverNow));
   assert.ok((await local.locator(".resource-popup:not(.resource-popup-fading)").count()) > 0);
   await local.clock.fastForward(120);
   // React renders after the fired timer, so wait for the DOM rather than reading it at once.
@@ -605,53 +693,9 @@ async function checkLayout(page, width, height, filename) {
   }
   console.log("PASS six players on the large map, setup to first turn, cards fit");
 
-  // A smart TV's own browser uses the plain-HTTP address, which only opens table screens.
-  const smartTv = await pageFor(`http://127.0.0.1:${tvPort}/tv`);
-  const tabs = await smartTv.locator(".mode-tabs button").allTextContents();
-  assert.deepEqual(tabs, ["TV screen"]);
-  assert.equal(
-    await smartTv.evaluate(() => document.activeElement.textContent),
-    "Open a room on this TV",
-    "The remote's OK button starts the room",
-  );
-  await smartTv.keyboard.press("Enter");
-  await smartTv.locator(".table-lobby").waitFor();
-  const invite = await smartTv.locator(".lobby-link").textContent();
-  assert.match(
-    invite,
-    new RegExp(`^https://[^/]+:${port}/\\?room=`),
-    "Phones are invited to HTTPS",
-  );
-  const tvRoom = (await snapshot(smartTv)).roomCode;
-  const tvGuest = await pageFor(`${base}/?room=${tvRoom}`);
-  await tvGuest.getByLabel("Player 1 name").fill("Mira");
-  await tvGuest.getByRole("button", { name: "Join the table" }).click();
-  await smartTv.getByText("Mira", { exact: true }).waitFor();
-  const refused = await smartTv.evaluate(async (code) => {
-    const response = await fetch(`/api/games/${code}/join`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Sneaky" }),
-    });
-    return response.status;
-  }, tvRoom);
-  assert.equal(refused, 403, "Phones cannot join on the plain-HTTP address");
-  // Google TV browsers report about 960x540; the TV is still laid out 1920 wide.
-  const googleTv = await (
-    await browser.newContext({
-      viewport: { width: 960, height: 540 },
-      deviceScaleFactor: 2,
-      isMobile: true,
-    })
-  ).newPage();
-  googleTv.on("pageerror", (error) => errors.push(error.message));
-  await googleTv.goto(`http://127.0.0.1:${tvPort}/tv`);
-  await googleTv.getByLabel("Room code (optional)").fill(tvRoom);
-  await googleTv.getByRole("button", { name: "Show this room on the TV" }).click();
-  await googleTv.locator(".table-lobby").waitFor();
-  assert.equal(await googleTv.evaluate(() => innerWidth), 1920, "TV page is laid out 1920 wide");
-  await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
-  console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
+  // The smart-TV address invites phones to the HTTPS host, so it only applies with HTTPS on.
+  if (useHttps) await checkSmartTv(base);
+  else console.log("SKIP smart-TV address (needs the HTTPS host; covered by the HTTPS run)");
 
   assert.deepEqual(errors, [], "Browser runtime errors");
   fs.writeFileSync(
@@ -673,4 +717,6 @@ async function checkLayout(page, width, height, filename) {
   .finally(async () => {
     await browser?.close();
     await stopServer();
+    proxy?.closeAllConnections();
+    proxy?.close();
   });

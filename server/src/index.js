@@ -9,25 +9,32 @@ const { lanAddresses } = require("./utils/network");
 const { ensureDevCertificates, getCertificatePaths } = require("./utils/certificates");
 
 const PORT = Number(process.env.PORT || 8443);
+const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
+// HTTPS=0 serves plain HTTP for cloud previews whose proxy already terminates TLS.
+const USE_HTTPS = !["0", "false", "off"].includes(String(process.env.HTTPS).toLowerCase());
+const scheme = USE_HTTPS ? "https" : "http";
 // Smart-TV browsers use this plain-HTTP port (TV_PORT=off turns it off).
 const TV_PORT = process.env.TV_PORT === "off" ? null : Number(process.env.TV_PORT || 8080);
+const listensOnLan = ["0.0.0.0", "::"].includes(LISTEN_HOST);
 
-ensureDevCertificates();
-const { keyPath, certPath } = getCertificatePaths();
+function createServer() {
+  if (!USE_HTTPS) return http.createServer(app);
+  ensureDevCertificates();
+  const { keyPath, certPath } = getCertificatePaths();
+  return https.createServer(
+    { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) },
+    app,
+  );
+}
 
-const httpsOptions = {
-  key: fs.readFileSync(keyPath),
-  cert: fs.readFileSync(certPath),
-};
-
-const server = https.createServer(httpsOptions, app);
-server.listen(PORT, "0.0.0.0", () => {
+const server = createServer();
+server.listen(PORT, LISTEN_HOST, () => {
   const actualPort = server.address().port;
-  ports.secure = actualPort;
-  const url = `https://localhost:${actualPort}`;
+  if (USE_HTTPS) ports.secure = actualPort;
+  const url = `${scheme}://localhost:${actualPort}`;
   console.log(`Syria Traders is ready: ${url}`);
-  for (const address of lanAddresses())
-    console.log(`Local network: https://${address}:${actualPort}`);
+  for (const address of listensOnLan ? lanAddresses() : [])
+    console.log(`Local network: ${scheme}://${address}:${actualPort}`);
   console.log("Keep this window open while playing. Press Ctrl+C to stop.");
   if (process.env.OPEN_BROWSER === "1" && process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "", url], { windowsHide: true, stdio: "ignore" }).on(
@@ -47,7 +54,7 @@ server.on("error", (error) => {
 
 if (TV_PORT !== null) {
   const tvServer = http.createServer(tvApp);
-  tvServer.listen(TV_PORT, "0.0.0.0", () => {
+  tvServer.listen(TV_PORT, LISTEN_HOST, () => {
     ports.tv = tvServer.address().port;
     const [address = "localhost"] = lanAddresses();
     const line = "=".repeat(60);
