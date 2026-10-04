@@ -63,6 +63,81 @@
 .table-view.dashboard-16x9 {
   grid-template-rows: 64px minmax(0, 1fr) 172px;
 }
+/* On a TV the map is the hero: it takes the full height of the middle column,
+   with the merchants on the left and the turn, bank, costs and log on the right. */
+@media (min-width: 1200px) {
+  .table-view.dashboard-16x9 {
+    grid-template-columns: minmax(0, 22fr) minmax(0, 56fr) minmax(0, 22fr);
+    grid-template-rows: 64px auto minmax(0, 1fr);
+    grid-template-areas: "header header header" "players board actions" "players board log";
+  }
+  .table-view .player-list {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  .table-view .player-list.players-5,
+  .table-view .player-list.players-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  /* Two narrow columns for five or six merchants: drop the portrait so names fit. */
+  .table-view .players-5 .player-header,
+  .table-view .players-6 .player-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .table-view .players-5 .player-avatar,
+  .table-view .players-6 .player-avatar {
+    display: none;
+  }
+  .table-view .players-5 .player-title-block h3,
+  .table-view .players-6 .player-title-block h3 {
+    font-size: 17px;
+  }
+  .table-view .board-panel .board-svg,
+  .table-view .board-panel svg {
+    max-height: none;
+  }
+  .table-view .table-status {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    align-content: start;
+    gap: var(--sp-4);
+    padding: var(--sp-4);
+  }
+  .table-view .table-costs {
+    grid-column: auto;
+    grid-row: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    align-content: start;
+  }
+  .table-view .table-cost-row {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 6px var(--sp-3);
+  }
+  .table-view .table-cost-row b {
+    flex: 0 0 auto;
+    flex-basis: auto;
+    min-width: 4.2em;
+    font-size: clamp(16px, 1.9vh, 22px);
+  }
+  .table-view .table-cost-row em {
+    display: none;
+  }
+  .table-view .table-cost-row > span {
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .table-view .table-bank {
+    gap: 5px;
+  }
+  .table-view .table-bank > span:not(.eyebrow) {
+    padding: 2px 8px 2px 3px;
+  }
+}
 .table-status {
   height: 100%;
   overflow: hidden;
