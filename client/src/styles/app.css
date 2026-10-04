@@ -530,6 +530,25 @@ g[role="button"]:focus-visible {
   stroke: var(--danger);
   stroke-width: 8;
 }
+/* The bandit's spot before the player confirms the move. */
+.robber-preview .tile-outline {
+  stroke: var(--danger);
+  stroke-width: 10;
+  stroke-dasharray: 18 10;
+}
+.robber-ghost {
+  opacity: 0.75;
+  animation: ghost-pulse 1.2s ease-in-out infinite;
+}
+.robber-ghost circle {
+  stroke: var(--danger);
+  stroke-dasharray: 5 4;
+}
+@keyframes ghost-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
 .producing-tile .tile-outline {
   stroke: var(--gold-strong);
   stroke-width: 10;

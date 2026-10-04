@@ -140,25 +140,38 @@ async function place(page) {
   await settled(page, old.revision);
 }
 // Moves the bandit, preferring a territory where the roller must choose whom to rob.
+// Moves the bandit, preferring a territory where the roller must choose whom to rob.
+// A tap only previews the move; with `shot`, it first taps another territory and
+// changes its mind, proving a mistaken tap moves nothing.
 async function moveBandit(page, shot) {
   const state = await snapshot(page);
   const victims = state.hints.robberVictimsByTile || {};
   const choice = state.hints.validRobberTiles.find((id) => (victims[id] || []).length > 1);
   const tileId = choice ?? state.hints.validRobberTiles[0];
-  await page
-    .getByRole("button", {
-      name: `Move bandit to ${state.board.tiles[tileId].region}`,
-      exact: true,
-    })
-    .click();
-  if (choice !== undefined) {
-    await page.locator(".robber-picker").waitFor();
-    if (shot) {
-      await page.waitForTimeout(500);
-      await page.screenshot({ path: path.join(output, shot) });
-    }
-    await page.locator(".robber-victim").first().click();
+  const tap = (id) =>
+    page
+      .getByRole("button", { name: `Move bandit to ${state.board.tiles[id].region}`, exact: true })
+      .click();
+  if (shot) {
+    const mistake = state.hints.validRobberTiles.find((id) => id !== tileId);
+    await tap(mistake);
+    await page.locator(".robber-preview").waitFor();
+    await page.getByRole("button", { name: "Choose another territory" }).click();
+    await page.locator(".robber-picker").waitFor({ state: "detached" });
+    const after = await snapshot(page);
+    assert.equal(after.board.robberTileId, state.board.robberTileId, "A preview moves nothing");
+    assert.equal(after.mustMoveRobber, true);
   }
+  await tap(tileId);
+  const picker = page.locator(".robber-picker");
+  await picker.waitFor();
+  if (shot) {
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(output, shot) });
+  }
+  if (await picker.locator(".robber-victim").count())
+    await picker.locator(".robber-victim").first().click();
+  else await picker.getByRole("button", { name: "Move the bandit here" }).click();
   await page.waitForFunction(
     () => !JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.mustMoveRobber,
   );

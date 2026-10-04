@@ -80,10 +80,9 @@ export default function App() {
     if (success && match.soundEnabled) playUiSound("tap");
     return success;
   }
-  // With several opponents on the territory, the roller chooses whom to rob first.
+  // A tap only previews the bandit's new spot; the player confirms in the picker.
   function moveBandit(tileId) {
-    if ((game.hints?.robberVictimsByTile?.[tileId] || []).length > 1) setRobberTile(tileId);
-    else action("robber/move", { tileId });
+    setRobberTile(tileId);
   }
   async function roll() {
     setRolling(true);
@@ -189,8 +188,8 @@ export default function App() {
               tileId={robberTile}
               busy={!interactive}
               onPick={async (victimId) => {
-                if (await action("robber/move", { tileId: robberTile, victimId }))
-                  setRobberTile(null);
+                const move = victimId ? { tileId: robberTile, victimId } : { tileId: robberTile };
+                if (await action("robber/move", move)) setRobberTile(null);
               }}
               onCancel={() => setRobberTile(null)}
             />
@@ -205,6 +204,7 @@ export default function App() {
             onEdgeSelect={(edgeId) => action("build/road", { edgeId })}
             onVertexSelect={(vertexId) => action(`build/${selectedAction}`, { vertexId })}
             onTileSelect={moveBandit}
+            previewTileId={interactive && game.mustMoveRobber ? robberTile : null}
             onSetupVertexSelect={setSelectedSetupVertex}
             onSetupEdgeSelect={async (edgeId) => {
               if (await action("setup/place", { vertexId: selectedSetupVertex, edgeId }))

@@ -73,6 +73,7 @@ export default function GameBoard({
   highlightedTileIds = [],
   hexTexturesByRegion = {},
   interactive,
+  previewTileId = null,
 }) {
   const board = game.board;
   const fresh = useFreshPieces(game.id, board);
@@ -118,7 +119,7 @@ export default function GameBoard({
         : "Connect your village with one glowing road."
       : selectedAction === "robber"
         ? hints.validRobberTiles?.length
-          ? "Choose a new region for the bandit."
+          ? "Tap a new region for the bandit, then confirm."
           : "The bandit moves once big hands have returned their cards."
         : selectedAction
           ? `Choose a highlighted place for your ${selectedAction}.`
@@ -205,7 +206,7 @@ export default function GameBoard({
                 <g
                   key={tile.id}
                   data-tile-id={tile.id}
-                  className={`tile-group ${target ? "robber-target" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
+                  className={`tile-group ${target ? "robber-target" : ""} ${previewTileId === tile.id ? "robber-preview" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={target ? `Move bandit to ${tile.region}` : undefined}
@@ -281,6 +282,17 @@ export default function GameBoard({
                             r="2"
                           />
                         ))}
+                      </g>
+                    </g>
+                  )}
+                  {previewTileId === tile.id && (
+                    <g transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}>
+                      <g className="robber-marker robber-ghost">
+                        <circle r="16" />
+                        <text y="6" textAnchor="middle">
+                          B
+                        </text>
+                        <title>The bandit will move here when you confirm</title>
                       </g>
                     </g>
                   )}
