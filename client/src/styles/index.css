@@ -1,13 +1,59 @@
+/* Self-hosted (OFL) so LAN games render identically without internet access. */
+@font-face {
+  font-family: "Marcellus";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/marcellus-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
+}
 :root {
-  --ink: #2e3c34;
-  --muted: #7a7969;
-  --sand: #eee5d3;
-  --paper: #f8f3e8;
-  --terracotta: #a6583e;
-  --olive: #526951;
-  --azure: #4e8288;
-  --gold: #b69a60;
-  --line: #d9cfb9;
+  /* Night bazaar frame */
+  --night: #111b22;
+  --night-2: #18262f;
+  --night-3: #22343e;
+  --night-line: #34505a;
+  --on-night: #f3e9d2;
+  --on-night-muted: #a9b2a9;
+  /* Brass trim */
+  --brass: #c9a35b;
+  --brass-soft: #e6cf96;
+  --brass-deep: #8f6d33;
+  /* Parchment surfaces */
+  --sand: #efe5d0;
+  --paper: #f7f0e1;
+  --card: #fffbf2;
+  --ink: #1f2b2e;
+  --muted: #6e6a5b;
+  --line: #e1d4b8;
+  --line-strong: #c9b58c;
+  /* Accents */
+  --teal: #245a54;
+  --teal-deep: #1a433f;
+  --terracotta: #b0503a;
+  --olive: #4c6a4f;
+  --azure: #3f7f86;
+  --gold: var(--brass);
+  --success: #2f7a4a;
+  /* Shape and depth */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px #1a120814, 0 2px 6px #1a12080d;
+  --shadow: 0 2px 4px #1a120812, 0 10px 24px #1a120818;
+  --shadow-lg: 0 24px 70px #00000066;
+  --font-display: "Marcellus", Georgia, "Times New Roman", serif;
+  --font-ui: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* Eight-point star lattice used on dark backdrops. */
+  --girih: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23c9a35b' stroke-opacity='.09' stroke-width='1'%3E%3Cpath d='M36 14l6.4 15.6L58 36l-15.6 6.4L36 58l-6.4-15.6L14 36l15.6-6.4z'/%3E%3Cpath d='M20.4 20.4h31.2v31.2H20.4z' transform='rotate(45 36 36)'/%3E%3Cpath d='M20.4 20.4h31.2v31.2H20.4z'/%3E%3Cpath d='M0 0l14 14M72 0L58 14M0 72l14-14M72 72L58 58'/%3E%3C/g%3E%3C/svg%3E");
+  color-scheme: light;
 }
 * {
   box-sizing: border-box;
@@ -22,9 +68,14 @@ body,
 body {
   overflow: hidden;
   color: var(--ink);
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
-  background: radial-gradient(ellipse at 30% 0, #faf2dd, transparent 60%), #d9d0be;
+  font-feature-settings: "tnum" 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, #2a4a4f66, transparent 70%), var(--girih),
+    var(--night);
 }
 h1,
 h2,
@@ -35,7 +86,9 @@ p {
 h1,
 h2,
 h3 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 button,
 input,
@@ -46,15 +99,15 @@ button {
   cursor: pointer;
 }
 button:disabled {
-  opacity: 0.42;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid #498992;
-  outline-offset: 3px;
+  outline: 3px solid var(--brass);
+  outline-offset: 2px;
 }
 button,
 input,
@@ -63,11 +116,31 @@ select {
 }
 input,
 select {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px;
-  background: #fffcf5;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: #fffdf7;
   min-width: 0;
+  transition:
+    border-color 140ms,
+    box-shadow 140ms;
+}
+input:hover,
+select:hover {
+  border-color: var(--brass-deep);
+}
+input:focus,
+select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px #245a5422;
+}
+input[type="checkbox"] {
+  accent-color: var(--teal);
+  width: 15px;
+  height: 15px;
+}
+::selection {
+  background: #e6cf96aa;
 }
 img {
   max-width: 100%;
