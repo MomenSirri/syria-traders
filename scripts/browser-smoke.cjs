@@ -276,7 +276,12 @@ async function checkForgottenTabs(base) {
   await first.waitForFunction(
     () => !document.querySelector(".lobby-footer").textContent.includes("live"),
   );
-  const live = (await Promise.all(tabs.map(isLive))).filter(Boolean).length;
+  // A parked tab keeps showing "live" for a moment: short drops are not announced.
+  let live = 9;
+  for (let i = 0; i < 25 && live > 2; i++) {
+    await delay(200);
+    live = (await Promise.all(tabs.map(isLive))).filter(Boolean).length;
+  }
   assert.ok(live <= 2, `Hidden tabs must release their connection (${live} of 9 still live)`);
   const guest = await pageFor(`${base}/?room=${(await snapshot(current)).roomCode}`);
   await guest.getByLabel("Player 1 name").fill("Karim");
