@@ -151,7 +151,7 @@ export default function GameBoard({
                 strokeWidth="2"
               />
             </pattern>
-            {/* The bandit's territory: faded, darkened art under a light hatch. */}
+            {/* The bandit's territory: faded, darkened art under a dark hatch. */}
             <filter id="blocked-art" colorInterpolationFilters="sRGB">
               <feColorMatrix type="saturate" values="0.3" />
               <feComponentTransfer>
@@ -167,8 +167,8 @@ export default function GameBoard({
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
-              <rect width="18" height="18" fill="#120c0a" fillOpacity=".14" />
-              <rect width="4" height="18" fill="#e2553f" fillOpacity=".24" />
+              <rect width="18" height="18" fill="#120c0a" fillOpacity=".18" />
+              <rect width="4" height="18" fill="#000" fillOpacity=".18" />
             </pattern>
             {tiles.map((tile) => (
               <clipPath key={tile.id} id={`hex-clip-${tile.id}`}>
@@ -333,8 +333,14 @@ export default function GameBoard({
               const tile = tiles[tileId];
               return (
                 <g key={`${kind}-${tileId}`} className={`bandit-layer ${kind}-layer`}>
+                  {/* Black and white like a cordon: no player colour, so never a road. */}
                   <polygon
-                    className={`${kind}-outline`}
+                    className="bandit-outline-base"
+                    points={points(tile.vertexIds.map((id) => vertices[id]))}
+                    fill="none"
+                  />
+                  <polygon
+                    className="bandit-outline-dash"
                     points={points(tile.vertexIds.map((id) => vertices[id]))}
                     fill="none"
                   />
