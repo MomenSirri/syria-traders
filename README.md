@@ -82,7 +82,7 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 
 ## Rules and Feedback
 
-- Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart.
+- Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart. The most common rolls are marked: 6 and 8 in red, 5 and 9 in orange.
 - Place a village and adjacent road, then reverse player order for the second placement. Your second village grants starting resources.
 - Roll once per turn. Matching regions produce one resource per village, two per city, unless blocked by the bandit.
 - Build along your own network. Villages must be at least two edges apart. An opponent's settlement blocks road continuation. Limits: 15 roads, 5 villages, 4 cities per player.
