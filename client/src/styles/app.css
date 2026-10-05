@@ -478,6 +478,57 @@
   font-family: var(--font-display);
   font-size: 17px;
 }
+/* The bandit's territory reads as blocked at a glance: faded, darker art under a
+   dark hatch, a black-and-white border marching round it above its neighbours,
+   and a greyed number. No player colour is black or white, so it never looks
+   like a road. */
+.bandit-layer {
+  pointer-events: none;
+}
+.blocked-shade {
+  pointer-events: none;
+  animation: blocked-in 500ms var(--ease) both;
+}
+.bandit-outline-base,
+.bandit-outline-dash {
+  stroke-linejoin: round;
+}
+.bandit-outline-base {
+  stroke: #0b0b0b;
+  stroke-width: 9;
+  filter: drop-shadow(0 0 5px #000c);
+}
+.bandit-outline-dash {
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-dasharray: 14 10;
+}
+.blocked-layer .bandit-outline-base {
+  animation: blocked-in 500ms var(--ease) both;
+}
+.blocked-layer .bandit-outline-dash {
+  animation:
+    blocked-in 500ms var(--ease) both,
+    bandit-march 1s linear infinite;
+}
+@keyframes bandit-march {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@keyframes blocked-in {
+  from {
+    opacity: 0;
+  }
+}
+.blocked-tile .number-token {
+  fill: #ddd5c6;
+  stroke: #7a7266;
+}
+.blocked-tile .token-text,
+.blocked-tile .token-pips circle {
+  fill: #6f675b;
+}
 .board-target {
   cursor: pointer;
 }
@@ -530,18 +581,21 @@ g[role="button"]:focus-visible {
   stroke: var(--danger);
   stroke-width: 8;
 }
-/* The bandit's spot before the player confirms the move. */
-.robber-preview .tile-outline {
-  stroke: var(--danger);
-  stroke-width: 10;
-  stroke-dasharray: 18 10;
+/* The bandit's spot before the player confirms the move: the same cordon, but
+   lighter and still, where the blocked territory's border marches. */
+.preview-layer .bandit-outline-base {
+  stroke-width: 7;
+  opacity: 0.6;
+}
+.preview-layer .bandit-outline-dash {
+  stroke-width: 3;
 }
 .robber-ghost {
   opacity: 0.75;
   animation: ghost-pulse 1.2s ease-in-out infinite;
 }
 .robber-ghost circle {
-  stroke: var(--danger);
+  stroke: #fff;
   stroke-dasharray: 5 4;
 }
 @keyframes ghost-pulse {

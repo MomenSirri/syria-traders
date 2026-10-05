@@ -151,6 +151,25 @@ export default function GameBoard({
                 strokeWidth="2"
               />
             </pattern>
+            {/* The bandit's territory: faded, darkened art under a dark hatch. */}
+            <filter id="blocked-art" colorInterpolationFilters="sRGB">
+              <feColorMatrix type="saturate" values="0.3" />
+              <feComponentTransfer>
+                <feFuncR type="linear" slope="0.7" />
+                <feFuncG type="linear" slope="0.7" />
+                <feFuncB type="linear" slope="0.7" />
+              </feComponentTransfer>
+            </filter>
+            <pattern
+              id="blocked-hatch"
+              width="18"
+              height="18"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <rect width="18" height="18" fill="#120c0a" fillOpacity=".18" />
+              <rect width="4" height="18" fill="#000" fillOpacity=".18" />
+            </pattern>
             {tiles.map((tile) => (
               <clipPath key={tile.id} id={`hex-clip-${tile.id}`}>
                 <polygon points={points(tile.vertexIds.map((id) => vertices[id]))} />
@@ -197,6 +216,7 @@ export default function GameBoard({
           <g className="tile-layer">
             {tiles.map((tile) => {
               const target = validTiles.has(tile.id);
+              const blocked = robberTileId === tile.id;
               const texture =
                 hexTexturesByRegion[tile.region] ||
                 (REGION_NAMES.has(tile.region)
@@ -206,7 +226,7 @@ export default function GameBoard({
                 <g
                   key={tile.id}
                   data-tile-id={tile.id}
-                  className={`tile-group ${target ? "robber-target" : ""} ${previewTileId === tile.id ? "robber-preview" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
+                  className={`tile-group ${target ? "robber-target" : ""} ${blocked ? "blocked-tile" : ""} ${previewTileId === tile.id ? "robber-preview" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={target ? `Move bandit to ${tile.region}` : undefined}
@@ -225,7 +245,15 @@ export default function GameBoard({
                     height={SIZE * 2}
                     preserveAspectRatio="xMidYMid slice"
                     clipPath={`url(#hex-clip-${tile.id})`}
+                    filter={blocked ? "url(#blocked-art)" : undefined}
                   />
+                  {blocked && (
+                    <polygon
+                      className="blocked-shade"
+                      points={points(tile.vertexIds.map((id) => vertices[id]))}
+                      fill="url(#blocked-hatch)"
+                    />
+                  )}
                   <polygon
                     className="tile-outline"
                     points={points(tile.vertexIds.map((id) => vertices[id]))}
@@ -285,33 +313,55 @@ export default function GameBoard({
                       </g>
                     </g>
                   )}
-                  {previewTileId === tile.id && (
-                    <g transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}>
-                      <g className="robber-marker robber-ghost">
-                        <circle r="16" />
-                        <text y="6" textAnchor="middle">
-                          B
-                        </text>
-                        <title>The bandit will move here when you confirm</title>
-                      </g>
-                    </g>
-                  )}
-                  {robberTileId === tile.id && (
-                    <g transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}>
-                      <g className={`robber-marker ${fresh.robber ? "robber-landing" : ""}`}>
-                        <circle r="16" />
-                        <text y="6" textAnchor="middle">
-                          B
-                        </text>
-                        <title>Bandit blocks production</title>
-                      </g>
-                    </g>
-                  )}
-                  <title>{`${tile.region}: ${tile.flavor} Produces ${tile.resource}.`}</title>
+                  <title>
+                    {blocked
+                      ? `${tile.region}: blocked by the bandit, produces nothing.`
+                      : `${tile.region}: ${tile.flavor} Produces ${tile.resource}.`}
+                  </title>
                 </g>
               );
             })}
           </g>
+          {/* The bandit's spot and its preview are drawn over every territory, so
+              neighbouring outlines never cover their red borders. */}
+          {[
+            { tileId: robberTileId, kind: "blocked" },
+            { tileId: previewTileId, kind: "preview" },
+          ]
+            .filter(({ tileId }) => tiles[tileId])
+            .map(({ tileId, kind }) => {
+              const tile = tiles[tileId];
+              return (
+                <g key={`${kind}-${tileId}`} className={`bandit-layer ${kind}-layer`}>
+                  {/* Black and white like a cordon: no player colour, so never a road. */}
+                  <polygon
+                    className="bandit-outline-base"
+                    points={points(tile.vertexIds.map((id) => vertices[id]))}
+                    fill="none"
+                  />
+                  <polygon
+                    className="bandit-outline-dash"
+                    points={points(tile.vertexIds.map((id) => vertices[id]))}
+                    fill="none"
+                  />
+                  <g transform={`translate(${tile.center.x + 35},${tile.center.y - 62})`}>
+                    <g
+                      className={`robber-marker ${kind === "preview" ? "robber-ghost" : fresh.robber ? "robber-landing" : ""}`}
+                    >
+                      <circle r="16" />
+                      <text y="6" textAnchor="middle">
+                        B
+                      </text>
+                      <title>
+                        {kind === "preview"
+                          ? "The bandit will move here when you confirm"
+                          : "Bandit blocks production"}
+                      </title>
+                    </g>
+                  </g>
+                </g>
+              );
+            })}
           <g className="edge-layer">
             {edges.map((edge) => {
               const a = vertices[edge.v1],
