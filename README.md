@@ -49,6 +49,8 @@ The TV is a read-only seat-less viewer. The server never sends it hands, gain de
 
 Leaving a lobby frees your seat. If the host leaves, the next player becomes host. An empty room closes. After a match starts, seats cannot be removed or reassigned.
 
+**Taking a seat back:** a phone that lost its seat in a started match (cleared browser, another phone) joins with the room code, the name it played with and the 4-digit **room PIN**. Every seated phone shows the PIN next to the room code; the TV never does, because anyone with the room code can open a TV view. A wrong name or PIN gets the same answer and never lists the players. The server slows down guessing: after 10 wrong room codes, names or PINs in 10 minutes an address must wait, a room takes at most 20 wrong PINs in 10 minutes from all addresses together, and an address can open at most 30 rooms an hour. Rooms saved before PINs existed get one the first time a seat reconnects.
+
 ## Development
 
 ```sh

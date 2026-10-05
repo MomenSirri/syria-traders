@@ -15,15 +15,15 @@ const handle = (fn) => (req, res, next) => {
 };
 router.post(
   "/games",
-  handle((req, res) => res.status(201).json(sessions.create(req.body))),
+  handle((req, res) => res.status(201).json(sessions.create(req.body, req.ip))),
 );
 router.post(
   "/games/:gameId/join",
-  handle((req, res) => res.json(sessions.join(req.params.gameId, req.body))),
+  handle((req, res) => res.json(sessions.join(req.params.gameId, req.body, req.ip))),
 );
 router.post(
   "/games/:gameId/table",
-  handle((req, res) => res.status(201).json(sessions.watch(req.params.gameId))),
+  handle((req, res) => res.status(201).json(sessions.watch(req.params.gameId, req.ip))),
 );
 router.use("/games/:gameId", (req, _res, next) => {
   try {

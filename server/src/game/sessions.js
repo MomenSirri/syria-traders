@@ -5,10 +5,22 @@ const { lanAddresses } = require("../utils/network");
 const { boardSpec } = require("./boardGenerator");
 const ports = require("../utils/ports");
 const presence = require("./presence");
+const attempts = require("../utils/attempts");
 
 function fail(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
 }
+// Limits for strangers on a public address. Joins count only when they fail, so a
+// family rejoining after a dropped phone never meets them.
+const MINUTE = 60000;
+const LIMITS = {
+  create: { max: 30, windowMs: 60 * MINUTE },
+  wrongCode: { max: 10, windowMs: 10 * MINUTE },
+  wrongPin: { max: 20, windowMs: 10 * MINUTE },
+};
+const SLOW_DOWN = "Too many wrong room codes or PINs from here. Wait a few minutes and try again.";
+const newPin = () => String(randomBytes(2).readUInt16BE(0) % 10000).padStart(4, "0");
+
 const hash = (token) => createHash("sha256").update(token).digest("hex");
 
 function image(value) {
@@ -59,6 +71,11 @@ function authenticate(id, token) {
   const session = game.sessions?.find((entry) => entry.tokenHash === hash(token || ""));
   if (!session)
     fail("This browser has no player seat in that match. Join using its room code.", 401);
+  // Rooms saved before rejoin PINs existed get one the first time a seat checks in.
+  if (game.mode === "online" && !game.rejoinPin) {
+    game.rejoinPin = newPin();
+    store.saveGame(game);
+  }
   return { game, session };
 }
 
@@ -70,6 +87,9 @@ function view(game, session, includeMedia = false) {
   result.viewer = table
     ? { playerId: null, isHost: Boolean(session.host), role: "table" }
     : { playerId: session.playerId, isHost: session.host };
+  // Seated players see the rejoin PIN so they can read it to someone who lost their seat.
+  // Table screens never get it: anyone with the room code can open one.
+  if (game.mode === "online" && !table) result.rejoinPin = game.rejoinPin || null;
   // The table screen shows the invite link, so it needs the host's LAN addresses.
   if ((session.host || table) && game.mode === "online") {
     result.hostAddresses = lanAddresses();
@@ -111,7 +131,13 @@ function view(game, session, includeMedia = false) {
   return result;
 }
 
-function create(payload) {
+function create(payload, from = "") {
+  attempts.check(
+    `create:${from}`,
+    LIMITS.create.max,
+    LIMITS.create.windowMs,
+    "Too many new rooms from here. Wait a while and try again.",
+  );
   if (!payload || typeof payload !== "object") fail("A setup is required.");
   if (!Array.isArray(payload.playerNames)) fail("Player names must be a list.");
   if (payload.mode && !["local", "online"].includes(payload.mode))
@@ -137,7 +163,9 @@ function create(payload) {
   do {
     game.roomCode = randomBytes(3).toString("hex").toUpperCase();
   } while (store.getGame(game.roomCode));
+  if (game.mode === "online") game.rejoinPin = newPin();
   game.hostPlayerId = game.players[0]?.id || null;
+  attempts.note(`create:${from}`, LIMITS.create.windowMs);
   const { token, session } = tableHost
     ? issue(game, null, true, "table")
     : issue(game, game.hostPlayerId, true);
@@ -145,10 +173,8 @@ function create(payload) {
 }
 
 // Open a read-only table screen (for example a TV) for an existing network room.
-function watch(id) {
-  const game = store.getGame(id);
-  if (!game || game.mode !== "online" || game.status === "closed")
-    fail("Network room not found.", 404);
+function watch(id, from = "") {
+  const game = findRoom(id, from, (entry) => entry.status !== "closed");
   // Reopening the screen should not grow the save forever, but a room full of
   // spectators must not push the first screens out: keep plenty of recent ones.
   const watchers = (game.sessions || []).filter((seat) => isTable(seat) && !seat.host);
@@ -159,15 +185,31 @@ function watch(id) {
 }
 
 // A phone that lost its saved seat (cleared browser, another browser, "New table")
-// gets it back by entering the room code and the name it played with. Only a seat
-// with no live connection can be taken, and the table log tells everyone.
-function rejoin(game, payload) {
+// gets it back by entering the room code, the name it played with and the room PIN
+// that every seated phone shows. Only a seat with no live connection can be taken,
+// and the table log tells everyone.
+function rejoin(game, payload, from) {
+  const room = `pin:${game.id}`;
+  attempts.check(
+    room,
+    LIMITS.wrongPin.max,
+    LIMITS.wrongPin.windowMs,
+    "Too many wrong PINs for this room. Wait a few minutes and try again.",
+  );
   const name = typeof payload.name === "string" ? payload.name.trim().toLowerCase() : "";
   const player = game.players.find((entry) => entry.name.trim().toLowerCase() === name);
-  if (!player)
+  const pin = typeof payload.pin === "string" ? payload.pin.trim() : "";
+  // A room saved before PINs existed, and never opened since, rejoins by name alone.
+  const pinned = !game.rejoinPin || pin === game.rejoinPin;
+  if (!player || !pinned) {
+    // The same answer for a wrong name and a wrong PIN, and no names are listed.
+    attempts.note(room, LIMITS.wrongPin.windowMs);
+    attempts.note(`code:${from}`, LIMITS.wrongCode.windowMs);
     fail(
-      `This match has already started. To take your seat back, enter the name you played with: ${game.players.map((entry) => entry.name).join(", ")}.`,
+      "This match has already started. To take your seat back, enter the name you played with and the room PIN. Any player still in the match sees the PIN next to the room code.",
+      403,
     );
+  }
   if (presence.isOnline(game.id, player.id))
     fail(`${player.name} is still connected on another device. Close the game there first.`, 409);
   const seats = game.sessions.filter((seat) => !isTable(seat) && seat.playerId === player.id);
@@ -182,16 +224,27 @@ function rejoin(game, payload) {
     message: `${player.name} rejoined the table.`,
   });
   game.log = game.log.slice(-180);
+  game.rejoinPin ||= newPin();
   const { token, session } = issue(game, player.id, host);
   return { game: view(store.getGame(game.id), session, true), token };
 }
 
-function join(id, payload) {
+// Looks a room up by code, counting misses per address so codes can't be guessed.
+function findRoom(id, from, usable = () => true) {
+  attempts.check(`code:${from}`, LIMITS.wrongCode.max, LIMITS.wrongCode.windowMs, SLOW_DOWN);
+  const game = store.getGame(id);
+  if (!game || game.mode !== "online" || !usable(game)) {
+    attempts.note(`code:${from}`, LIMITS.wrongCode.windowMs);
+    fail("Network room not found.", 404);
+  }
+  return game;
+}
+
+function join(id, payload, from = "") {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
     fail("A player name is required.");
-  const game = store.getGame(id);
-  if (!game || game.mode !== "online") fail("Network room not found.", 404);
-  if (!["lobby", "closed"].includes(game.phase)) return rejoin(game, payload);
+  const game = findRoom(id, from);
+  if (!["lobby", "closed"].includes(game.phase)) return rejoin(game, payload, from);
   const avatar = image(payload.avatar);
   service.joinGame(game.id, payload);
   const next = store.getGame(game.id);

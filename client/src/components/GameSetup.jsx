@@ -67,6 +67,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
   const [swapFrom, setSwapFrom] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [room, setRoom] = useState(new URLSearchParams(location.search).get("room") || "");
+  const [pin, setPin] = useState("");
   const [localError, setLocalError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [artTarget, setArtTarget] = useState(null);
@@ -168,7 +169,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
       return;
     }
     if (draft.mode === "join") {
-      onJoinGame(room, { name: names[0], avatar: draft.avatars[0] });
+      onJoinGame(room, { name: names[0], avatar: draft.avatars[0], pin });
       return;
     }
     onCreateGame({
@@ -324,6 +325,19 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                   maxLength={6}
                   required={!tv}
                   onChange={(event) => setRoom(event.target.value.toUpperCase())}
+                />
+              </label>
+            )}
+            {draft.mode === "join" && (
+              <label className="room-field">
+                Rejoin PIN (only to take back your seat in a started match)
+                <input
+                  value={pin}
+                  placeholder="1234"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={4}
+                  onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
                 />
               </label>
             )}

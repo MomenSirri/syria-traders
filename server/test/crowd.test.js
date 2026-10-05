@@ -106,11 +106,12 @@ test("six phones, twelve TV screens and extra tabs all stay connected through a 
     moves += 1;
   }
   assert.equal(moves, 12);
-  // Twelve people who only opened the link join the wrong way: nothing changes.
+  // Twelve people who only opened the link join the wrong way: nothing changes, and after
+  // ten misses from one address the rest are told to wait.
   const strangers = await Promise.all(
     Array.from({ length: 12 }, (_, i) => api(`/games/${roomCode}/join`, { name: `Guest ${i}` })),
   );
-  assert.ok(strangers.every((reply) => reply.status === 400));
+  assert.ok(strangers.every((reply) => [403, 429].includes(reply.status)));
 
   for (let i = 0; i < 100 && streams.some((stream) => stream.latest < state.revision); i++)
     await pause();

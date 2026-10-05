@@ -174,6 +174,9 @@ export default function App() {
           <div className="session-status">
             <span className={`connection-dot ${connection}`} />
             {game.mode === "online" ? `Room ${game.roomCode}` : "Shared table"}
+            {game.rejoinPin && (
+              <span title="Read this to a player who lost their seat"> · PIN {game.rejoinPin}</span>
+            )}
             <small>{connection === "live" ? "Saved on host" : "Reconnecting..."}</small>
           </div>
           <div className="header-actions">

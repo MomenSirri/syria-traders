@@ -168,24 +168,35 @@ test("a dropped player is marked away for everyone, the match waits, and nothing
   await listeners(id, 0);
 });
 
-test("a player who lost their saved seat rejoins a running match by room code and name", async () => {
+test("a player who lost their saved seat rejoins a running match with name and room PIN", async () => {
   const { id, host, omar } = await mainPhase();
   const code = host.game.roomCode;
+  const pin = host.game.rejoinPin;
+  assert.match(pin, /^\d{4}$/);
+  assert.equal(omar.game.rejoinPin, pin, "Every seat sees the PIN");
   const seat = omar.game.viewer.playerId;
   const hand = (await read(id, omar.token)).players.find((player) => player.id === seat);
 
-  const stranger = await api(`/games/${code}/join`, { name: "Zaid" });
-  assert.equal(stranger.status, 400);
-  assert.match(stranger.error, /Amina, Omar/);
+  // A wrong name or a wrong PIN gets the same answer, and the names are not listed.
+  const stranger = await api(`/games/${code}/join`, { name: "Zaid", pin });
+  assert.equal(stranger.status, 403);
+  assert.doesNotMatch(stranger.error, /Amina|Omar/);
+  const guess = await api(`/games/${code}/join`, {
+    name: "Omar",
+    pin: pin === "0000" ? "1111" : "0000",
+  });
+  assert.equal(guess.status, 403);
+  assert.equal(guess.error, stranger.error);
+  assert.equal((await api(`/games/${code}/join`, { name: "Omar" })).status, 403);
 
   // While Omar's phone is connected, nobody else can take his seat.
   const live = await watch(id, omar.token);
   await listeners(id, 1);
-  assert.equal((await api(`/games/${code}/join`, { name: "Omar" })).status, 409);
+  assert.equal((await api(`/games/${code}/join`, { name: "Omar", pin })).status, 409);
   live.close();
   await listeners(id, 0);
 
-  const back = await api(`/games/${code.toLowerCase()}/join`, { name: " omar " });
+  const back = await api(`/games/${code.toLowerCase()}/join`, { name: " omar ", pin: ` ${pin} ` });
   assert.equal(back.status, 200, back.error);
   assert.notEqual(back.token, omar.token);
   assert.equal(back.game.viewer.playerId, seat);
@@ -200,7 +211,7 @@ test("a player who lost their saved seat rejoins a running match by room code an
   const stream = await watch(id, back.token);
   await stream.until(() => stream.revisions.length > 0);
   stream.close();
-  const hostBack = await api(`/games/${code}/join`, { name: "Amina" });
+  const hostBack = await api(`/games/${code}/join`, { name: "Amina", pin });
   assert.equal(hostBack.status, 200, hostBack.error);
   assert.equal(hostBack.game.viewer.isHost, true);
   assert.equal((await read(id, host.token)).viewer.playerId, host.game.viewer.playerId);
