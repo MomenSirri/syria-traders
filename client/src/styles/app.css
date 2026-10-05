@@ -478,6 +478,36 @@
   font-family: var(--font-display);
   font-size: 17px;
 }
+/* The bandit's territory reads as blocked at a glance: faded, darker art under a
+   light hatch, a solid red border drawn above its neighbours, and a greyed number. */
+.bandit-layer {
+  pointer-events: none;
+}
+.blocked-shade {
+  pointer-events: none;
+  animation: blocked-in 500ms var(--ease) both;
+}
+.blocked-outline {
+  stroke: var(--danger);
+  stroke-width: 7;
+  stroke-linejoin: round;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px #e2553fcc);
+  animation: blocked-in 500ms var(--ease) both;
+}
+@keyframes blocked-in {
+  from {
+    opacity: 0;
+  }
+}
+.blocked-tile .number-token {
+  fill: #ddd5c6;
+  stroke: #7a7266;
+}
+.blocked-tile .token-text,
+.blocked-tile .token-pips circle {
+  fill: #6f675b;
+}
 .board-target {
   cursor: pointer;
 }
@@ -530,11 +560,13 @@ g[role="button"]:focus-visible {
   stroke: var(--danger);
   stroke-width: 8;
 }
-/* The bandit's spot before the player confirms the move. */
-.robber-preview .tile-outline {
+/* The bandit's spot before the player confirms the move: dashed, where the
+   blocked territory's border is solid. */
+.preview-outline {
   stroke: var(--danger);
-  stroke-width: 10;
+  stroke-width: 8;
   stroke-dasharray: 18 10;
+  stroke-linejoin: round;
 }
 .robber-ghost {
   opacity: 0.75;
