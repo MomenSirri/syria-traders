@@ -2,6 +2,41 @@
 
 An original Syrian-inspired resource, trading, and settlement game. React, plain CSS, Node.js, Express, and an SVG board. Supports 2-6 people sharing a screen or joining a room from separate browsers on the same local network.
 
+New to the game? Read **[How to Play](docs/HOW-TO-PLAY.md)** for the rules explained from scratch.
+
+## Quick Start
+
+You need one computer to be the **host** (it runs the game server) and **Node.js 24** installed on it from [nodejs.org](https://nodejs.org/). Everyone else only needs a browser on the same Wi-Fi.
+
+**Example 1: two players on one laptop.**
+Double-click `run-game.bat`. The game opens at `https://localhost:8443` (accept the certificate warning, it is expected). Choose **One device**, type both names, arrange the map if you like, and start. You pass the laptop between turns, so hands are not private in this mode.
+
+**Example 2: everyone on their own phone, with a TV showing the board.**
+
+1. On the host PC, double-click `run-game.bat` and keep its window open.
+2. The window prints a **TV:** address like `http://192.168.1.50:8080/tv` (your PC's own address will differ). Type it into the TV's browser and press **Open a room on this TV**. The TV now shows a room code and a QR code.
+3. Each player scans the QR code with their phone (or opens the invite link), types their name and taps **Join the table**. Accept the certificate warning once.
+4. When everyone is in, press **Start the match** on the TV or on the first phone that joined.
+
+![The TV lobby with a QR code, the room code, the invite link and the seats of players who joined](docs/images/tv-lobby.jpg)
+
+*The TV waiting for players. Phones scan the QR code or type the room code.*
+
+**Example 3: everyone on their own laptop or phone, no TV.**
+On the host PC choose **Host room**, enter your name and create the room. Send the lobby invite link to the others (it uses the PC's network address, for example `https://192.168.1.50:8443/?room=ABC123`). They open it, enter their names and join, then the host presses **Start the match**. Anyone can also choose **Join room** and type the six-character room code.
+
+**For developers (any OS):**
+
+```sh
+npm run install:all      # install root, server and client packages
+npm run build            # build the client into client/dist
+npm start                # serve https://localhost:8443 (+ TV address on :8080)
+npm run dev              # or: hot-reload development on https://localhost:5173
+npm test                 # rules, cards, trading, TV and session tests
+```
+
+If something does not connect, check that every device is on the same Wi-Fi (not a guest network), that Windows Firewall allows Node.js, and that the host window is still open. Details for each setup follow below.
+
 ## Start Playing (Windows)
 
 Install **Node.js 24 or newer**, then double-click **run-game.bat**. It installs missing dependencies, builds the latest UI, starts HTTPS, and opens **https://localhost:8443**. Keep its window open while playing; Ctrl+C stops the host.
