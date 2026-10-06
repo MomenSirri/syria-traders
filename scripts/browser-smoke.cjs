@@ -329,6 +329,7 @@ async function checkBrokenStream(base) {
   await host.getByText("Yara").first().waitFor();
   await host.getByRole("button", { name: "Start the match" }).click();
   for (const page of [host, guest]) await page.locator(".dashboard-16x9").waitFor();
+  await rollForOrder([host, guest]);
   const revisionOf = async (page) => (await snapshot(page)).revision;
   const reaches = (page, revision) =>
     page.waitForFunction(
