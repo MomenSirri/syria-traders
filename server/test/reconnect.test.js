@@ -241,18 +241,26 @@ test("a phone that cannot hold a stream stays in the match through the pulse alo
   }
   // Long past the away delay, the pulse has kept the seat present and taken.
   assert.equal(await away(), false);
-  assert.equal((await api(`/games/${code}/join`, { name: "Omar" })).status, 409);
+  assert.equal(
+    (await api(`/games/${code}/join`, { name: "Omar", pin: host.game.rejoinPin })).status,
+    409,
+  );
 
   // The pulse reports moves, and the seat can make them without any stream.
   const activeId = state.players[state.currentPlayerIndex].id;
   const activeToken = activeId === seat ? omar.token : host.token;
-  const rolled = await api(`/games/${id}/roll`, { playerId: activeId }, activeToken, state.revision);
+  const rolled = await api(
+    `/games/${id}/roll`,
+    { playerId: activeId },
+    activeToken,
+    state.revision,
+  );
   assert.equal(rolled.status, 200, rolled.error);
   const after = await api(`/games/${id}/pulse`, null, omar.token);
   assert.equal(after.revision, rolled.game.revision);
   assert.equal((await api(`/games/${id}/pulse`, null, "wrong-token")).status, 401);
 
-  // When the pulses stop too, the seat is marked away and can be taken back by name.
+  // When the pulses stop too, the seat is marked away and can be taken back by name and PIN.
   for (let i = 0; i < 100 && !(await away()); i++) await pause();
   assert.equal(await away(), true);
   assert.equal((await api(`/games/${id}/pulse`, null, omar.token)).status, 200);
