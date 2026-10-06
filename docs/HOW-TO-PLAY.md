@@ -57,7 +57,9 @@ Each player has at most 15 roads, 5 villages and 4 cities. The TV and the action
 
 ## Setting up the board
 
-Before the first turn everyone places two villages and two roads for free.
+First, everyone rolls the dice to decide the turn order. Tap **Roll the dice** on your phone. The highest roll goes first, the next highest second, and so on. Players who tie roll again between themselves. The TV shows every roll.
+
+Then everyone places two villages and two roads for free.
 
 1. In turn order, each player places one village on a corner where regions meet, plus one road touching it.
 2. Then the order reverses (the last player goes again first) and everyone places a second village and road.

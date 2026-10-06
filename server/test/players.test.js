@@ -7,6 +7,7 @@ const path = require("node:path");
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
 const store = require("../src/game/gameStore");
 const service = require("../src/game/gameService");
+const { rollInOrder } = require("./orderRoll");
 const sessions = require("../src/game/sessions");
 const { boardSpec, generateBoard } = require("../src/game/boardGenerator");
 const config = require("../../shared/gameConfig.json");
@@ -43,6 +44,7 @@ test("six players get distinct colours, the large map and a snake setup", () => 
   assert.equal(game.board.tiles.length, 30);
   assert.equal(new Set(game.players.map((player) => player.color)).size, 6);
   const order = [];
+  if (game.phase === "order-roll") game = rollInOrder(game.id);
   while (game.phase === "setup-placement") {
     const player = game.players[game.currentPlayerIndex];
     order.push(player.name);

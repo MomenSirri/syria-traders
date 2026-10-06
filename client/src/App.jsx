@@ -17,6 +17,7 @@ import TradePanel from "./components/TradePanel";
 import DevCardPanel from "./components/DevCardPanel";
 import RobberPicker from "./components/RobberPicker";
 import DiscardPanel from "./components/DiscardPanel";
+import OrderRollPanel from "./components/OrderRollPanel";
 import GameEffects from "./components/GameEffects";
 import MatchSummary from "./components/MatchSummary";
 import { ReactionButton, ReactionLayer } from "./components/Reactions";
@@ -107,7 +108,7 @@ export default function App() {
     }
     setHighlightedTileIds(game.visuals.producingTileIds || []);
     // Every screen tumbles its dice when anyone rolls, not only the roller's.
-    if (["roll", "seven"].includes(game.visuals.kind)) setRolling(true);
+    if (["roll", "seven", "order-roll"].includes(game.visuals.kind)) setRolling(true);
     const timer = setTimeout(() => setHighlightedTileIds([]), 1800);
     const dice = setTimeout(() => setRolling(false), 650);
     return () => {
@@ -170,6 +171,7 @@ export default function App() {
     );
 
   const winner = game.players.find((player) => player.id === game.winnerId);
+  const orderRoll = game.phase === "order-roll";
   return (
     <div className="viewport-shell">
       <main
@@ -180,20 +182,27 @@ export default function App() {
             <span className="eyebrow">{table ? "Table screen" : "A gathering of merchants"}</span>
             <h1>{config.gameTitle}</h1>
           </div>
-          <div className="turn-status" style={{ "--player-color": current?.color }}>
+          <div
+            className="turn-status"
+            style={{ "--player-color": orderRoll ? "var(--gold)" : current?.color }}
+          >
             <span className="turn-dot" />
             <div>
               <span className="eyebrow">
                 {winner
                   ? "The caravan has a winner"
-                  : game.phase === "setup-placement"
-                    ? `First settlements ${game.setup.step + 1}/${game.setup.totalSteps}`
-                    : `Turn ${game.turn}`}
+                  : orderRoll
+                    ? "Rolling for turn order"
+                    : game.phase === "setup-placement"
+                      ? `First settlements ${game.setup.step + 1}/${game.setup.totalSteps}`
+                      : `Turn ${game.turn}`}
               </span>
               <strong>
                 {winner
                   ? `${winner.name} wins!`
-                  : `${current?.name}${myTurn ? " - your turn" : " is playing"}`}
+                  : orderRoll
+                    ? "Highest roll goes first"
+                    : `${current?.name}${myTurn ? " - your turn" : " is playing"}`}
               </strong>
             </div>
           </div>
@@ -232,6 +241,11 @@ export default function App() {
             onAction={action}
           />
           {!phoneSeat && <DevCardPanel game={game} busy={!interactive} onAction={action} />}
+          <OrderRollPanel
+            game={game}
+            busy={busy || connection !== "live" || game.status !== "active"}
+            onAction={action}
+          />
           <DiscardPanel
             game={game}
             busy={busy || connection !== "live" || game.status !== "active"}
@@ -302,6 +316,8 @@ export default function App() {
               selectedAction={selectedAction}
               onSelectAction={setSelectedAction}
               onRoll={roll}
+              onRollForOrder={() => action("order/roll")}
+              orderBusy={busy || connection !== "live"}
               onEndTurn={() => action("end-turn")}
               onBuyCard={() => action("dev/buy")}
               onTrade={(giveResource, getResource) =>
@@ -337,6 +353,9 @@ export default function App() {
               <span className="eyebrow">Welcome to the table</span>
               <h2>Build a home. Open a route.</h2>
               <ol>
+                <li>
+                  Everyone rolls the dice first: the highest roll goes first, ties roll again.
+                </li>
                 <li>
                   Place two villages and roads. Placement order reverses for the second round; your
                   second village supplies starting resources.

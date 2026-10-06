@@ -118,6 +118,7 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 ## Rules and Feedback
 
 - Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart.
+- Everyone first rolls the dice for turn order, each on their own phone (a shared screen rolls for each player). The highest roll places first and takes turn 1, the next highest second, and so on; tied players roll again among themselves. After 30 seconds anyone may roll for a player who hasn't.
 - Place a village and adjacent road, then reverse player order for the second placement. Your second village grants starting resources.
 - Roll once per turn. Matching regions produce one resource per village, two per city, unless blocked by the bandit.
 - Build along your own network. Villages must be at least two edges apart. An opponent's settlement blocks road continuation. Limits: 15 roads, 5 villages, 4 cities per player.
@@ -232,6 +233,7 @@ The following routes require `Authorization: Bearer <token>`. Mutations also req
 - `GET /api/games/:id/events` (SSE revisions)
 - `POST /api/games/:id/start` (host only)
 - `POST /api/games/:id/leave` (before start; own seat only. A TV token closes that TV screen in any phase)
+- `POST /api/games/:id/order/roll` (opening roll for turn order while `phase` is `order-roll`; `{ "forPlayerId": "..." }` rolls for someone else, at once on a shared screen or after 30 seconds in a network room. Like discards, it doesn't need the latest revision)
 - `POST /api/games/:id/setup/place`
 - `POST /api/games/:id/roll`
 - `POST /api/games/:id/build/road`

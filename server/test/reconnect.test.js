@@ -8,6 +8,7 @@ process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders
 process.env.AWAY_MS = "60";
 const store = require("../src/game/gameStore");
 const app = require("../src/app");
+const { rollEachPhone } = require("./orderRoll");
 
 const pause = () => new Promise((resolve) => setTimeout(resolve, 20));
 let server, base;
@@ -65,6 +66,10 @@ async function mainPhase() {
   const omar = await api(`/games/${host.game.roomCode}/join`, { name: "Omar" });
   let state = await read(host.game.id, host.token);
   state = (await api(`/games/${state.id}/start`, {}, host.token, state.revision)).game;
+  state = await rollEachPhone(api, state.id, {
+    [host.game.viewer.playerId]: host.token,
+    [omar.game.viewer.playerId]: omar.token,
+  });
   while (state.phase === "setup-placement") {
     const active = state.players[state.currentPlayerIndex].id;
     const token = active === host.game.viewer.playerId ? host.token : omar.token;

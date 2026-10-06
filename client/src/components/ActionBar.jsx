@@ -18,6 +18,8 @@ export default function ActionBar({
   selectedAction,
   onSelectAction,
   onRoll,
+  onRollForOrder,
+  orderBusy,
   onEndTurn,
   onTrade,
   onBuyCard,
@@ -59,6 +61,32 @@ export default function ActionBar({
       ))}
     </div>
   );
+  if (game.phase === "order-roll")
+    return (
+      <section className="action-bar-panel panel">
+        <div className="setup-banner-row">
+          <div>
+            <span className="eyebrow">Who goes first?</span>
+            <p>
+              Everyone rolls the dice. The highest roll places the first village and takes the first
+              turn.
+            </p>
+          </div>
+          {soundButton}
+        </div>
+        {game.mode === "online" && game.orderRoll?.waiting.includes(game.viewer?.playerId) && (
+          <button
+            className="icon-action-btn primary order-roll-bar-button"
+            disabled={orderBusy}
+            onClick={onRollForOrder}
+          >
+            <Icon name="roll" />
+            Roll the dice
+          </button>
+        )}
+        {costs}
+      </section>
+    );
   if (game.phase === "setup-placement")
     return (
       <section className="action-bar-panel panel">
