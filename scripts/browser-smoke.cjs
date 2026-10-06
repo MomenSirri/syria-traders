@@ -280,6 +280,59 @@ async function checkSmartTv(base) {
   await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
   console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
 }
+// Some phones and networks will not keep a long-lived connection open. Such a phone
+// used to sit on "Reconnecting" for good; now the pulse carries the whole match.
+async function checkBrokenStream(base) {
+  const host = await pageFor(base);
+  await host.getByRole("button", { name: "Host room", exact: true }).click();
+  await host.getByLabel("Player 1 name").fill("Dana");
+  await host.getByRole("button", { name: "Create a room" }).click();
+  await settled(host);
+  const guest = await pageFor(`${base}/?room=${(await snapshot(host)).roomCode}`);
+  let cut = 0;
+  await guest.context().route("**/api/games/*/events", (route) => {
+    cut += 1;
+    return route.abort();
+  });
+  await guest.getByLabel("Player 1 name").fill("Yara");
+  await guest.getByRole("button", { name: "Join the table" }).click();
+  await settled(guest);
+  await host.getByText("Yara").first().waitFor();
+  await host.getByRole("button", { name: "Start the match" }).click();
+  for (const page of [host, guest]) await page.locator(".dashboard-16x9").waitFor();
+  const revisionOf = async (page) => (await snapshot(page)).revision;
+  const reaches = (page, revision) =>
+    page.waitForFunction(
+      (wanted) =>
+        JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.revision >= wanted,
+      revision,
+      { timeout: 8000 },
+    );
+  for (let i = 0; i < 4; i++) {
+    // Both screens agree before each move: the guest learns of moves by pulse alone.
+    const latest = Math.max(await revisionOf(host), await revisionOf(guest));
+    await Promise.all([reaches(host, latest), reaches(guest, latest)]);
+    const state = await snapshot(host);
+    const activeId = state.players[state.currentPlayerIndex].id;
+    const active = (await snapshot(guest)).viewer.playerId === activeId ? guest : host;
+    await active.locator(".connection-dot.live").waitFor();
+    await place(active);
+    await Promise.all([reaches(host, state.revision + 1), reaches(guest, state.revision + 1)]);
+  }
+  await guest.waitForFunction(
+    () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.phase === "main",
+  );
+  assert.ok(cut > 0, "The guest's live stream was cut");
+  assert.equal(await guest.locator(".connection-dot.live").count(), 1);
+  assert.equal(await guest.locator(".connection-banner").count(), 0);
+  // Long after the away delay, the host still sees the guest as present.
+  await delay(6000);
+  assert.equal(await host.locator(".player-card.away-player").count(), 0);
+  assert.equal(await guest.locator(".connection-dot.live").count(), 1);
+  await host.context().close();
+  await guest.context().close();
+  console.log("PASS a phone whose live stream never works still joins and plays");
+}
 // A browser allows about six connections to the host and each game tab holds one.
 // Forgotten tabs on the host PC used to use them all, cutting that browser off.
 async function checkForgottenTabs(base) {
@@ -711,6 +764,11 @@ async function checkForgottenTabs(base) {
   assert.deepEqual(tvState.gainEvents, []);
   assert.equal(tvState.hints, null);
   for (const payload of tvPayloads) {
+    // The pulse carries two numbers and nothing about the match.
+    if (!payload.game && "revision" in payload) {
+      assert.deepEqual(Object.keys(payload).sort(), ["presence", "revision"]);
+      continue;
+    }
     assert.ok(payload.game, "TV request failed");
     assert.ok(payload.game.players.every((player) => player.resources === null));
     assert.deepEqual(payload.game.gainEvents, []);
@@ -896,6 +954,7 @@ async function checkForgottenTabs(base) {
   await watcher.getByRole("button", { name: "TV screen", exact: true }).waitFor();
   console.log("PASS TV screen joins a phone-hosted match by link and closes cleanly");
   await checkForgottenTabs(base);
+  await checkBrokenStream(base);
   // Five or six players use the 30-territory map and a compact merchants panel.
   const six = await pageFor(base);
   for (let i = 3; i <= 6; i++) {
