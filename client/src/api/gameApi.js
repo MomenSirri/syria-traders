@@ -52,7 +52,7 @@ export async function request(path, { token, revision, signal, wait = 12000, ...
     if (signal?.aborted) throw failure;
     linked.release();
     throw new Error(
-      "The host is not responding. Keep the host window open and check your network connection.",
+      "This device could not reach the host for a moment. Check its Wi-Fi; if every device shows this, check the host window is open.",
     );
   }
   try {
