@@ -18,6 +18,10 @@ Double-click `run-game.bat`. The game opens at `https://localhost:8443` (accept 
 3. Each player scans the QR code with their phone (or opens the invite link), types their name and taps **Join the table**. Accept the certificate warning once.
 4. When everyone is in, press **Start the match** on the TV or on the first phone that joined.
 
+![The TV lobby with a QR code, the room code, the invite link and the seats of players who joined](docs/images/tv-lobby.jpg)
+
+*The TV waiting for players. Phones scan the QR code or type the room code.*
+
 **Example 3: everyone on their own laptop or phone, no TV.**
 On the host PC choose **Host room**, enter your name and create the room. Send the lobby invite link to the others (it uses the PC's network address, for example `https://192.168.1.50:8443/?room=ABC123`). They open it, enter their names and join, then the host presses **Start the match**. Anyone can also choose **Join room** and type the six-character room code.
 

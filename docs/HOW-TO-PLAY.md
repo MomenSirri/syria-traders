@@ -27,7 +27,7 @@ The board is a map of Syrian regions, each drawn as a six-sided tile. Every regi
 | Wheat | Idlib, Hama, Daraa, Hasakah |
 | Wood | Latakia, Tartus, Jabal Ansariyah, Afrin Highlands |
 | Stone | Damascus, Rif Dimashq, Palmyra Foothills |
-| Brick | Aleppo, Deir ez-Zor, Manbij |
+| Brick (shown as Clay on cards) | Aleppo, Deir ez-Zor, Manbij |
 | Sheep | Homs, Suwayda, Raqqa Steppe, Quneitra Plains |
 | Nothing | Badiya (the desert, where the bandit starts) |
 
@@ -35,6 +35,10 @@ Each region has a **number token** from 2 to 12. When the dice show that number,
 
 - Two dice are rolled, so middle numbers come up most. 6 and 8 are printed in red because they are the most common numbers that pay out. 2 and 12 are the rarest.
 - 7 has no region. Rolling a 7 wakes the bandit (see below).
+
+![The TV during a match: players and their card counts on the left, the map in the middle with roads and villages in player colours, costs and the game log on the right](images/tv-board.jpg)
+
+*The TV shows the whole table. Each region has its picture, resource icon and number token. The striped desert (Badiya) holds the bandit, marked B.*
 
 Up to four players use the classic 19-region map. Five or six players use a bigger 30-region map with more regions, numbers and harbors.
 
@@ -69,6 +73,10 @@ Tip: corners touching three regions with common numbers (6, 8, 5, 9) and differe
 4. Optionally **play one development card**.
 5. Press **End turn**. The next player rolls.
 
+<img src="images/phone-turn.jpg" alt="A phone at the start of its turn: your hand of five resources, then Roll dice, Road, Village, City, Card and End turn buttons, and the bank trade" width="300">
+
+*Your phone at the start of your turn. Your hand is at the top (the green +2 shows cards you just got). Buttons you can't use yet are greyed out.*
+
 You can do steps 2-4 in any order and repeat them, but always roll first. A Knight card is the one thing you may play before rolling.
 
 If the bank does not have enough of a resource to pay everyone who earned it on a roll, nobody gets that resource that time. Other resources still pay.
@@ -91,6 +99,14 @@ A 7 produces nothing. Instead:
 
 The blocked region looks faded with a black-and-white striped border.
 
+![A player's screen asking for 6 cards back after a 7, with plus and minus buttons for each resource](images/seven-discard.jpg)
+
+*After a 7, a player with 12 cards chooses which 6 to give back.*
+
+![The bandit being moved onto Daraa, with a choice of robbing Amina or Rana](images/bandit-pick-victim.jpg)
+
+*Moving the bandit onto Daraa. Two opponents live there, so the roller picks whom to rob.*
+
 ## Trading
 
 Trading is how you turn cards you have too many of into cards you need.
@@ -105,6 +121,10 @@ Trading is how you turn cards you have too many of into cards you need.
 - After rolling, the active player picks a resource and an amount (1-4) and presses **Ask players**. Example: "I want 2 Stone".
 - Other players who hold those cards can offer them and say what they want back (1-4 cards of another resource). Example: "Here are 2 Stone, give me 1 Wheat".
 - The active player accepts one offer or declines them. The swap only happens if both still have the cards. The request closes at the end of the turn.
+
+![The TV showing a player asking the table for 1 Wheat and another player offering 1 Wheat for 1 Wood](images/tv-trade.jpg)
+
+*A trade on the TV: Nour asks for 1 Wheat, Yazan offers it for 1 Wood. Nour accepts on their phone.*
 
 **"Anyone have...?" requests:** while it is not your turn, you can post what you need and what you give. Example: "Anyone have 1 Wood? I give 1 Sheep." It shows on the TV and every phone. Whoever is playing can accept it with one tap after rolling. Each player has one request at a time, and it ends when someone takes it, when you take it back, or when your own turn starts.
 
@@ -123,6 +143,10 @@ Buy them for 1 Wheat + 1 Sheep + 1 Stone after rolling. They come from a shuffle
 - Play at most one card per turn.
 - You can't play a card on the turn you bought it.
 - A Knight may be played before you roll.
+
+<img src="images/phone-dev-cards.jpg" alt="A phone showing two Knight cards with a Play button under the player's hand" width="300">
+
+*Your development cards appear under your hand, with a Play button.*
 
 **Largest Army:** the first player to have played 3 Knights gets 2 points. If someone else later plays more Knights than the holder, the 2 points move to them.
 
