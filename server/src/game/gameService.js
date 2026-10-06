@@ -22,7 +22,9 @@ const {
   getValidVillageIds,
   getValidCityIds,
   getTradeRates,
+  longestRoadLength,
 } = require("./rules");
+const stats = require("./stats");
 
 function createError(message, statusCode = 400) {
   const error = new Error(message);
@@ -298,6 +300,9 @@ function initializeActiveMatch(game) {
   game.winnerId = null;
   game.devDeck = newDevDeck();
   game.largestArmyId = null;
+  game.longestRoadId = null;
+  game.wishes = [];
+  game.stats = { dice: {}, players: {} };
   game.freeRoads = null;
   game.devCardPlayedTurn = null;
   for (const player of game.players) {
@@ -389,6 +394,7 @@ function distributeResources(game, diceTotal) {
         gainByPlayer.set(owner.id, { gain: resourceTemplate(0), tiles: {} });
       const entry = gainByPlayer.get(owner.id);
       entry.gain[resource] += moved;
+      stats.count(game, owner.id, "diceCards", moved);
       entry.tiles[resource] = [...new Set([...(entry.tiles[resource] || []), tile.id])];
     }
   }
@@ -614,6 +620,11 @@ function buildHints(game) {
 
 function serializeGame(game) {
   const spec = boardSpec(game.boardSize);
+  const roadLengths = game.board
+    ? Object.fromEntries(
+        game.players.map((player) => [player.id, longestRoadLength(game, player.id)]),
+      )
+    : {};
   const setupSummary =
     game.phase === "setup-placement"
       ? {
@@ -660,6 +671,8 @@ function serializeGame(game) {
       developmentCards: config.developmentCards,
       developmentCardLabels: config.developmentCardLabels,
       largestArmy: config.largestArmy,
+      longestRoad: config.longestRoad,
+      reactions: config.reactions,
       boardSize: spec.size,
       regions: spec.regions,
       boardLayout: spec.boardLayout,
@@ -680,6 +693,7 @@ function serializeGame(game) {
       devCards: player.devCards || [],
       devCardCount: (player.devCards || []).length,
       knightsPlayed: player.knightsPlayed || 0,
+      longestRoad: roadLengths[player.id] || 0,
       ...(player.revealedVictoryPoints
         ? { revealedVictoryPoints: player.revealedVictoryPoints }
         : {}),
@@ -688,6 +702,11 @@ function serializeGame(game) {
       ? game.devDeck.length
       : Object.values(config.developmentCards).reduce((sum, count) => sum + count, 0),
     largestArmyId: game.largestArmyId || null,
+    longestRoadId: game.longestRoadId || null,
+    // Open "anyone have...?" requests from players waiting for their turn.
+    wishes: game.status === "active" && game.phase === "main" ? game.wishes || [] : [],
+    // End-of-match awards and the dice chart, once there is a winner.
+    summary: game.winnerId ? stats.awards(game, roadLengths) : null,
     board: game.board,
     bank: game.bank,
     log: game.log.slice(-100),
@@ -854,6 +873,7 @@ function placeSetup(gameId, { playerId, vertexId, edgeId }) {
   player.roads.push(parsedEdgeId);
 
   game.setup.placementsByPlayer[player.id] += 1;
+  updateLongestRoad(game);
 
   const nearbyRegion = game.board.tiles[vertex.adjacentTiles[0]]?.region || "the map";
   addLog(
@@ -905,6 +925,8 @@ function rollDice(gameId, { playerId }) {
 
   const currentPlayer = getCurrentPlayer(game);
   addLog(game, `${currentPlayer.name} rolled ${d1} + ${d2} = ${total}.`);
+  stats.countRoll(game, total);
+  if (total === 7) stats.count(game, currentPlayer.id, "sevens");
 
   if (total === 7) {
     // Everyone holding more than seven cards chooses half of them to return,
@@ -957,6 +979,8 @@ function buildRoad(gameId, { playerId, edgeId }) {
   if (game.freeRoads && !getValidRoadIds(game, player).length) game.freeRoads = null;
 
   addLog(game, `${player.name} built a ${free ? "free " : ""}road.`);
+  updateLongestRoad(game);
+  checkWinner(game, player);
   store.saveGame(game);
   return serializeGame(game);
 }
@@ -987,6 +1011,7 @@ function buildVillage(gameId, { playerId, vertexId }) {
 
   const nearbyRegion = game.board.tiles[vertex.adjacentTiles[0]]?.region || "the map";
   addLog(game, `${player.name} founded a village near ${nearbyRegion}.`);
+  updateLongestRoad(game);
 
   checkWinner(game, player);
   store.saveGame(game);
@@ -1053,6 +1078,7 @@ function tradeWithBank(gameId, { playerId, giveResource, getResource }) {
 
   player.resources[getResource] += 1;
   game.bank[getResource] -= 1;
+  stats.count(game, player.id, "bankTrades");
 
   addLog(
     game,
@@ -1176,6 +1202,8 @@ function acceptTradeOffer(gameId, { playerId, offerId }) {
   partner.resources[want.resource] -= want.amount;
   player.resources[want.resource] += want.amount;
   game.trade = null;
+  stats.count(game, player.id, "trades");
+  stats.count(game, partner.id, "trades");
   setVisualFeedback(game, {
     producingTileIds: [],
     resourceDeltas: [
@@ -1192,6 +1220,97 @@ function acceptTradeOffer(gameId, { playerId, offerId }) {
   addLog(
     game,
     `${player.name} traded ${cards(ask.amount, ask.resource)} to ${partner.name} for ${cards(want.amount, want.resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+// "Anyone have...?" requests. Players waiting for their turn post what they
+// need and what they give for it; whoever is playing can take it with one tap.
+// At most one per player; it lasts until taken, withdrawn or their own turn.
+function tradeSide(side) {
+  if (!side || typeof side !== "object") throw createError("Choose cards to trade.");
+  return { resource: side.resource, amount: tradeAmount(side.resource, side.amount) };
+}
+
+function postWish(gameId, { playerId, want, give }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  const player = getPlayerOrThrow(game, playerId);
+  if (getCurrentPlayer(game).id === playerId)
+    throw createError("It's your turn: ask the table with Trade with players.");
+  const wanted = tradeSide(want);
+  const given = tradeSide(give);
+  if (wanted.resource === given.resource)
+    throw createError("Ask for a different resource than the one you give.");
+  if ((player.resources[given.resource] || 0) < given.amount)
+    throw createError(`You need ${cards(given.amount, given.resource)} to offer.`);
+  game.wishes = (game.wishes || []).filter((wish) => wish.playerId !== playerId);
+  game.wishes.push({ id: uuidv4(), playerId, want: wanted, give: given });
+  addLog(
+    game,
+    `${player.name} asks: anyone have ${cards(wanted.amount, wanted.resource)}? Gives ${cards(given.amount, given.resource)}.`,
+    "trade",
+  );
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function withdrawWish(gameId, { playerId }) {
+  const game = getGameOrThrow(gameId);
+  if (!(game.wishes || []).some((wish) => wish.playerId === playerId))
+    throw createError("You have no open request.", 409);
+  game.wishes = game.wishes.filter((wish) => wish.playerId !== playerId);
+  addLog(game, `${getPlayerOrThrow(game, playerId).name} took back their request.`, "trade");
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function acceptWish(gameId, { playerId, wishId }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  assertMainPhase(game);
+  assertPlayersTurn(game, playerId);
+  assertActionPhase(game);
+  const wish = (game.wishes || []).find((entry) => entry.id === wishId);
+  if (!wish) throw createError("That request was taken back.", 409);
+  const player = getPlayerOrThrow(game, playerId);
+  const partner = getPlayerOrThrow(game, wish.playerId);
+  const { want, give } = wish;
+  if ((player.resources[want.resource] || 0) < want.amount)
+    throw createError(`You need ${cards(want.amount, want.resource)} for this request.`);
+  if ((partner.resources[give.resource] || 0) < give.amount)
+    throw createError(`${partner.name} no longer has ${cards(give.amount, give.resource)}.`);
+  player.resources[want.resource] -= want.amount;
+  partner.resources[want.resource] += want.amount;
+  partner.resources[give.resource] -= give.amount;
+  player.resources[give.resource] += give.amount;
+  game.wishes = game.wishes.filter((entry) => entry.id !== wishId);
+  stats.count(game, player.id, "trades");
+  stats.count(game, partner.id, "trades");
+  setVisualFeedback(game, {
+    producingTileIds: [],
+    resourceDeltas: [
+      {
+        playerId: partner.id,
+        resource: want.resource,
+        amount: want.amount,
+        fromPlayerId: player.id,
+      },
+      {
+        playerId: player.id,
+        resource: give.resource,
+        amount: give.amount,
+        fromPlayerId: partner.id,
+      },
+    ],
+    kind: "trade",
+  });
+  addLog(
+    game,
+    `${player.name} gave ${partner.name} ${cards(want.amount, want.resource)} for ${cards(give.amount, give.resource)}.`,
     "trade",
   );
   store.saveGame(game);
@@ -1250,6 +1369,7 @@ function discardCards(gameId, { playerId, cards, forPlayerId }) {
     game.bank[resource] += amount;
   }
   delete game.pendingDiscards[target.id];
+  stats.count(game, target.id, "returned", owed);
   if (!waitingDiscards(game).length) game.discardsSince = null;
   addLog(
     game,
@@ -1305,6 +1425,8 @@ function moveRobber(gameId, { playerId, tileId, victimId }) {
   const stolenResource = victim && stealRandomResource(victim, robberPlayer);
   if (stolenResource) {
     addLog(game, `${robberPlayer.name} stole a card from ${victim.name}.`);
+    stats.count(game, robberPlayer.id, "steals");
+    stats.count(game, victim.id, "robbed");
     // Only the thief and the victim learn which card it was; see sessions.view.
     setVisualFeedback(game, {
       kind: "steal",
@@ -1368,6 +1490,35 @@ function updateLargestArmy(game, player) {
     }.`,
     "win",
   );
+}
+
+// Longest Road: the first unbroken road of 5 or more, then whoever builds a
+// longer one. A tie never takes it from the holder. If the holder's road is cut
+// and several players now share the longest, nobody holds it until one pulls ahead.
+function updateLongestRoad(game) {
+  if (!game.board) return;
+  const { minRoads, points } = config.longestRoad;
+  const lengths = Object.fromEntries(
+    game.players.map((player) => [player.id, longestRoadLength(game, player.id)]),
+  );
+  const top = Math.max(0, ...Object.values(lengths));
+  const holder = game.players.find((entry) => entry.id === game.longestRoadId) || null;
+  if (holder && lengths[holder.id] === top && top >= minRoads) return;
+  const leaders = game.players.filter((player) => lengths[player.id] === top);
+  const next = top >= minRoads && leaders.length === 1 ? leaders[0] : null;
+  if (next === holder) return;
+  if (holder) holder.score -= points;
+  if (next) next.score += points;
+  game.longestRoadId = next?.id || null;
+  if (next)
+    addLog(
+      game,
+      `${next.name} now has the Longest Road: ${top} roads in a row (+${points} points)${
+        holder ? `, taking it from ${holder.name}` : ""
+      }.`,
+      "win",
+    );
+  else addLog(game, `${holder.name}'s road was cut: nobody holds the Longest Road now.`, "win");
 }
 
 function playDevelopmentCard(gameId, { playerId, type, resource, resources }) {
@@ -1485,6 +1636,10 @@ function endTurn(gameId, { playerId }) {
 
   const nextPlayer = getCurrentPlayer(game);
   addLog(game, `Turn ${game.turn}: ${nextPlayer.name}'s turn starts.`);
+  // On their own turn a player asks the table directly instead.
+  game.wishes = (game.wishes || []).filter((wish) => wish.playerId !== nextPlayer.id);
+  // Points gained off-turn (an opponent cutting a rival's road) win at turn start.
+  checkWinner(game, nextPlayer);
 
   store.saveGame(game);
   return serializeGame(game);
@@ -1512,6 +1667,9 @@ module.exports = {
   declineTradeOffer,
   cancelTrade,
   acceptTradeOffer,
+  postWish,
+  withdrawWish,
+  acceptWish,
   moveRobber,
   buyDevelopmentCard,
   discardCards,

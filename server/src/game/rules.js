@@ -89,7 +89,34 @@ function getTradeRates(game, player) {
   return rates;
 }
 
+// The longest unbroken chain of a player's roads. An opponent's village or city
+// cuts the chain where it stands; a road may not be walked twice.
+function longestRoadLength(game, playerId) {
+  const { edges, vertices } = game.board;
+  const own = edges.filter((edge) => edge.ownerId === playerId);
+  const cut = (vertexId) => vertices[vertexId].ownerId && vertices[vertexId].ownerId !== playerId;
+  const used = new Set();
+  let best = 0;
+  const walk = (vertexId, length) => {
+    if (length > best) best = length;
+    if (length && cut(vertexId)) return;
+    for (const edgeId of vertices[vertexId].adjacentEdges) {
+      const edge = edges[edgeId];
+      if (edge.ownerId !== playerId || used.has(edgeId)) continue;
+      used.add(edgeId);
+      walk(edge.v1 === vertexId ? edge.v2 : edge.v1, length + 1);
+      used.delete(edgeId);
+    }
+  };
+  for (const edge of own) {
+    walk(edge.v1, 0);
+    walk(edge.v2, 0);
+  }
+  return best;
+}
+
 module.exports = {
+  longestRoadLength,
   getTradeRates,
   canPlaceInitialVillage,
   canPlaceRoad,

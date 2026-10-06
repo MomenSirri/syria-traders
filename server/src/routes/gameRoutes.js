@@ -3,6 +3,7 @@ const service = require("../game/gameService");
 const sessions = require("../game/sessions");
 const store = require("../game/gameStore");
 const presence = require("../game/presence");
+const reactions = require("../game/reactions");
 
 const router = express.Router();
 
@@ -63,18 +64,22 @@ router.get(
       console.log(`[${new Date().toLocaleTimeString()}] Room ${req.game.roomCode}: ${who} ${what}`);
     if (req.game.mode === "online") note(`connected (${req.ip})`);
     // Tiny revision notifications avoid repeatedly sending images or unchanged boards.
-    const send = (revision) =>
+    // A reaction rides the same stream; it never changes the match revision.
+    const send = (revision, reaction) =>
       res.write(
-        `data: ${JSON.stringify({ revision, presence: presence.version(req.game.id) })}\n\n`,
+        `data: ${JSON.stringify({ revision, presence: presence.version(req.game.id), reaction })}\n\n`,
       );
+    const react = (reaction) => send(store.getRevision(req.game.id), reaction);
     // Joining first lets this stream's opening event carry the new presence number.
     presence.join(req.game.id, req.session.playerId);
     send(req.game.revision);
     store.updates.on(req.game.id, send);
+    reactions.events.on(req.game.id, react);
     const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
     res.on("close", () => {
       clearInterval(heartbeat);
       store.updates.off(req.game.id, send);
+      reactions.events.off(req.game.id, react);
       presence.leave(req.game.id, req.session.playerId);
       if (req.game.mode === "online") note("disconnected");
     });
@@ -101,6 +106,14 @@ router.post(
     res.json({ left: true });
   }),
 );
+// A reaction is public and short-lived: no revision check and nothing saved.
+router.post(
+  "/games/:gameId/react",
+  handle((req, res) => {
+    sessions.assertAction(req.game, req.session, req.body, undefined, false);
+    res.json({ reaction: reactions.send(req.game, req.body.playerId, req.body.reaction) });
+  }),
+);
 for (const [route, action] of Object.entries({
   "setup/place": "placeSetup",
   roll: "rollDice",
@@ -114,6 +127,9 @@ for (const [route, action] of Object.entries({
   "trade/decline": "declineTradeOffer",
   "trade/cancel": "cancelTrade",
   "trade/accept": "acceptTradeOffer",
+  "wish/post": "postWish",
+  "wish/withdraw": "withdrawWish",
+  "wish/accept": "acceptWish",
   "robber/move": "moveRobber",
   discard: "discardCards",
   "dev/buy": "buyDevelopmentCard",
@@ -126,7 +142,11 @@ for (const [route, action] of Object.entries({
       // Trade offers name the request or offer they answer, so several phones can
       // respond at once without tripping over each other's revisions.
       // Discards after a seven work the same way: each player returns their own.
-      const named = (route.startsWith("trade/") && route !== "trade/bank") || route === "discard";
+      // "Anyone have...?" requests come from players waiting for their turn, too.
+      const named =
+        (route.startsWith("trade/") && route !== "trade/bank") ||
+        route.startsWith("wish/") ||
+        route === "discard";
       sessions.assertAction(req.game, req.session, req.body, req.get("x-game-revision"), !named);
       service[action](req.game.id, req.body);
       res.json({ game: sessions.view(store.getGame(req.game.id), req.session) });

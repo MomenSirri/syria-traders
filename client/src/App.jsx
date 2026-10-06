@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import config from "../../shared/gameConfig.json";
 import useMatch from "./hooks/useMatch";
 import useResourceGains from "./hooks/useResourceGains";
+import useGameSounds from "./hooks/useGameSounds";
 import { playUiSound } from "./utils/sound";
 import GameSetup from "./components/GameSetup";
 import GameBoard from "./components/GameBoard";
@@ -17,8 +18,32 @@ import DevCardPanel from "./components/DevCardPanel";
 import RobberPicker from "./components/RobberPicker";
 import DiscardPanel from "./components/DiscardPanel";
 import GameEffects from "./components/GameEffects";
+import MatchSummary from "./components/MatchSummary";
+import { ReactionButton, ReactionLayer } from "./components/Reactions";
 import Icon from "./components/Icon";
 import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
+
+// The TV plays table sounds unless someone turned them off on that screen.
+const TV_SOUND_KEY = "syria_traders_tv_sound";
+function useTvSound() {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(TV_SOUND_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () =>
+    setOn((value) => {
+      try {
+        localStorage.setItem(TV_SOUND_KEY, value ? "off" : "on");
+      } catch {
+        /* Private mode: the choice lasts until the page reloads. */
+      }
+      return !value;
+    });
+  return [on, toggle];
+}
 
 // Matches the CSS phone breakpoint, where a seat stacks its panels in one column.
 const PHONE_QUERY = "(max-width: 700px)";
@@ -57,6 +82,8 @@ export default function App() {
   // On a phone seat the development cards sit right under the hand, not over the board.
   const phoneSeat = usePhoneWidth() && game?.mode === "online" && !table;
   useEffect(() => fitTvViewport(tvLayout), [tvLayout]);
+  const [tvSound, toggleTvSound] = useTvSound();
+  useGameSounds(game, match.reactions, table ? tvSound : match.soundEnabled);
   const myTurn = !table && (game?.mode !== "online" || current?.id === game?.viewer.playerId);
   const interactive = myTurn && !busy && connection === "live" && game?.status === "active";
 
@@ -180,6 +207,12 @@ export default function App() {
             <small>{connection === "live" ? "Saved on host" : "Reconnecting..."}</small>
           </div>
           <div className="header-actions">
+            {table && (
+              <button className="quiet-button" aria-pressed={tvSound} onClick={toggleTvSound}>
+                <Icon name={tvSound ? "soundOn" : "soundOff"} />
+                <span className="btn-label">Sound {tvSound ? "on" : "off"}</span>
+              </button>
+            )}
             <button className="quiet-button" onClick={() => setHelp(true)}>
               <Icon name="help" />
               <span className="btn-label">How to play</span>
@@ -236,13 +269,14 @@ export default function App() {
                 setSelectedSetupVertex(null);
             }}
           />
-          {table && winner && (
+          {table && winner && !game.summary && (
             <div className="table-winner" style={{ "--player-color": winner.color }}>
               <span className="eyebrow">The caravan has a winner</span>
               <strong>{winner.name}</strong>
               <span>{winner.score} points</span>
             </div>
           )}
+          <MatchSummary key={game.winnerId} game={game} table={table} />
           {warning && (
             <div className="error-banner" role="alert">
               {warning}
@@ -284,6 +318,12 @@ export default function App() {
           )}
         </section>
         <GameEffects game={game} table={table} />
+        {game.mode === "online" && (
+          <ReactionLayer game={game} reactions={match.reactions} table={table} />
+        )}
+        {game.mode === "online" && !table && game.viewer?.playerId && (
+          <ReactionButton reactions={game.settings.reactions} onReact={match.react} />
+        )}
         {help && (
           <div className="modal-backdrop" onClick={() => setHelp(false)}>
             <section
@@ -329,13 +369,18 @@ export default function App() {
                   everyone. Victory Point cards stay hidden until they win.
                 </li>
                 <li>
+                  The first unbroken road of 5 or more earns the Longest Road, worth 2 points. A
+                  longer road takes it; another player's village can cut a road in two.
+                </li>
+                <li>
                   Reach 10 points: villages are worth one, cities two. Each player has 15 roads, 5
                   villages and 4 cities.
                 </li>
               </ol>
               <p>
-                In network rooms, hands are private and only the active player can act. The host PC
-                must stay running.
+                In network rooms, hands are private and only the active player can act. While you
+                wait, ask everyone for a card you need, or tap 😀 to send the table a reaction. The
+                host PC must stay running.
               </p>
             </section>
           </div>
