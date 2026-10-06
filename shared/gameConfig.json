@@ -58,6 +58,21 @@
     "monopoly": "Monopoly"
   },
   "largestArmy": { "minKnights": 3, "points": 2 },
+  "longestRoad": { "minRoads": 5, "points": 2 },
+  "reactions": {
+    "laugh": "😂",
+    "angry": "😡",
+    "please": "🙏",
+    "clap": "👏",
+    "shock": "😱",
+    "fire": "🔥",
+    "nice": "Nice try!",
+    "trade": "Trade with me!",
+    "hurry": "Hurry up!",
+    "revenge": "Revenge!",
+    "unfair": "Not fair!",
+    "gg": "Good game!"
+  },
   "bankTradeRate": 4,
   "startingBank": {
     "wheat": 50,

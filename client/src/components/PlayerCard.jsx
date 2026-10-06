@@ -13,6 +13,7 @@ export default memo(function PlayerCard({
   gains,
   setupCount,
   largestArmy,
+  longestRoad,
 }) {
   const devCount = player.devCardCount ?? player.devCards?.length ?? 0;
   return (
@@ -55,7 +56,7 @@ export default memo(function PlayerCard({
         </div>
       </header>
       <div className="player-structure-row">
-        <span title="Roads">
+        <span title={`Roads (longest run ${player.longestRoad || 0})`}>
           Roads <b>{player.roads.length}</b>
         </span>
         <span title="Villages">
@@ -65,7 +66,7 @@ export default memo(function PlayerCard({
           Cities <b>{player.cities.length}</b>
         </span>
       </div>
-      {(devCount > 0 || player.knightsPlayed > 0 || largestArmy) && (
+      {(devCount > 0 || player.knightsPlayed > 0 || largestArmy || longestRoad) && (
         <div className="player-dev-row">
           <span title="Development cards in hand">
             <i className="dev-mini" aria-hidden="true" />
@@ -75,6 +76,7 @@ export default memo(function PlayerCard({
             Knights <b>{player.knightsPlayed || 0}</b>
           </span>
           {largestArmy && <em className="army-badge">Largest Army +2</em>}
+          {longestRoad && <em className="army-badge road-badge">Longest Road +2</em>}
         </div>
       )}
       {player.resources ? (

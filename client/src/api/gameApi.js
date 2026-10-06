@@ -88,6 +88,9 @@ export const gameApi = {
       revision: game.revision,
       body: JSON.stringify(body),
     }),
+  // Quick reactions skip the revision check: they never change the match.
+  react: (game, token, body) =>
+    request(`/games/${game.id}/react`, { method: "POST", token, body: JSON.stringify(body) }),
 };
 
 // A fetch-based SSE stream keeps the secret in a header, out of URLs and logs.
@@ -128,7 +131,7 @@ export async function watchMatch(id, token, signal, onRevision, onConnected, onB
         buffer = buffer.slice(boundary + 2);
         if (event.startsWith("data: ")) {
           const update = JSON.parse(event.slice(6));
-          onRevision(update.revision, update.presence);
+          onRevision(update.revision, update.presence, update.reaction);
         }
       }
     }
