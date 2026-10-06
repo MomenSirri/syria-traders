@@ -6,6 +6,7 @@ const path = require("node:path");
 
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
 process.env.AWAY_MS = "60";
+process.env.PULSE_MS = "200";
 const store = require("../src/game/gameStore");
 const app = require("../src/app");
 
@@ -215,6 +216,48 @@ test("a player who lost their saved seat rejoins a running match with name and r
   assert.equal(hostBack.status, 200, hostBack.error);
   assert.equal(hostBack.game.viewer.isHost, true);
   assert.equal((await read(id, host.token)).viewer.playerId, host.game.viewer.playerId);
+  await listeners(id, 0);
+});
+
+test("a phone that cannot hold a stream stays in the match through the pulse alone", async () => {
+  const { id, host, omar } = await mainPhase();
+  const code = host.game.roomCode;
+  const seat = omar.game.viewer.playerId;
+  const away = async () =>
+    (await read(id, host.token)).players.find((player) => player.id === seat).away;
+  const aminaStream = await watch(id, host.token);
+
+  // Omar's stream opens and dies at once, as on a network that cuts long connections.
+  const broken = await watch(id, omar.token);
+  broken.close();
+  const state = await read(id, omar.token);
+  for (let i = 0; i < 12; i++) {
+    const beat = await api(`/games/${id}/pulse`, null, omar.token);
+    assert.equal(beat.status, 200, beat.error);
+    assert.equal(beat.revision, state.revision);
+    assert.equal(typeof beat.presence, "number");
+    await pause();
+    await pause();
+  }
+  // Long past the away delay, the pulse has kept the seat present and taken.
+  assert.equal(await away(), false);
+  assert.equal((await api(`/games/${code}/join`, { name: "Omar" })).status, 409);
+
+  // The pulse reports moves, and the seat can make them without any stream.
+  const activeId = state.players[state.currentPlayerIndex].id;
+  const activeToken = activeId === seat ? omar.token : host.token;
+  const rolled = await api(`/games/${id}/roll`, { playerId: activeId }, activeToken, state.revision);
+  assert.equal(rolled.status, 200, rolled.error);
+  const after = await api(`/games/${id}/pulse`, null, omar.token);
+  assert.equal(after.revision, rolled.game.revision);
+  assert.equal((await api(`/games/${id}/pulse`, null, "wrong-token")).status, 401);
+
+  // When the pulses stop too, the seat is marked away and can be taken back by name.
+  for (let i = 0; i < 100 && !(await away()); i++) await pause();
+  assert.equal(await away(), true);
+  assert.equal((await api(`/games/${id}/pulse`, null, omar.token)).status, 200);
+  assert.equal(await away(), false, "One pulse brings the seat back");
+  aminaStream.close();
   await listeners(id, 0);
 });
 

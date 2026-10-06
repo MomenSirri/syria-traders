@@ -45,6 +45,18 @@ router.get(
       .json({ game: sessions.view(req.game, req.session, req.query.media === "1") });
   }),
 );
+// The pulse is the lifeline: a tiny answer any phone can fetch, even one whose
+// browser or network will not keep the live stream below open.
+router.get(
+  "/games/:gameId/pulse",
+  handle((req, res) => {
+    presence.seen(req.game.id, req.session.playerId);
+    res.set("Cache-Control", "no-store").json({
+      revision: req.game.revision,
+      presence: presence.version(req.game.id),
+    });
+  }),
+);
 router.get(
   "/games/:gameId/events",
   handle((req, res) => {
@@ -75,7 +87,7 @@ router.get(
     send(req.game.revision);
     store.updates.on(req.game.id, send);
     reactions.events.on(req.game.id, react);
-    const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
+    const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 5000);
     res.on("close", () => {
       clearInterval(heartbeat);
       store.updates.off(req.game.id, send);

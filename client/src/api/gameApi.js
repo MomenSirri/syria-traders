@@ -32,9 +32,9 @@ function abortable(promise, signal) {
   });
 }
 
-export async function request(path, { token, revision, signal, ...options } = {}) {
+export async function request(path, { token, revision, signal, wait = 12000, ...options } = {}) {
   let response, data;
-  const linked = anySignal([signal], 12000);
+  const linked = anySignal([signal], wait);
   try {
     response = await abortable(
       fetch(`${API_BASE}${path}`, {
@@ -52,7 +52,7 @@ export async function request(path, { token, revision, signal, ...options } = {}
     if (signal?.aborted) throw failure;
     linked.release();
     throw new Error(
-      "The host is not responding. Keep the host window open and check your network connection.",
+      "This device could not reach the host for a moment. Check its Wi-Fi; if every device shows this, check the host window is open.",
     );
   }
   try {
@@ -88,19 +88,22 @@ export const gameApi = {
       revision: game.revision,
       body: JSON.stringify(body),
     }),
+  // The revision and presence numbers alone: cheap enough to ask for every second.
+  pulse: (id, token, signal) => request(`/games/${id}/pulse`, { token, signal, wait: 5000 }),
   // Quick reactions skip the revision check: they never change the match.
   react: (game, token, body) =>
     request(`/games/${game.id}/react`, { method: "POST", token, body: JSON.stringify(body) }),
 };
 
+const SILENCE_MS = 16000;
 // A fetch-based SSE stream keeps the secret in a header, out of URLs and logs.
 export async function watchMatch(id, token, signal, onRevision, onConnected, onBeat) {
   // A dead Wi-Fi connection can leave a TCP stream open. Missing three server
-  // heartbeats aborts it so useMatch can establish a fresh connection.
+  // heartbeats (one every 5 seconds) aborts it so useMatch can open a fresh one.
   const heartbeat = new AbortController();
   const linked = anySignal([signal, heartbeat.signal]);
   const streamSignal = linked.signal;
-  let timer = setTimeout(() => heartbeat.abort(), 45000);
+  let timer = setTimeout(() => heartbeat.abort(), SILENCE_MS);
   let reader;
   try {
     const response = await abortable(
@@ -122,7 +125,7 @@ export async function watchMatch(id, token, signal, onRevision, onConnected, onB
       const { value, done } = await reader.read();
       if (done) break;
       clearTimeout(timer);
-      timer = setTimeout(() => heartbeat.abort(), 45000);
+      timer = setTimeout(() => heartbeat.abort(), SILENCE_MS);
       onBeat?.();
       buffer += decoder.decode(value, { stream: true });
       let boundary;
