@@ -298,6 +298,9 @@ export default function App() {
               {match.stalled
                 ? "Still reconnecting. Your seat and cards are safe on the host. Check Wi-Fi, keep the host window open, and close other Syria Traders tabs in this browser."
                 : "Reconnecting to the host. Your seat and cards are kept; moves unlock when the connection returns."}
+              {match.sleepy &&
+                !table &&
+                " This phone is letting its screen sleep, which drops it from the game: turn off battery saver or keep the screen on."}
             </div>
           )}
         </section>

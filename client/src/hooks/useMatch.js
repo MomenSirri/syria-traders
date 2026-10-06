@@ -19,6 +19,8 @@ export default function useMatch() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [reconnectKey, setReconnectKey] = useState(0);
   const [stalled, setStalled] = useState(false);
+  // True when this phone will not promise to keep its screen on.
+  const [sleepy, setSleepy] = useState(false);
   // Reactions from the table, shown for a few seconds and never saved.
   const [reactions, setReactions] = useState([]);
   const gameRef = useRef(null);
@@ -83,27 +85,43 @@ export default function useMatch() {
   // connection. The lock is released by the browser when the tab is hidden, so ask again.
   const awake = Boolean(game?.id && game.mode === "online" && !game.winnerId);
   useEffect(() => {
-    if (!awake || !navigator.wakeLock) return;
+    if (!awake) return;
+    if (!navigator.wakeLock) return setSleepy(true);
     let lock,
+      asking = false,
       done = false;
     const hold = () => {
-      if (document.hidden) return;
+      if (document.hidden || lock || asking) return;
+      asking = true;
       navigator.wakeLock
         .request("screen")
         .then((granted) => {
-          if (done) granted.release().catch(() => {});
-          else lock = granted;
+          asking = false;
+          if (done) return granted.release().catch(() => {});
+          lock = granted;
+          setSleepy(false);
+          // The phone may take the lock back (low battery, a call): ask again.
+          granted.addEventListener("release", () => {
+            lock = null;
+            if (!done) setTimeout(hold, 1000);
+          });
         })
         .catch(() => {
-          /* Battery saver or an old browser: play continues without it. */
+          // Battery saver refuses the lock. Play continues; the banner explains drops.
+          asking = false;
+          if (!done) setSleepy(true);
         });
     };
     hold();
+    // Some phones only grant the lock after a touch, so every tap asks again.
     document.addEventListener("visibilitychange", hold);
+    document.addEventListener("pointerdown", hold);
     return () => {
       done = true;
       document.removeEventListener("visibilitychange", hold);
+      document.removeEventListener("pointerdown", hold);
       lock?.release().catch(() => {});
+      setSleepy(false);
     };
   }, [awake]);
 
@@ -161,9 +179,18 @@ export default function useMatch() {
       setConnection("reconnecting");
       return;
     }
+    // Two lines to the host. The live stream delivers moves instantly. The pulse is
+    // a small request repeated every few seconds: it proves the host is reachable
+    // and carries the same news, so a phone whose browser or Wi-Fi keeps cutting the
+    // stream goes on playing instead of locking on "Reconnecting".
     const controller = new AbortController();
     let retryTimer,
+      pulseTimer,
       stream,
+      streaming = false,
+      opened = 0,
+      asking = false,
+      pulses = true,
       failures = 0,
       presence,
       refreshing = false,
@@ -187,14 +214,47 @@ export default function useMatch() {
         refreshing = false;
       }
     };
+    const reached = () => {
+      if (controller.signal.aborted) return;
+      lastBeat.current = Date.now();
+      setConnection("live");
+    };
+    const lost = (failure) => {
+      if (controller.signal.aborted) return;
+      if ([401, 404].includes(failure?.status)) setError(failure.message);
+      setConnection("reconnecting");
+    };
+    // News from either line: fetch the match if it moved or a player came or went.
+    const update = (revision, seen) => {
+      const moved = presence !== undefined && seen !== presence;
+      presence = seen;
+      // Photos are fetched once; after that only the small game state.
+      const art = artworkFor.current !== game.id;
+      if (moved || art || revision > (gameRef.current?.revision || 0))
+        return refresh(revision, art);
+      return Promise.resolve();
+    };
+    const pulse = async () => {
+      if (controller.signal.aborted || asking || !pulses) return;
+      asking = true;
+      try {
+        const beat = await gameApi.pulse(game.id, token, controller.signal);
+        await update(beat.revision, beat.presence);
+        reached();
+      } catch (failure) {
+        // A host from before the pulse existed: rely on the stream alone, as before.
+        if (failure.status === 404 && /route/i.test(failure.message)) pulses = false;
+        // A stream that is still talking outvotes one slow answer.
+        else if (!(streaming && Date.now() - lastBeat.current < 8000)) lost(failure);
+      }
+      asking = false;
+      if (!controller.signal.aborted && pulses)
+        pulseTimer = setTimeout(pulse, streaming ? 5000 : 1500);
+    };
     const connect = async () => {
       if (controller.signal.aborted) return;
-      setConnection("connecting");
-      lastBeat.current = Date.now();
       let linked;
       try {
-        // Photos are fetched once; a reconnect only needs the small game state.
-        await refresh(0, artworkFor.current !== game.id);
         stream = new AbortController();
         linked = anySignal([controller.signal, stream.signal]);
         await watchMatch(
@@ -209,20 +269,16 @@ export default function useMatch() {
                 REACTION_MS,
               );
             }
-            // A changed presence number means a player dropped or came back.
-            const moved = presence !== undefined && seen !== presence;
-            presence = seen;
             // Restart the stream after a failed refresh, even if no more moves arrive.
-            if (moved || revision > (gameRef.current?.revision || 0))
-              refresh(revision).catch(() => {
-                setConnection("reconnecting");
-                stream.abort();
-              });
+            update(revision, seen).catch(() => stream.abort());
           },
           () => {
-            failures = 0;
-            setConnection("live");
+            streaming = true;
+            opened = Date.now();
+            reached();
             announceTab(localStorage);
+            // A fresh stream may follow a host restart: read the match once in full.
+            refresh(0, artworkFor.current !== game.id).catch(() => stream.abort());
           },
           () => (lastBeat.current = Date.now()),
         );
@@ -231,17 +287,26 @@ export default function useMatch() {
           setError(failure.message);
       }
       linked?.release();
-      if (!controller.signal.aborted) {
-        setConnection("reconnecting");
-        // Retry a dropped stream quickly once, then at a steady pace.
-        retryTimer = setTimeout(connect, failures++ ? 2500 : 600);
-      }
+      if (controller.signal.aborted) return;
+      // A stream that held for a while is reopened at once. One that keeps dying is
+      // tried less and less often: the pulse carries the game in the meantime.
+      failures = streaming && Date.now() - opened > 30000 ? 0 : failures + 1;
+      streaming = false;
+      if (pulses) {
+        clearTimeout(pulseTimer);
+        pulse();
+      } else setConnection("reconnecting");
+      retryTimer = setTimeout(connect, failures <= 1 ? 600 : failures <= 4 ? 2500 : 20000);
     };
+    lastBeat.current = Date.now();
+    refresh(0, artworkFor.current !== game.id).then(reached, lost);
     connect();
+    pulseTimer = setTimeout(pulse, 1500);
     return () => {
       controller.abort();
       stream?.abort();
       clearTimeout(retryTimer);
+      clearTimeout(pulseTimer);
     };
   }, [game?.id, token, accept, reconnectKey]);
 
@@ -386,6 +451,7 @@ export default function useMatch() {
     busy,
     connection: shown,
     stalled,
+    sleepy,
     error,
     saveError,
     soundEnabled,
