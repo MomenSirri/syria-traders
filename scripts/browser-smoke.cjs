@@ -789,6 +789,30 @@ async function checkForgottenTabs(base) {
     console.log("PASS players trade from their phones and the TV shows it without hands");
   } else console.log("SKIP player trade: dealt hands had no tradeable pair this run");
 
+  // A waiting phone sends a reaction: it rises over its card on the TV and other phones.
+  await offerer.getByRole("button", { name: "Send a reaction to the table" }).click();
+  await offerer.getByRole("menuitem", { name: "Trade with me!" }).click();
+  await tv.locator(".reaction-bubble", { hasText: "Trade with me!" }).waitFor({ timeout: 4000 });
+  await asker.locator(".reaction-bubble", { hasText: "Trade with me!" }).waitFor({ timeout: 4000 });
+  assert.equal(await tv.getByRole("button", { name: "Send a reaction to the table" }).count(), 0);
+  await tv.locator(".reaction-bubble").waitFor({ state: "detached", timeout: 8000 });
+  // ...then asks everyone for a card, and the TV lists it read-only.
+  const waitingHand = await own(offerer);
+  const spare = Object.keys(waitingHand).find((resource) => waitingHand[resource] > 0);
+  if (spare) {
+    const need = Object.keys(waitingHand).find((resource) => resource !== spare);
+    await offerer.getByRole("button", { name: "Anyone have a card I need?" }).click();
+    await offerer.getByLabel("Needed resource").selectOption(need);
+    await offerer.getByLabel("Given resource").selectOption(spare);
+    await offerer.getByRole("button", { name: "Ask everyone" }).click();
+    await tv.locator(".wish-list li").waitFor({ timeout: 4000 });
+    await asker.locator(".wish-list li").waitFor({ timeout: 4000 });
+    assert.equal(await tv.locator(".trade-panel button").count(), 0, "TV requests are read-only");
+    await offerer.getByRole("button", { name: "Take back" }).click();
+    await tv.locator(".wish-list li").waitFor({ state: "detached", timeout: 4000 });
+  }
+  console.log("PASS reactions and table requests reach the TV and every phone");
+
   // Development cards: give the active seat the price and an older Knight, buy one and play it.
   const cardState = await snapshot(tv);
   const buyerId = cardState.players[cardState.currentPlayerIndex].id;

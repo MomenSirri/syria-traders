@@ -91,7 +91,12 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 - If the bank cannot fulfill all claims for a resource on a roll, nobody receives that resource. Other resources still pay normally.
 - Development cards cost 1 Wheat, 1 Sheep and 1 Stone, bought after rolling from a shuffled 25-card deck: 14 Knight, 5 Victory Point, 2 Road Building, 2 Year of Plenty, 2 Monopoly. Play one card per turn, never on the turn you bought it (a Knight may be played before rolling). A Knight moves the bandit and steals; Road Building places two free roads; Year of Plenty takes any two resources from the bank; Monopoly collects every opponent's stock of one resource. Victory Point cards stay hidden and are revealed automatically when they win the match.
 - Largest Army: the first player to play 3 Knights gains 2 points, and loses them to anyone who later plays more.
-- First to 10 points wins. Villages are worth 1; cities 2. No longest-road bonus or AI players yet. Player-to-player trades work in network rooms.
+- Longest Road: the first unbroken road of 5 or more gains 2 points. A longer road takes it; a tie leaves it with the holder. Another player's village or city cuts a road where it stands, and if the holder's road is cut so that several players share the longest, nobody holds it until one pulls ahead.
+- First to 10 points wins. Villages are worth 1; cities 2. Points gained off-turn (a rival's road cut) count when your turn starts. No AI players yet. Player-to-player trades work in network rooms.
+- "Anyone have...?" requests: a player waiting for their turn posts what they need and what they give for it. It shows on the TV and every phone, and whoever is playing can take it with one tap after rolling. One request per player; it ends when taken, taken back, or when its owner's turn starts.
+- Reactions: a seated phone's 😀 button sends an emoji or a short line ("Nice try!", "Trade with me!"...). It rises over the sender's card on the TV and other phones for a few seconds. Reactions are never saved and never change the match revision, so they can't block a move.
+- Sounds: the TV plays dice, payouts, the bandit, steals, trades, builds, cards, awards, the win and reactions (toggle in its header; browsers stay silent until the screen is first touched or a remote key is pressed). Phones play the same sounds when their Sound button is on.
+- When a match ends, the TV and phones show awards (Lucky harvest, Master thief, Most robbed, Trade king, Bandit's friend, Road builder, Knight commander; ties share) and a chart of how the dice fell. They count only public events; saves from before awards count from their next move.
 - Development card hands are private like resources: other phones and the TV see only each player's card count and knights played. Saves from before development cards load with a fresh deck.
 
 Gain badges stay beside resource counts for **30 seconds**, fade over 700 ms, then clear. Simultaneous resources use separate rows. Repeated gains aggregate while each event retains its expiry. Dice production also briefly lights up producing tiles. Uploaded art locks after setup.
@@ -128,7 +133,9 @@ client/
       GameSetup.jsx         Names, avatars, map arrangement, custom art
       Lobby.jsx             Invitations, seats, host-controlled start, TV QR code
       TableStatus.jsx       TV screen turn summary, bank and building costs
-      TradePanel.jsx        Player-to-player trade requests and offers
+      TradePanel.jsx        Player-to-player trade requests, offers and "Anyone have...?"
+      Reactions.jsx         Reaction button and the bubbles over player cards
+      MatchSummary.jsx      End-of-match awards and dice chart
       SeatHand.jsx          Phone strip with your own hand
       QrCode.jsx            Invite link as an SVG QR code
       GameBoard.jsx         SVG map, ports, placement targets
@@ -142,6 +149,7 @@ client/
     hooks/
       useMatch.js           Save/load, reconnect, guarded actions
       useResourceGains.js   Badge expiry and aggregation
+      useGameSounds.js      Table sounds for what just happened
     styles/
       index.css             Theme and shared elements
       app.css               Dashboard, board, setup, responsive layout
@@ -149,6 +157,7 @@ client/
       table.css             TV screen and phone seat layout
     utils/
       storage.js            Session snapshot and artwork cache
+      sound.js              Synthesized tap and table sounds
       images.js             Photo validation, resize, URL cleanup
   test/feedback.test.mjs
 server/
@@ -159,12 +168,15 @@ server/
     game/
       boardGenerator.js     Geometry and coastal ports
       gameService.js        Turn flow, production, building, scoring
-      rules.js              Placement and harbor discounts
+      rules.js              Placement, harbor discounts, longest road length
+      stats.js              Match statistics and end-of-match awards
+      reactions.js          Live, unsaved player reactions
       sessions.js           Seats, authorization, private game views
       gameStore.js          Atomic disk saves and revision events
   test/game.test.js
   test/table.test.js        TV screen never receives private data
   test/trade.test.js        Player trades swap only the agreed cards
+  test/fun.test.js          Longest Road, requests, awards and reactions
   data/                     Generated saves (ignored)
 shared/gameConfig.json      Regions, resources, colors, costs, tokens
 scripts/
@@ -192,6 +204,8 @@ The following routes require `Authorization: Bearer <token>`. Mutations also req
 - `POST /api/games/:id/build/city`
 - `POST /api/games/:id/trade/bank`
 - `POST /api/games/:id/trade/request`, `trade/offer`, `trade/withdraw`, `trade/accept`, `trade/decline`, `trade/cancel` (player trades; these name the request or offer instead of needing the latest revision)
+- `POST /api/games/:id/wish/post` (`{ "want": { "resource": "wheat", "amount": 1 }, "give": { "resource": "brick", "amount": 1 } }`, by a player waiting for their turn), `wish/withdraw`, `wish/accept` (`{ "wishId": "..." }`, by the active player after rolling). Like trades, these don't need the latest revision
+- `POST /api/games/:id/react` (`{ "reaction": "laugh" }`, a key of `reactions` in `shared/gameConfig.json`; network rooms only, one per player every 1.2 s). Sent to every screen on the SSE stream as `reaction`, never saved
 - `POST /api/games/:id/dev/buy`
 - `POST /api/games/:id/dev/play` (`{ "type": "knight" | "roadBuilding" | "yearOfPlenty" | "monopoly" }`, plus `resources: [a, b]` for Year of Plenty or `resource` for Monopoly)
 - `POST /api/games/:id/discard` (`{ "cards": { "wood": 2, ... } }` after a seven, matching `pendingDiscards`; the roller may send `{ "forPlayerId": "..." }` after a minute for random cards. Like trades, it doesn't need the latest revision)

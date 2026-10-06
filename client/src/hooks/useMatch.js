@@ -3,6 +3,8 @@ import { anySignal, gameApi, watchMatch } from "../api/gameApi";
 import { readSave, saveMatch, saveArtwork, clearSave } from "../utils/storage";
 import { announceTab, shouldPark, shouldRestart } from "../utils/tabs";
 
+const REACTION_MS = 4500;
+
 export default function useMatch() {
   const [game, setGame] = useState(null);
   const [token, setToken] = useState("");
@@ -17,6 +19,8 @@ export default function useMatch() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [reconnectKey, setReconnectKey] = useState(0);
   const [stalled, setStalled] = useState(false);
+  // Reactions from the table, shown for a few seconds and never saved.
+  const [reactions, setReactions] = useState([]);
   const gameRef = useRef(null);
   const actionLock = useRef(false);
   // A parked tab has handed its live stream to another tab of this browser.
@@ -197,7 +201,14 @@ export default function useMatch() {
           game.id,
           token,
           linked.signal,
-          (revision, seen) => {
+          (revision, seen, reaction) => {
+            if (reaction) {
+              setReactions((current) => [...current.slice(-7), reaction]);
+              setTimeout(
+                () => setReactions((current) => current.filter((entry) => entry !== reaction)),
+                REACTION_MS,
+              );
+            }
             // A changed presence number means a player dropped or came back.
             const moved = presence !== undefined && seen !== presence;
             presence = seen;
@@ -305,6 +316,18 @@ export default function useMatch() {
     }
   }
 
+  // Fire and forget: a reaction that doesn't arrive is no loss, and it must
+  // never hold up or block a move.
+  async function react(key) {
+    const current = gameRef.current;
+    if (!current?.viewer?.playerId || shown !== "live") return;
+    try {
+      await gameApi.react(current, token, { playerId: current.viewer.playerId, reaction: key });
+    } catch {
+      /* Too fast, or the connection dropped: skip it. */
+    }
+  }
+
   async function leave() {
     if (actionLock.current) return;
     const current = gameRef.current;
@@ -367,6 +390,8 @@ export default function useMatch() {
     saveError,
     soundEnabled,
     setSoundEnabled,
+    reactions,
+    react,
     act,
     leave,
     create: (payload) => enter(() => gameApi.create(payload)),
