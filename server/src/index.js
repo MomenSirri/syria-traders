@@ -7,6 +7,7 @@ const tvApp = require("./tvApp");
 const ports = require("./utils/ports");
 const { lanAddresses } = require("./utils/network");
 const { ensureDevCertificates, getCertificatePaths } = require("./utils/certificates");
+const funnel = require("./utils/funnel");
 
 const PORT = Number(process.env.PORT || 8443);
 const LISTEN_HOST = process.env.LISTEN_HOST || "0.0.0.0";
@@ -36,6 +37,7 @@ server.listen(PORT, LISTEN_HOST, () => {
   for (const address of listensOnLan ? lanAddresses() : [])
     console.log(`Local network: ${scheme}://${address}:${actualPort}`);
   console.log("Keep this window open while playing. Press Ctrl+C to stop.");
+  if (process.env.ONLINE === "1") funnel.enable(actualPort, USE_HTTPS);
   if (process.env.OPEN_BROWSER === "1" && process.platform === "win32") {
     spawn("cmd.exe", ["/c", "start", "", url], { windowsHide: true, stdio: "ignore" }).on(
       "error",

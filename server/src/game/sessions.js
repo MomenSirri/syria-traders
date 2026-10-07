@@ -95,6 +95,7 @@ function view(game, session, includeMedia = false) {
     result.hostAddresses = lanAddresses();
     // Phones are always invited to HTTPS; the TV address is shown to the host.
     result.hostPorts = { secure: ports.secure, tv: ports.tv };
+    if (ports.publicUrl) result.hostPorts.public = ports.publicUrl;
   }
   if (game.mode === "online") {
     // Opponent hands and private gain events never leave the server.

@@ -55,6 +55,17 @@ Port 8443 now serves both the built game and API. Rebuilding on launch prevents 
 
 Each browser has its own player seat and private hand. Only the active player can act. To test several players on one PC, use separate profiles/incognito contexts, not tabs sharing browser storage. Keep the host PC awake and its server running. This is trusted-LAN multiplayer, not public internet matchmaking.
 
+### Play With Friends Online (free, from your PC)
+
+`run-game-online.bat` starts the same game as `run-game.bat` and also opens a public `https://<your-pc>.<tailnet>.ts.net` link through [Tailscale Funnel](https://tailscale.com/kb/1223/funnel). The game and its saves stay on your PC.
+
+1. Once: install Tailscale from https://tailscale.com/download and sign in (the free plan is enough).
+2. Run `run-game-online.bat`. The first time, the window shows a link to approve Funnel; open it and approve.
+3. The window shows an **ONLINE LINK** box. Host a room; its invite link and QR code use the online address, so friends can join from anywhere. The TV keeps its usual home address.
+4. Closing the window or pressing Ctrl+C switches the link off (`tailscale funnel reset`). `run-game.bat` never opens it.
+
+If Tailscale is missing or signed out, the game still starts on your Wi-Fi and the window says what to fix. A seat in a started match is only taken back with the player's name and the room PIN (see **Taking a seat back**).
+
 ### Phones and a TV
 
 Everyone plays on their own phone while a TV shows the shared table.
