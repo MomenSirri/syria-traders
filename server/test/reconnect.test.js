@@ -107,9 +107,15 @@ test("a player dropping mid-turn leaves the others connected and playing", async
 });
 
 test("a reconnecting player gets the same seat and private hand back", async () => {
-  const { id, host, omar } = await mainPhase();
-  const seat = omar.game.viewer.playerId;
-  const hand = (await read(id, omar.token)).players.find((player) => player.id === seat);
+  // A random board can leave Omar's second settlement on the desert and the coast,
+  // with no starting cards; deal a new match until his hand has something to keep.
+  let id, host, omar, seat, hand;
+  for (let tries = 0; tries < 10; tries++) {
+    ({ id, host, omar } = await mainPhase());
+    seat = omar.game.viewer.playerId;
+    hand = (await read(id, omar.token)).players.find((player) => player.id === seat);
+    if (Object.values(hand.resources).some((amount) => amount > 0)) break;
+  }
   assert.ok(
     Object.values(hand.resources).some((amount) => amount > 0),
     "Omar holds cards",
