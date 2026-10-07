@@ -55,6 +55,17 @@ Port 8443 now serves both the built game and API. Rebuilding on launch prevents 
 
 Each browser has its own player seat and private hand. Only the active player can act. To test several players on one PC, use separate profiles/incognito contexts, not tabs sharing browser storage. Keep the host PC awake and its server running. This is trusted-LAN multiplayer, not public internet matchmaking.
 
+### Play With Friends Online (free, from your PC)
+
+`run-game-online.bat` starts the same game as `run-game.bat` and also opens a public `https://<your-pc>.<tailnet>.ts.net` link through [Tailscale Funnel](https://tailscale.com/kb/1223/funnel). The game and its saves stay on your PC.
+
+1. Once: install Tailscale from https://tailscale.com/download and sign in (the free plan is enough).
+2. Run `run-game-online.bat`. The first time, the window shows a link to approve Funnel; open it and approve.
+3. The window shows an **ONLINE LINK** box. Host a room; its invite link and QR code use the online address, so friends can join from anywhere. The TV keeps its usual home address.
+4. Closing the window or pressing Ctrl+C switches the link off (`tailscale funnel reset`). `run-game.bat` never opens it.
+
+If Tailscale is missing or signed out, the game still starts on your Wi-Fi and the window says what to fix. A seat in a started match is only taken back with the player's name and the room PIN (see **Taking a seat back**).
+
 ### Phones and a TV
 
 Everyone plays on their own phone while a TV shows the shared table.
@@ -83,6 +94,8 @@ To show a room a phone already hosts, choose **TV screen** and enter its room co
 The TV is a read-only seat-less viewer. The server never sends it hands, gain details or move hints; it shows the board, dice, turn, scores, piece counts, card counts per hand, the bank and the log (the same public information every player already sees). Moves sent with a TV token are rejected. **Close TV screen** revokes its token without touching any seat. Anyone with the room code on your network can open a TV view, so it shows nothing private.
 
 Leaving a lobby frees your seat. If the host leaves, the next player becomes host. An empty room closes. After a match starts, seats cannot be removed or reassigned.
+
+**Taking a seat back:** a phone that lost its seat in a started match (cleared browser, another phone) joins with the room code, the name it played with and the 4-digit **room PIN**. Every seated phone shows the PIN next to the room code; the TV never does, because anyone with the room code can open a TV view. A wrong name or PIN gets the same answer and never lists the players. The server slows down guessing: after 10 wrong room codes, names or PINs in 10 minutes an address must wait, a room takes at most 20 wrong PINs in 10 minutes from all addresses together, and an address can open at most 30 rooms an hour. Rooms saved before PINs existed get one the first time a seat reconnects.
 
 ## Development
 

@@ -310,7 +310,7 @@ test("network room lifecycle, live updates, private hands, forged and stale acti
       request(`/games/${state.id}/setup/place`, body, host.token, state.revision),
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
-    assert.equal((await request(`/games/${state.id}/join`, { name: "Late" })).status, 400);
+    assert.equal((await request(`/games/${state.id}/join`, { name: "Late" })).status, 403);
     const viewed = (await request(`/games/${state.id}`, null, guest.token)).game;
     assert.ok(viewed.hints);
     assert.equal(viewed.players[0].resources, null);
