@@ -311,14 +311,98 @@ function initializeActiveMatch(game) {
   }
   setVisualFeedback(game, { producingTileIds: [], resourceDeltas: [] });
 
-  initializeSetupFlow(game);
+  // Everyone rolls first; the highest roll places first and takes turn 1.
+  game.phase = "order-roll";
+  game.orderRoll = {
+    groups: [game.players.map((player) => player.id)],
+    rolls: {},
+    since: new Date().toISOString(),
+  };
+  addLog(game, "Map arranged. Everyone rolls the dice: the highest roll goes first.", "setup");
+}
 
-  const startingPlayer = getCurrentPlayer(game);
+// After this, any player may roll for someone who hasn't yet (asleep phone, gone for tea).
+const ORDER_ROLL_WAIT_MS = Number(process.env.ORDER_ROLL_WAIT_MS || 30000);
+const orderTotal = (pair) => pair[0] + pair[1];
+// Players still to roll: everyone in a group that is still tied, who hasn't rolled this round.
+function orderRollWaiting(game) {
+  const { groups = [], rolls = {} } = game.orderRoll || {};
+  return groups
+    .filter((group) => group.length > 1)
+    .flatMap((group) => group.filter((id) => !rolls[id]));
+}
+
+function rollForOrder(gameId, { playerId, forPlayerId }) {
+  const game = getGameOrThrow(gameId);
+  assertActiveGame(game);
+  if (game.phase !== "order-roll") throw createError("The turn order is already decided.");
+  const actor = getPlayerOrThrow(game, playerId);
+  const target = getPlayerOrThrow(game, forPlayerId || playerId);
+  if (!orderRollWaiting(game).includes(target.id)) {
+    throw createError(`${target.name} has already rolled.`);
+  }
+  // A shared screen rolls for each player in turn; on phones everyone rolls for themselves.
+  if (game.mode === "online" && target.id !== actor.id) {
+    if (Date.now() - Date.parse(game.orderRoll.since) < ORDER_ROLL_WAIT_MS) {
+      throw createError(`Give ${target.name} a moment to roll.`);
+    }
+  }
+
+  const pair = [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
+  game.orderRoll.rolls[target.id] = pair;
+  game.orderRoll.last = { playerId: target.id, pair };
+  game.lastDicePair = pair;
+  game.lastDiceRoll = orderTotal(pair);
+  const helper =
+    game.mode === "online" && target.id !== actor.id ? ` (rolled by ${actor.name})` : "";
   addLog(
     game,
-    "Map arranged. Setup phase begins: each player places two villages and two roads.",
+    `${target.name} rolls ${pair[0]} + ${pair[1]} = ${orderTotal(pair)}${helper}.`,
     "setup",
   );
+  setVisualFeedback(game, { kind: "order-roll", playerId: target.id });
+
+  // Once a tied group has all rolled, split it by total; equal totals roll again.
+  const groups = [];
+  for (const group of game.orderRoll.groups) {
+    if (group.length < 2 || group.some((id) => !game.orderRoll.rolls[id])) {
+      groups.push(group);
+      continue;
+    }
+    const totalOf = Object.fromEntries(
+      group.map((id) => [id, orderTotal(game.orderRoll.rolls[id])]),
+    );
+    const totals = [...new Set(Object.values(totalOf))].sort((a, b) => b - a);
+    for (const total of totals) {
+      const tied = group.filter((id) => totalOf[id] === total);
+      groups.push(tied);
+      if (tied.length > 1) {
+        const names = tied.map((id) => getPlayerOrThrow(game, id).name);
+        addLog(game, `${names.join(" and ")} tie on ${total} and roll again.`, "setup");
+        tied.forEach((id) => delete game.orderRoll.rolls[id]);
+        game.orderRoll.since = new Date().toISOString();
+      }
+    }
+  }
+  game.orderRoll.groups = groups;
+
+  if (groups.every((group) => group.length === 1)) {
+    const order = groups.flat();
+    game.players = order.map((id) => getPlayerOrThrow(game, id));
+    game.orderRoll.order = order;
+    const names = game.players.map((player) => player.name).join(", ");
+    addLog(game, `Turn order: ${names}. Each places two villages and two roads.`, "setup");
+    beginSetup(game);
+  }
+
+  store.saveGame(game);
+  return serializeGame(game);
+}
+
+function beginSetup(game) {
+  game.phase = "setup-placement";
+  initializeSetupFlow(game);
+  const startingPlayer = getCurrentPlayer(game);
   addLog(
     game,
     `Setup turn 1/${game.setup.totalSteps}: ${startingPlayer.name} places a village and a road.`,
@@ -521,6 +605,21 @@ function buildHints(game) {
     return null;
   }
 
+  if (game.phase === "order-roll") {
+    return {
+      phase: "order-roll",
+      canRoll: false,
+      canEndTurn: false,
+      mustMoveRobber: false,
+      validSetupVertices: [],
+      setupRoadOptionsByVertex: {},
+      validRoadEdges: [],
+      validVillageVertices: [],
+      validCityVertices: [],
+      validRobberTiles: [],
+    };
+  }
+
   if (game.phase === "setup-placement") {
     const validSetupVertices = game.board.vertices
       .filter((vertex) => canPlaceInitialVillage(game, vertex.id))
@@ -659,6 +758,13 @@ function serializeGame(game) {
     // Public: how many cards each player still owes after a seven, never which.
     pendingDiscards: game.pendingDiscards || {},
     discardsSince: game.discardsSince || null,
+    // The opening rolls are public: everyone watches who goes first.
+    orderRoll:
+      game.phase === "order-roll"
+        ? { ...game.orderRoll, waiting: orderRollWaiting(game) }
+        : game.orderRoll?.order
+          ? { order: game.orderRoll.order, last: game.orderRoll.last }
+          : null,
     winnerId: game.winnerId,
     setup: setupSummary,
     settings: {
@@ -1656,6 +1762,7 @@ module.exports = {
   joinGame,
   getGameState,
   placeSetup,
+  rollForOrder,
   rollDice,
   buildRoad,
   buildVillage,

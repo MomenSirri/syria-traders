@@ -9,6 +9,7 @@ const store = require("../src/game/gameStore");
 const app = require("../src/app");
 const sessions = require("../src/game/sessions");
 const config = require("../../shared/gameConfig.json");
+const { rollEachPhone } = require("./orderRoll");
 
 let server, base;
 async function api(route, body, token, revision) {
@@ -60,6 +61,9 @@ function assertNoPrivateData(view) {
 }
 async function placeAll(id, tokens) {
   let state = await read(id, tokens[0]);
+  const tokenOf = {};
+  for (const token of tokens) tokenOf[(await read(id, token)).viewer.playerId] = token;
+  state = await rollEachPhone(api, id, tokenOf);
   while (state.phase === "setup-placement") {
     const active = state.players[state.currentPlayerIndex].id;
     let token;
@@ -99,7 +103,7 @@ test("a TV can host a room without a seat, and the first phone can also start it
   );
   const started = await api(`/games/${state.id}/start`, {}, tv.token, state.revision);
   assert.equal(started.status, 200, started.error);
-  assert.equal(started.game.phase, "setup-placement");
+  assert.equal(started.game.phase, "order-roll");
   assertNoPrivateData(started.game);
 });
 

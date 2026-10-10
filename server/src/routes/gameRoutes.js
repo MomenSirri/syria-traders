@@ -127,6 +127,7 @@ router.post(
   }),
 );
 for (const [route, action] of Object.entries({
+  "order/roll": "rollForOrder",
   "setup/place": "placeSetup",
   roll: "rollDice",
   "build/road": "buildRoad",
@@ -153,12 +154,14 @@ for (const [route, action] of Object.entries({
     handle((req, res) => {
       // Trade offers name the request or offer they answer, so several phones can
       // respond at once without tripping over each other's revisions.
-      // Discards after a seven work the same way: each player returns their own.
+      // Discards after a seven work the same way: each player returns their own,
+      // and so do the opening rolls for turn order.
       // "Anyone have...?" requests come from players waiting for their turn, too.
       const named =
         (route.startsWith("trade/") && route !== "trade/bank") ||
         route.startsWith("wish/") ||
-        route === "discard";
+        route === "discard" ||
+        route === "order/roll";
       sessions.assertAction(req.game, req.session, req.body, req.get("x-game-revision"), !named);
       service[action](req.game.id, req.body);
       res.json({ game: sessions.view(store.getGame(req.game.id), req.session) });

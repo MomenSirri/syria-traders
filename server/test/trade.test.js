@@ -7,6 +7,7 @@ const path = require("node:path");
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
 const store = require("../src/game/gameStore");
 const service = require("../src/game/gameService");
+const { rollInOrder } = require("./orderRoll");
 const sessions = require("../src/game/sessions");
 const app = require("../src/app");
 
@@ -14,6 +15,7 @@ const empty = () => ({ wheat: 0, wood: 0, stone: 0, brick: 0, sheep: 0 });
 // A three-player match in its action phase with known hands.
 function readyMatch(hands) {
   let game = service.createGame({ playerNames: ["Nour", "Yazan", "Lina"] });
+  if (game.phase === "order-roll") game = rollInOrder(game.id);
   while (game.phase === "setup-placement") {
     const vertexId = game.hints.validSetupVertices[0];
     game = service.placeSetup(game.id, {

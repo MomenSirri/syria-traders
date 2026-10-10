@@ -7,6 +7,7 @@ const path = require("node:path");
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
 const store = require("../src/game/gameStore");
 const app = require("../src/app");
+const { rollEachPhone } = require("./orderRoll");
 
 const pause = () => new Promise((resolve) => setTimeout(resolve, 20));
 let server, base;
@@ -87,8 +88,10 @@ test("six phones, twelve TV screens and extra tabs all stay connected through a 
 
   let state = (await api(`/games/${id}`, null, host.token)).game;
   state = (await api(`/games/${id}/start`, {}, host.token, state.revision)).game;
-  assert.equal(state.phase, "setup-placement");
+  assert.equal(state.phase, "order-roll");
   const tokenOf = Object.fromEntries(seats.map((seat) => [seat.game.viewer.playerId, seat.token]));
+  state = await rollEachPhone(api, id, tokenOf);
+  assert.equal(state.phase, "setup-placement");
   let moves = 0;
   while (state.phase === "setup-placement") {
     const active = state.players[state.currentPlayerIndex].id;
