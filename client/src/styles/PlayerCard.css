@@ -80,17 +80,13 @@
     border-color var(--dur) var(--ease),
     background var(--dur) var(--ease);
 }
-/* Player colour as a slim inlay along the top edge. */
-.player-card::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  left: 14px;
-  right: 14px;
-  height: 2px;
-  border-radius: 0 0 2px 2px;
-  background: var(--player-color);
-  opacity: 0.75;
+/* Player colour as a slim inlay along the top edge. An inset shadow follows the
+   card's rounded corners, so the line never pokes past them. */
+.player-card {
+  box-shadow:
+    inset 0 2px 0 color-mix(in srgb, var(--player-color) 75%, transparent),
+    var(--shadow-1),
+    var(--inset-top);
 }
 /* A seat whose phone dropped: the match waits for it, nobody is removed. */
 .player-card.away-player .player-state {
@@ -103,6 +99,7 @@
 .player-card.active-player {
   border-color: color-mix(in srgb, var(--player-color) 70%, transparent);
   box-shadow:
+    inset 0 3px 0 var(--player-color),
     0 0 0 1px color-mix(in srgb, var(--player-color) 60%, transparent),
     0 0 28px color-mix(in srgb, var(--player-color) 28%, transparent),
     var(--shadow-2);
@@ -113,12 +110,6 @@
       transparent 55%
     ),
     var(--surface-3);
-}
-.player-card.active-player::before {
-  left: 0;
-  right: 0;
-  opacity: 1;
-  border-radius: var(--radius) var(--radius) 0 0;
 }
 .player-header {
   display: grid;
@@ -229,6 +220,20 @@
   font-weight: 800;
   margin-left: 3px;
   font-variant-numeric: tabular-nums;
+}
+/* The hand count joins the stats only where the TV stacks short cards (table.css). */
+.structure-hand {
+  display: none;
+}
+.hand-mini {
+  display: inline-block;
+  width: 9px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(45deg, #1b4a3a 0 2px, #235c48 2px 3px);
+  border: 1px solid var(--gold-soft);
 }
 .player-dev-row {
   display: flex;

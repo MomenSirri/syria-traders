@@ -81,30 +81,44 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-auto-rows: minmax(0, 1fr);
   }
-  /* Three or four merchants stack in one column, so each card is short: the hidden
-     hand becomes one line, small cards beside the count, and stays inside its card. */
+  /* Three or four merchants stack in one column, so each card is short. Roads,
+     homes, cities and the hidden hand become one even row of stat tiles (label
+     over number) instead of a separate card fan. */
   .table-view .players-3 .private-hand,
   .table-view .players-4 .private-hand {
-    min-height: 0;
-    grid-auto-flow: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--sp-3);
-  }
-  .table-view .players-3 .private-hand > span,
-  .table-view .players-4 .private-hand > span {
     display: none;
   }
-  .table-view .players-3 .card-fan,
-  .table-view .players-4 .card-fan {
-    padding: 2px 10px 2px 4px;
+  .table-view .players-3 .player-structure-row,
+  .table-view .players-4 .player-structure-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--sp-2);
+    padding-bottom: 0;
+    border-bottom: 0;
   }
-  .table-view .players-3 .card-fan i,
-  .table-view .players-4 .card-fan i {
-    width: 21px;
-    height: 30px;
-    border-radius: 4px;
-    margin-right: -7px;
+  .table-view .players-3 .player-structure-row > span,
+  .table-view .players-4 .player-structure-row > span {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+    background: #ffffff08;
+    font-size: var(--fs-xs);
+  }
+  .table-view .players-3 .player-structure-row b,
+  .table-view .players-4 .player-structure-row b {
+    margin-left: 0;
+    font-size: var(--fs-xl);
+    line-height: 1;
+  }
+  .table-view .players-3 .hand-mini,
+  .table-view .players-4 .hand-mini {
+    display: none;
+  }
+  .table-view .players-3 .player-dev-row,
+  .table-view .players-4 .player-dev-row {
+    justify-content: center;
   }
   /* Two narrow columns for five or six merchants: drop the portrait so names fit. */
   .table-view .players-5 .player-header,

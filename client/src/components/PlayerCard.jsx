@@ -65,6 +65,12 @@ export default memo(function PlayerCard({
         <span title="Cities">
           Cities <b>{player.cities.length}</b>
         </span>
+        {!player.resources && (
+          <span className="structure-hand" title="Resource cards in hand (private)">
+            <i className="hand-mini" aria-hidden="true" />
+            Hand <b>{player.resourceTotal}</b>
+          </span>
+        )}
       </div>
       {(devCount > 0 || player.knightsPlayed > 0 || largestArmy || longestRoad) && (
         <div className="player-dev-row">
