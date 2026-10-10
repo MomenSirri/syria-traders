@@ -389,9 +389,9 @@
         "flavor": "Misty Kroumirie mountains thick with cork oak."
       },
       {
-        "name": "Carthage",
+        "name": "Tunis",
         "resource": "stone",
-        "flavor": "An ancient harbour city of columns and sea-worn stone."
+        "flavor": "The capital by the sea, with the columns of ancient Carthage."
       },
       {
         "name": "Dougga",
@@ -399,7 +399,7 @@
         "flavor": "A Roman hill town of honey-coloured stone."
       },
       {
-        "name": "El Djem",
+        "name": "Monastir",
         "resource": "stone",
         "flavor": "A giant Roman amphitheatre rising from the olive plain."
       },
@@ -469,9 +469,9 @@
         "flavor": "Old stone ramparts standing by the sea."
       },
       {
-        "name": "Monastir",
-        "resource": "brick",
-        "flavor": "Potters' kilns of Moknine and sun-baked clay."
+        "name": "Mahdia",
+        "resource": "stone",
+        "flavor": "A stone fortress on the cape above a fishing harbour."
       },
       {
         "name": "Kairouan",
