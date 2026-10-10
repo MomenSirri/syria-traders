@@ -20,15 +20,17 @@ export default function TableStatus({ game, currentPlayer }) {
   const name = currentPlayer?.name;
   const message = winner
     ? `${winner.name} reaches ${winner.score} points and wins the match.`
-    : game.phase === "setup-placement"
-      ? `${name} is placing a village and road.`
-      : waitingFor(game)
-        ? `A seven! ${waitingFor(game)} must choose cards to return.`
-        : game.mustMoveRobber
-          ? `${name} is moving the bandit.`
-          : !game.turnHasRolled
-            ? `Waiting for ${name} to roll.`
-            : `${name} is building and trading.`;
+    : game.phase === "order-roll"
+      ? "Everyone rolls the dice on their phone. The highest roll goes first."
+      : game.phase === "setup-placement"
+        ? `${name} is placing a village and road.`
+        : waitingFor(game)
+          ? `A seven! ${waitingFor(game)} must choose cards to return.`
+          : game.mustMoveRobber
+            ? `${name} is moving the bandit.`
+            : !game.turnHasRolled
+              ? `Waiting for ${name} to roll.`
+              : `${name} is building and trading.`;
   return (
     <section className="action-bar-panel panel table-status" aria-live="polite">
       <div className="table-status-main" style={{ "--player-color": currentPlayer?.color }}>

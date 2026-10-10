@@ -6,8 +6,10 @@ const path = require("node:path");
 
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
 process.env.AWAY_MS = "60";
+process.env.PULSE_MS = "200";
 const store = require("../src/game/gameStore");
 const app = require("../src/app");
+const { rollEachPhone } = require("./orderRoll");
 
 const pause = () => new Promise((resolve) => setTimeout(resolve, 20));
 let server, base;
@@ -65,6 +67,10 @@ async function mainPhase() {
   const omar = await api(`/games/${host.game.roomCode}/join`, { name: "Omar" });
   let state = await read(host.game.id, host.token);
   state = (await api(`/games/${state.id}/start`, {}, host.token, state.revision)).game;
+  state = await rollEachPhone(api, state.id, {
+    [host.game.viewer.playerId]: host.token,
+    [omar.game.viewer.playerId]: omar.token,
+  });
   while (state.phase === "setup-placement") {
     const active = state.players[state.currentPlayerIndex].id;
     const token = active === host.game.viewer.playerId ? host.token : omar.token;
@@ -106,9 +112,15 @@ test("a player dropping mid-turn leaves the others connected and playing", async
 });
 
 test("a reconnecting player gets the same seat and private hand back", async () => {
-  const { id, host, omar } = await mainPhase();
-  const seat = omar.game.viewer.playerId;
-  const hand = (await read(id, omar.token)).players.find((player) => player.id === seat);
+  // A random board can leave Omar's second settlement on the desert and the coast,
+  // with no starting cards; deal a new match until his hand has something to keep.
+  let id, host, omar, seat, hand;
+  for (let tries = 0; tries < 10; tries++) {
+    ({ id, host, omar } = await mainPhase());
+    seat = omar.game.viewer.playerId;
+    hand = (await read(id, omar.token)).players.find((player) => player.id === seat);
+    if (Object.values(hand.resources).some((amount) => amount > 0)) break;
+  }
   assert.ok(
     Object.values(hand.resources).some((amount) => amount > 0),
     "Omar holds cards",
@@ -168,24 +180,35 @@ test("a dropped player is marked away for everyone, the match waits, and nothing
   await listeners(id, 0);
 });
 
-test("a player who lost their saved seat rejoins a running match by room code and name", async () => {
+test("a player who lost their saved seat rejoins a running match with name and room PIN", async () => {
   const { id, host, omar } = await mainPhase();
   const code = host.game.roomCode;
+  const pin = host.game.rejoinPin;
+  assert.match(pin, /^\d{4}$/);
+  assert.equal(omar.game.rejoinPin, pin, "Every seat sees the PIN");
   const seat = omar.game.viewer.playerId;
   const hand = (await read(id, omar.token)).players.find((player) => player.id === seat);
 
-  const stranger = await api(`/games/${code}/join`, { name: "Zaid" });
-  assert.equal(stranger.status, 400);
-  assert.match(stranger.error, /Amina, Omar/);
+  // A wrong name or a wrong PIN gets the same answer, and the names are not listed.
+  const stranger = await api(`/games/${code}/join`, { name: "Zaid", pin });
+  assert.equal(stranger.status, 403);
+  assert.doesNotMatch(stranger.error, /Amina|Omar/);
+  const guess = await api(`/games/${code}/join`, {
+    name: "Omar",
+    pin: pin === "0000" ? "1111" : "0000",
+  });
+  assert.equal(guess.status, 403);
+  assert.equal(guess.error, stranger.error);
+  assert.equal((await api(`/games/${code}/join`, { name: "Omar" })).status, 403);
 
   // While Omar's phone is connected, nobody else can take his seat.
   const live = await watch(id, omar.token);
   await listeners(id, 1);
-  assert.equal((await api(`/games/${code}/join`, { name: "Omar" })).status, 409);
+  assert.equal((await api(`/games/${code}/join`, { name: "Omar", pin })).status, 409);
   live.close();
   await listeners(id, 0);
 
-  const back = await api(`/games/${code.toLowerCase()}/join`, { name: " omar " });
+  const back = await api(`/games/${code.toLowerCase()}/join`, { name: " omar ", pin: ` ${pin} ` });
   assert.equal(back.status, 200, back.error);
   assert.notEqual(back.token, omar.token);
   assert.equal(back.game.viewer.playerId, seat);
@@ -200,10 +223,60 @@ test("a player who lost their saved seat rejoins a running match by room code an
   const stream = await watch(id, back.token);
   await stream.until(() => stream.revisions.length > 0);
   stream.close();
-  const hostBack = await api(`/games/${code}/join`, { name: "Amina" });
+  const hostBack = await api(`/games/${code}/join`, { name: "Amina", pin });
   assert.equal(hostBack.status, 200, hostBack.error);
   assert.equal(hostBack.game.viewer.isHost, true);
   assert.equal((await read(id, host.token)).viewer.playerId, host.game.viewer.playerId);
+  await listeners(id, 0);
+});
+
+test("a phone that cannot hold a stream stays in the match through the pulse alone", async () => {
+  const { id, host, omar } = await mainPhase();
+  const code = host.game.roomCode;
+  const seat = omar.game.viewer.playerId;
+  const away = async () =>
+    (await read(id, host.token)).players.find((player) => player.id === seat).away;
+  const aminaStream = await watch(id, host.token);
+
+  // Omar's stream opens and dies at once, as on a network that cuts long connections.
+  const broken = await watch(id, omar.token);
+  broken.close();
+  const state = await read(id, omar.token);
+  for (let i = 0; i < 12; i++) {
+    const beat = await api(`/games/${id}/pulse`, null, omar.token);
+    assert.equal(beat.status, 200, beat.error);
+    assert.equal(beat.revision, state.revision);
+    assert.equal(typeof beat.presence, "number");
+    await pause();
+    await pause();
+  }
+  // Long past the away delay, the pulse has kept the seat present and taken.
+  assert.equal(await away(), false);
+  assert.equal(
+    (await api(`/games/${code}/join`, { name: "Omar", pin: host.game.rejoinPin })).status,
+    409,
+  );
+
+  // The pulse reports moves, and the seat can make them without any stream.
+  const activeId = state.players[state.currentPlayerIndex].id;
+  const activeToken = activeId === seat ? omar.token : host.token;
+  const rolled = await api(
+    `/games/${id}/roll`,
+    { playerId: activeId },
+    activeToken,
+    state.revision,
+  );
+  assert.equal(rolled.status, 200, rolled.error);
+  const after = await api(`/games/${id}/pulse`, null, omar.token);
+  assert.equal(after.revision, rolled.game.revision);
+  assert.equal((await api(`/games/${id}/pulse`, null, "wrong-token")).status, 401);
+
+  // When the pulses stop too, the seat is marked away and can be taken back by name and PIN.
+  for (let i = 0; i < 100 && !(await away()); i++) await pause();
+  assert.equal(await away(), true);
+  assert.equal((await api(`/games/${id}/pulse`, null, omar.token)).status, 200);
+  assert.equal(await away(), false, "One pulse brings the seat back");
+  aminaStream.close();
   await listeners(id, 0);
 });
 

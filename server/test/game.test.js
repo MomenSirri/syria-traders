@@ -8,6 +8,7 @@ const { spawnSync } = require("node:child_process");
 process.env.GAME_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "syria-traders-test-"));
 const store = require("../src/game/gameStore");
 const service = require("../src/game/gameService");
+const { rollInOrder } = require("./orderRoll");
 const rules = require("../src/game/rules");
 const { generateBoard } = require("../src/game/boardGenerator");
 const app = require("../src/app");
@@ -17,6 +18,7 @@ function newGame(count = 2) {
   return service.createGame({ playerNames: ["Nour", "Yazan", "Lina", "Sami"].slice(0, count) });
 }
 function finishSetup(game) {
+  if (game.phase === "order-roll") game = rollInOrder(game.id);
   while (game.phase === "setup-placement") {
     const vertexId = game.hints.validSetupVertices[0];
     game = service.placeSetup(game.id, {
@@ -58,6 +60,7 @@ test("snake setup for 2, 3 and 4 players conserves resources", () => {
   for (const count of [2, 3, 4]) {
     let game = newGame(count);
     const order = [];
+    if (game.phase === "order-roll") game = rollInOrder(game.id);
     while (game.phase === "setup-placement") {
       order.push(game.currentPlayerIndex);
       const vertexId = game.hints.validSetupVertices[0];
@@ -210,7 +213,7 @@ test("snapshot survives a fresh Node process", () => {
   assert.deepEqual(restored.board, game.board);
   assert.deepEqual(
     restored.players,
-    game.players.map(({ resourceTotal, devCardCount, ...p }) => p),
+    game.players.map(({ resourceTotal, devCardCount, longestRoad, ...p }) => p),
   );
 });
 
@@ -284,6 +287,9 @@ test("network room lifecycle, live updates, private hands, forged and stale acti
       403,
     );
     state = (await request(`/games/${state.id}/start`, {}, host.token, state.revision)).game;
+    assert.equal(state.phase, "order-roll");
+    rollInOrder(state.id);
+    state = (await request(`/games/${state.id}`, null, host.token)).game;
     assert.equal(state.phase, "setup-placement");
     assert.equal(state.players[1].resources, null);
     assert.ok(state.players[0].resources);
@@ -310,7 +316,7 @@ test("network room lifecycle, live updates, private hands, forged and stale acti
       request(`/games/${state.id}/setup/place`, body, host.token, state.revision),
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
-    assert.equal((await request(`/games/${state.id}/join`, { name: "Late" })).status, 400);
+    assert.equal((await request(`/games/${state.id}/join`, { name: "Late" })).status, 403);
     const viewed = (await request(`/games/${state.id}`, null, guest.token)).game;
     assert.ok(viewed.hints);
     assert.equal(viewed.players[0].resources, null);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import config from "../../shared/gameConfig.json";
 import useMatch from "./hooks/useMatch";
 import useResourceGains from "./hooks/useResourceGains";
+import useGameSounds from "./hooks/useGameSounds";
 import { playUiSound } from "./utils/sound";
 import GameSetup from "./components/GameSetup";
 import GameBoard from "./components/GameBoard";
@@ -16,9 +17,34 @@ import TradePanel from "./components/TradePanel";
 import DevCardPanel from "./components/DevCardPanel";
 import RobberPicker from "./components/RobberPicker";
 import DiscardPanel from "./components/DiscardPanel";
+import OrderRollPanel from "./components/OrderRollPanel";
 import GameEffects from "./components/GameEffects";
+import MatchSummary from "./components/MatchSummary";
+import { ReactionButton, ReactionLayer } from "./components/Reactions";
 import Icon from "./components/Icon";
 import { fitTvViewport, onTvAddress } from "./utils/tvViewport";
+
+// The TV plays table sounds unless someone turned them off on that screen.
+const TV_SOUND_KEY = "syria_traders_tv_sound";
+function useTvSound() {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(TV_SOUND_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () =>
+    setOn((value) => {
+      try {
+        localStorage.setItem(TV_SOUND_KEY, value ? "off" : "on");
+      } catch {
+        /* Private mode: the choice lasts until the page reloads. */
+      }
+      return !value;
+    });
+  return [on, toggle];
+}
 
 // Matches the CSS phone breakpoint, where a seat stacks its panels in one column.
 const PHONE_QUERY = "(max-width: 700px)";
@@ -57,6 +83,8 @@ export default function App() {
   // On a phone seat the development cards sit right under the hand, not over the board.
   const phoneSeat = usePhoneWidth() && game?.mode === "online" && !table;
   useEffect(() => fitTvViewport(tvLayout), [tvLayout]);
+  const [tvSound, toggleTvSound] = useTvSound();
+  useGameSounds(game, match.reactions, table ? tvSound : match.soundEnabled);
   const myTurn = !table && (game?.mode !== "online" || current?.id === game?.viewer.playerId);
   const interactive = myTurn && !busy && connection === "live" && game?.status === "active";
 
@@ -80,7 +108,7 @@ export default function App() {
     }
     setHighlightedTileIds(game.visuals.producingTileIds || []);
     // Every screen tumbles its dice when anyone rolls, not only the roller's.
-    if (["roll", "seven"].includes(game.visuals.kind)) setRolling(true);
+    if (["roll", "seven", "order-roll"].includes(game.visuals.kind)) setRolling(true);
     const timer = setTimeout(() => setHighlightedTileIds([]), 1800);
     const dice = setTimeout(() => setRolling(false), 650);
     return () => {
@@ -143,6 +171,7 @@ export default function App() {
     );
 
   const winner = game.players.find((player) => player.id === game.winnerId);
+  const orderRoll = game.phase === "order-roll";
   return (
     <div className="viewport-shell">
       <main
@@ -153,20 +182,27 @@ export default function App() {
             <span className="eyebrow">{table ? "Table screen" : "A gathering of merchants"}</span>
             <h1>{config.gameTitle}</h1>
           </div>
-          <div className="turn-status" style={{ "--player-color": current?.color }}>
+          <div
+            className="turn-status"
+            style={{ "--player-color": orderRoll ? "var(--gold)" : current?.color }}
+          >
             <span className="turn-dot" />
             <div>
               <span className="eyebrow">
                 {winner
                   ? "The caravan has a winner"
-                  : game.phase === "setup-placement"
-                    ? `First settlements ${game.setup.step + 1}/${game.setup.totalSteps}`
-                    : `Turn ${game.turn}`}
+                  : orderRoll
+                    ? "Rolling for turn order"
+                    : game.phase === "setup-placement"
+                      ? `First settlements ${game.setup.step + 1}/${game.setup.totalSteps}`
+                      : `Turn ${game.turn}`}
               </span>
               <strong>
                 {winner
                   ? `${winner.name} wins!`
-                  : `${current?.name}${myTurn ? " - your turn" : " is playing"}`}
+                  : orderRoll
+                    ? "Highest roll goes first"
+                    : `${current?.name}${myTurn ? " - your turn" : " is playing"}`}
               </strong>
             </div>
           </div>
@@ -174,9 +210,18 @@ export default function App() {
           <div className="session-status">
             <span className={`connection-dot ${connection}`} />
             {game.mode === "online" ? `Room ${game.roomCode}` : "Shared table"}
+            {game.rejoinPin && (
+              <span title="Read this to a player who lost their seat"> · PIN {game.rejoinPin}</span>
+            )}
             <small>{connection === "live" ? "Saved on host" : "Reconnecting..."}</small>
           </div>
           <div className="header-actions">
+            {table && (
+              <button className="quiet-button" aria-pressed={tvSound} onClick={toggleTvSound}>
+                <Icon name={tvSound ? "soundOn" : "soundOff"} />
+                <span className="btn-label">Sound {tvSound ? "on" : "off"}</span>
+              </button>
+            )}
             <button className="quiet-button" onClick={() => setHelp(true)}>
               <Icon name="help" />
               <span className="btn-label">How to play</span>
@@ -199,6 +244,11 @@ export default function App() {
             onAction={action}
           />
           {!phoneSeat && <DevCardPanel game={game} busy={!interactive} onAction={action} />}
+          <OrderRollPanel
+            game={game}
+            busy={busy || connection !== "live" || game.status !== "active"}
+            onAction={action}
+          />
           <DiscardPanel
             game={game}
             busy={busy || connection !== "live" || game.status !== "active"}
@@ -233,13 +283,14 @@ export default function App() {
                 setSelectedSetupVertex(null);
             }}
           />
-          {table && winner && (
+          {table && winner && !game.summary && (
             <div className="table-winner" style={{ "--player-color": winner.color }}>
               <span className="eyebrow">The caravan has a winner</span>
               <strong>{winner.name}</strong>
               <span>{winner.score} points</span>
             </div>
           )}
+          <MatchSummary key={game.winnerId} game={game} table={table} />
           {warning && (
             <div className="error-banner" role="alert">
               {warning}
@@ -250,6 +301,9 @@ export default function App() {
               {match.stalled
                 ? "Still reconnecting. Your seat and cards are safe on the host. Check Wi-Fi, keep the host window open, and close other Syria Traders tabs in this browser."
                 : "Reconnecting to the host. Your seat and cards are kept; moves unlock when the connection returns."}
+              {match.sleepy &&
+                !table &&
+                " This phone is letting its screen sleep, which drops it from the game: turn off battery saver or keep the screen on."}
             </div>
           )}
         </section>
@@ -268,6 +322,8 @@ export default function App() {
               selectedAction={selectedAction}
               onSelectAction={setSelectedAction}
               onRoll={roll}
+              onRollForOrder={() => action("order/roll")}
+              orderBusy={busy || connection !== "live"}
               onEndTurn={() => action("end-turn")}
               onBuyCard={() => action("dev/buy")}
               onTrade={(giveResource, getResource) =>
@@ -281,6 +337,12 @@ export default function App() {
           )}
         </section>
         <GameEffects game={game} table={table} />
+        {game.mode === "online" && (
+          <ReactionLayer game={game} reactions={match.reactions} table={table} />
+        )}
+        {game.mode === "online" && !table && game.viewer?.playerId && (
+          <ReactionButton reactions={game.settings.reactions} onReact={match.react} />
+        )}
         {help && (
           <div className="modal-backdrop" onClick={() => setHelp(false)}>
             <section
@@ -297,6 +359,9 @@ export default function App() {
               <span className="eyebrow">Welcome to the table</span>
               <h2>Build a home. Open a route.</h2>
               <ol>
+                <li>
+                  Everyone rolls the dice first: the highest roll goes first, ties roll again.
+                </li>
                 <li>
                   Place two villages and roads. Placement order reverses for the second round; your
                   second village supplies starting resources.
@@ -326,13 +391,18 @@ export default function App() {
                   everyone. Victory Point cards stay hidden until they win.
                 </li>
                 <li>
+                  The first unbroken road of 5 or more earns the Longest Road, worth 2 points. A
+                  longer road takes it; another player's village can cut a road in two.
+                </li>
+                <li>
                   Reach 10 points: villages are worth one, cities two. Each player has 15 roads, 5
                   villages and 4 cities.
                 </li>
               </ol>
               <p>
-                In network rooms, hands are private and only the active player can act. The host PC
-                must stay running.
+                In network rooms, hands are private and only the active player can act. While you
+                wait, ask everyone for a card you need, or tap 😀 to send the table a reaction. The
+                host PC must stay running.
               </p>
             </section>
           </div>

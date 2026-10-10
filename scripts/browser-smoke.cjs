@@ -139,6 +139,35 @@ async function place(page) {
     .click();
   await settled(page, old.revision);
 }
+// Everyone rolls for turn order: phones tap "Roll the dice", a shared screen rolls
+// for each player. Ties roll again, so keep going until setup begins.
+async function rollForOrder(pages) {
+  for (let round = 0; round < 30; round++) {
+    const state = await snapshot(pages[0]);
+    if (state.phase !== "order-roll") return state;
+    for (const page of pages) {
+      const mine = await snapshot(page);
+      if (mine.phase !== "order-roll" || mine.viewer?.role === "table") continue;
+      const name = mine.mode === "online" ? "Roll the dice" : /^Roll for /;
+      const button = page
+        .getByRole("button", { name, exact: mine.mode === "online" })
+        .filter({ visible: true })
+        .first();
+      if (!(await button.count())) continue;
+      await button.click();
+      await settled(page, mine.revision);
+    }
+    for (const page of pages) {
+      const revision = (await snapshot(pages.at(-1))).revision;
+      await page.waitForFunction(
+        (revision) =>
+          JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.revision >= revision,
+        revision,
+      );
+    }
+  }
+  throw new Error("The turn-order roll never settled");
+}
 // Moves the bandit, preferring a territory where the roller must choose whom to rob.
 // Moves the bandit, preferring a territory where the roller must choose whom to rob.
 // A tap only previews the move; with `shot`, it first taps another territory and
@@ -280,6 +309,60 @@ async function checkSmartTv(base) {
   await googleTv.screenshot({ path: path.join(output, "google-tv-lobby.png") });
   console.log("PASS smart-TV address opens a TV room over HTTP and invites phones to HTTPS");
 }
+// Some phones and networks will not keep a long-lived connection open. Such a phone
+// used to sit on "Reconnecting" for good; now the pulse carries the whole match.
+async function checkBrokenStream(base) {
+  const host = await pageFor(base);
+  await host.getByRole("button", { name: "Host room", exact: true }).click();
+  await host.getByLabel("Player 1 name").fill("Dana");
+  await host.getByRole("button", { name: "Create a room" }).click();
+  await settled(host);
+  const guest = await pageFor(`${base}/?room=${(await snapshot(host)).roomCode}`);
+  let cut = 0;
+  await guest.context().route("**/api/games/*/events", (route) => {
+    cut += 1;
+    return route.abort();
+  });
+  await guest.getByLabel("Player 1 name").fill("Yara");
+  await guest.getByRole("button", { name: "Join the table" }).click();
+  await settled(guest);
+  await host.getByText("Yara").first().waitFor();
+  await host.getByRole("button", { name: "Start the match" }).click();
+  for (const page of [host, guest]) await page.locator(".dashboard-16x9").waitFor();
+  await rollForOrder([host, guest]);
+  const revisionOf = async (page) => (await snapshot(page)).revision;
+  const reaches = (page, revision) =>
+    page.waitForFunction(
+      (wanted) =>
+        JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.revision >= wanted,
+      revision,
+      { timeout: 8000 },
+    );
+  for (let i = 0; i < 4; i++) {
+    // Both screens agree before each move: the guest learns of moves by pulse alone.
+    const latest = Math.max(await revisionOf(host), await revisionOf(guest));
+    await Promise.all([reaches(host, latest), reaches(guest, latest)]);
+    const state = await snapshot(host);
+    const activeId = state.players[state.currentPlayerIndex].id;
+    const active = (await snapshot(guest)).viewer.playerId === activeId ? guest : host;
+    await active.locator(".connection-dot.live").waitFor();
+    await place(active);
+    await Promise.all([reaches(host, state.revision + 1), reaches(guest, state.revision + 1)]);
+  }
+  await guest.waitForFunction(
+    () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.phase === "main",
+  );
+  assert.ok(cut > 0, "The guest's live stream was cut");
+  assert.equal(await guest.locator(".connection-dot.live").count(), 1);
+  assert.equal(await guest.locator(".connection-banner").count(), 0);
+  // Long after the away delay, the host still sees the guest as present.
+  await delay(6000);
+  assert.equal(await host.locator(".player-card.away-player").count(), 0);
+  assert.equal(await guest.locator(".connection-dot.live").count(), 1);
+  await host.context().close();
+  await guest.context().close();
+  console.log("PASS a phone whose live stream never works still joins and plays");
+}
 // A browser allows about six connections to the host and each game tab holds one.
 // Forgotten tabs on the host PC used to use them all, cutting that browser off.
 async function checkForgottenTabs(base) {
@@ -405,6 +488,10 @@ async function checkForgottenTabs(base) {
   await local.setViewportSize({ width: 1920, height: 1080 });
   await local.getByRole("button", { name: "Begin the journey" }).click();
   await settled(local);
+  assert.equal((await snapshot(local)).phase, "order-roll");
+  await local.locator(".order-roll-panel").waitFor();
+  await rollForOrder([local]);
+  await local.locator(".order-roll-panel").waitFor({ state: "detached" });
   assert.equal(await local.locator("input[type=file]").count(), 0);
   assert.equal(await local.locator(".tile-layer .tile-group").count(), 19);
   assert.equal(await local.locator(".sea-tile").count(), 18);
@@ -464,6 +551,16 @@ async function checkForgottenTabs(base) {
   await host.screenshot({ path: path.join(output, "network-lobby.png") });
   await host.getByRole("button", { name: "Start the match" }).click();
   for (const page of players) await page.locator(".dashboard-16x9").waitFor();
+  const ordered = await rollForOrder(players);
+  const seatPage = async (id) =>
+    (
+      await Promise.all(
+        players.map(async (page) => ({ page, id: (await snapshot(page)).viewer.playerId })),
+      )
+    ).find((entry) => entry.id === id).page;
+  // The opening roll decides who plays turns 1 and 2.
+  const opener = await seatPage(ordered.players[0].id);
+  const follower = await seatPage(ordered.players[1].id);
   for (let i = 0; i < 8; i++) {
     const state = await snapshot(host);
     const activeId = state.players[state.currentPlayerIndex].id;
@@ -489,22 +586,22 @@ async function checkForgottenTabs(base) {
       "Recent resource badges must work even with a skewed device clock",
     );
   }
-  await host.getByRole("button", { name: "Roll dice", exact: true }).click();
-  await host.waitForFunction(
+  await opener.getByRole("button", { name: "Roll dice", exact: true }).click();
+  await opener.waitForFunction(
     () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
   );
-  if ((await snapshot(host)).mustMoveRobber) await moveBandit(host);
-  await host.getByRole("button", { name: "End turn", exact: true }).click();
+  if ((await snapshot(opener)).mustMoveRobber) await moveBandit(opener);
+  await opener.getByRole("button", { name: "End turn", exact: true }).click();
   for (const page of players)
     await page.waitForFunction(
       () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turn === 2,
     );
   assert.equal(
-    await host.getByRole("button", { name: "Roll dice", exact: true }).isDisabled(),
+    await opener.getByRole("button", { name: "Roll dice", exact: true }).isDisabled(),
     true,
   );
   assert.equal(
-    await players[1].getByRole("button", { name: "Roll dice", exact: true }).isEnabled(),
+    await follower.getByRole("button", { name: "Roll dice", exact: true }).isEnabled(),
     true,
   );
   await host.screenshot({ path: path.join(output, "network-dashboard.png") });
@@ -519,7 +616,7 @@ async function checkForgottenTabs(base) {
   await stopServer();
   await startServer();
   await Promise.all(reconnected);
-  await players[1].getByRole("button", { name: "Roll dice", exact: true }).click();
+  await follower.getByRole("button", { name: "Roll dice", exact: true }).click();
   for (const page of players)
     await page.waitForFunction(
       () => JSON.parse(localStorage.getItem("syria_traders_save_v1")).game.turnHasRolled,
@@ -678,6 +775,25 @@ async function checkForgottenTabs(base) {
   await tv.screenshot({ path: path.join(output, "tv-lobby.png") });
   await tv.getByRole("button", { name: "Start the match" }).click();
   for (const page of [tv, ...phones]) await page.locator(".dashboard-16x9").waitFor();
+  // Both phones roll for turn order; the TV shows each roll big, then the standings.
+  await tv.locator(".order-roll-tv").waitFor();
+  await tv.screenshot({ path: path.join(output, "tv-order-roll-start.png") });
+  assert.equal(await tv.getByRole("button", { name: /^Roll/ }).count(), 0);
+  await phones[0].screenshot({ path: path.join(output, "phone-order-roll.png") });
+  {
+    const before = (await snapshot(phones[0])).revision;
+    await phones[0]
+      .getByRole("button", { name: "Roll the dice", exact: true })
+      .filter({ visible: true })
+      .click();
+    await settled(phones[0], before);
+    await tv.locator(".fx-dice-who").waitFor({ timeout: 4000 });
+    await tv.waitForTimeout(500);
+    await tv.screenshot({ path: path.join(output, "tv-order-roll-dice.png") });
+    await tv.locator(".fx-dice").waitFor({ state: "detached", timeout: 5000 });
+    await tv.screenshot({ path: path.join(output, "tv-order-roll.png") });
+  }
+  await rollForOrder([tv, ...phones]);
   for (let i = 0; i < 4; i++) {
     const state = await snapshot(tv);
     const activeId = state.players[state.currentPlayerIndex].id;
@@ -711,6 +827,11 @@ async function checkForgottenTabs(base) {
   assert.deepEqual(tvState.gainEvents, []);
   assert.equal(tvState.hints, null);
   for (const payload of tvPayloads) {
+    // The pulse carries two numbers and nothing about the match.
+    if (!payload.game && "revision" in payload) {
+      assert.deepEqual(Object.keys(payload).sort(), ["presence", "revision"]);
+      continue;
+    }
     assert.ok(payload.game, "TV request failed");
     assert.ok(payload.game.players.every((player) => player.resources === null));
     assert.deepEqual(payload.game.gainEvents, []);
@@ -788,6 +909,30 @@ async function checkForgottenTabs(base) {
     assert.ok(tvAfter.log.at(-1).message.endsWith(`for 1 ${label}.`), tvAfter.log.at(-1).message);
     console.log("PASS players trade from their phones and the TV shows it without hands");
   } else console.log("SKIP player trade: dealt hands had no tradeable pair this run");
+
+  // A waiting phone sends a reaction: it rises over its card on the TV and other phones.
+  await offerer.getByRole("button", { name: "Send a reaction to the table" }).click();
+  await offerer.getByRole("menuitem", { name: "Trade with me!" }).click();
+  await tv.locator(".reaction-bubble", { hasText: "Trade with me!" }).waitFor({ timeout: 4000 });
+  await asker.locator(".reaction-bubble", { hasText: "Trade with me!" }).waitFor({ timeout: 4000 });
+  assert.equal(await tv.getByRole("button", { name: "Send a reaction to the table" }).count(), 0);
+  await tv.locator(".reaction-bubble").waitFor({ state: "detached", timeout: 8000 });
+  // ...then asks everyone for a card, and the TV lists it read-only.
+  const waitingHand = await own(offerer);
+  const spare = Object.keys(waitingHand).find((resource) => waitingHand[resource] > 0);
+  if (spare) {
+    const need = Object.keys(waitingHand).find((resource) => resource !== spare);
+    await offerer.getByRole("button", { name: "Anyone have a card I need?" }).click();
+    await offerer.getByLabel("Needed resource").selectOption(need);
+    await offerer.getByLabel("Given resource").selectOption(spare);
+    await offerer.getByRole("button", { name: "Ask everyone" }).click();
+    await tv.locator(".wish-list li").waitFor({ timeout: 4000 });
+    await asker.locator(".wish-list li").waitFor({ timeout: 4000 });
+    assert.equal(await tv.locator(".trade-panel button").count(), 0, "TV requests are read-only");
+    await offerer.getByRole("button", { name: "Take back" }).click();
+    await tv.locator(".wish-list li").waitFor({ state: "detached", timeout: 4000 });
+  }
+  console.log("PASS reactions and table requests reach the TV and every phone");
 
   // Development cards: give the active seat the price and an older Knight, buy one and play it.
   const cardState = await snapshot(tv);
@@ -872,6 +1017,7 @@ async function checkForgottenTabs(base) {
   await watcher.getByRole("button", { name: "TV screen", exact: true }).waitFor();
   console.log("PASS TV screen joins a phone-hosted match by link and closes cleanly");
   await checkForgottenTabs(base);
+  await checkBrokenStream(base);
   // Five or six players use the 30-territory map and a compact merchants panel.
   const six = await pageFor(base);
   for (let i = 3; i <= 6; i++) {
@@ -883,6 +1029,7 @@ async function checkForgottenTabs(base) {
   await six.screenshot({ path: path.join(output, "setup-six-players.png") });
   await six.getByRole("button", { name: "Begin the journey" }).click();
   await settled(six);
+  await rollForOrder([six]);
   assert.equal(await six.locator(".tile-layer .tile-group").count(), 30);
   assert.equal(await six.locator(".player-card").count(), 6);
   for (let i = 0; i < 12; i++) await place(six);

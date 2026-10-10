@@ -7,6 +7,9 @@ const gameRoutes = require("./routes/gameRoutes");
 const app = express();
 
 app.disable("x-powered-by");
+// A tunnel on this PC (for example Tailscale Funnel) connects from loopback and names
+// the real visitor in X-Forwarded-For. Anyone else's forwarded header is ignored.
+app.set("trust proxy", "loopback");
 if (process.env.ALLOWED_ORIGINS) app.use(cors({ origin: process.env.ALLOWED_ORIGINS.split(",") }));
 app.use(express.json({ limit: "4mb" }));
 

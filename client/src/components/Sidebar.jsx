@@ -1,6 +1,7 @@
 import PlayerCard from "./PlayerCard";
 export default function Sidebar({ game, resourcePopups = [], playerImages = {} }) {
-  const currentId = game.players[game.currentPlayerIndex]?.id;
+  // Nobody is playing yet while the table rolls for turn order.
+  const currentId = game.phase === "order-roll" ? null : game.players[game.currentPlayerIndex]?.id;
   return (
     <section className="players-panel panel">
       <div className="section-heading">
@@ -17,6 +18,7 @@ export default function Sidebar({ game, resourcePopups = [], playerImages = {} }
             active={player.id === currentId}
             yours={game.viewer?.playerId === player.id}
             largestArmy={game.largestArmyId === player.id}
+            longestRoad={game.longestRoadId === player.id}
             gains={resourcePopups.filter((gain) => gain.playerId === player.id)}
             setupCount={
               game.phase === "setup-placement"

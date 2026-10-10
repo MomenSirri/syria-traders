@@ -2,6 +2,41 @@
 
 An original Syrian-inspired resource, trading, and settlement game. React, plain CSS, Node.js, Express, and an SVG board. Supports 2-6 people sharing a screen or joining a room from separate browsers on the same local network.
 
+New to the game? Read **[How to Play](docs/HOW-TO-PLAY.md)** for the rules explained from scratch.
+
+## Quick Start
+
+You need one computer to be the **host** (it runs the game server) and **Node.js 24** installed on it from [nodejs.org](https://nodejs.org/). Everyone else only needs a browser on the same Wi-Fi.
+
+**Example 1: two players on one laptop.**
+Double-click `run-game.bat`. The game opens at `https://localhost:8443` (accept the certificate warning, it is expected). Choose **One device**, type both names, arrange the map if you like, and start. You pass the laptop between turns, so hands are not private in this mode.
+
+**Example 2: everyone on their own phone, with a TV showing the board.**
+
+1. On the host PC, double-click `run-game.bat` and keep its window open.
+2. The window prints a **TV:** address like `http://192.168.1.50:8080/tv` (your PC's own address will differ). Type it into the TV's browser and press **Open a room on this TV**. The TV now shows a room code and a QR code.
+3. Each player scans the QR code with their phone (or opens the invite link), types their name and taps **Join the table**. Accept the certificate warning once.
+4. When everyone is in, press **Start the match** on the TV or on the first phone that joined.
+
+![The TV lobby with a QR code, the room code, the invite link and the seats of players who joined](docs/images/tv-lobby.jpg)
+
+*The TV waiting for players. Phones scan the QR code or type the room code.*
+
+**Example 3: everyone on their own laptop or phone, no TV.**
+On the host PC choose **Host room**, enter your name and create the room. Send the lobby invite link to the others (it uses the PC's network address, for example `https://192.168.1.50:8443/?room=ABC123`). They open it, enter their names and join, then the host presses **Start the match**. Anyone can also choose **Join room** and type the six-character room code.
+
+**For developers (any OS):**
+
+```sh
+npm run install:all      # install root, server and client packages
+npm run build            # build the client into client/dist
+npm start                # serve https://localhost:8443 (+ TV address on :8080)
+npm run dev              # or: hot-reload development on https://localhost:5173
+npm test                 # rules, cards, trading, TV and session tests
+```
+
+If something does not connect, check that every device is on the same Wi-Fi (not a guest network), that Windows Firewall allows Node.js, and that the host window is still open. Details for each setup follow below.
+
 ## Start Playing (Windows)
 
 Install **Node.js 24 or newer**, then double-click **run-game.bat**. It installs missing dependencies, builds the latest UI, starts HTTPS, and opens **https://localhost:8443**. Keep its window open while playing; Ctrl+C stops the host.
@@ -19,6 +54,17 @@ Port 8443 now serves both the built game and API. Rebuilding on launch prevents 
 5. Wait for 2-6 players (choose **Up to 6 players** under Seats when creating the room), then the host presses **Start the match**. Joining does not auto-start the room at two players.
 
 Each browser has its own player seat and private hand. Only the active player can act. To test several players on one PC, use separate profiles/incognito contexts, not tabs sharing browser storage. Keep the host PC awake and its server running. This is trusted-LAN multiplayer, not public internet matchmaking.
+
+### Play With Friends Online (free, from your PC)
+
+`run-game-online.bat` starts the same game as `run-game.bat` and also opens a public `https://<your-pc>.<tailnet>.ts.net` link through [Tailscale Funnel](https://tailscale.com/kb/1223/funnel). The game and its saves stay on your PC.
+
+1. Once: install Tailscale from https://tailscale.com/download and sign in (the free plan is enough).
+2. Run `run-game-online.bat`. The first time, the window shows a link to approve Funnel; open it and approve.
+3. The window shows an **ONLINE LINK** box. Host a room; its invite link and QR code use the online address, so friends can join from anywhere. The TV keeps its usual home address.
+4. Closing the window or pressing Ctrl+C switches the link off (`tailscale funnel reset`). `run-game.bat` never opens it.
+
+If Tailscale is missing or signed out, the game still starts on your Wi-Fi and the window says what to fix. A seat in a started match is only taken back with the player's name and the room PIN (see **Taking a seat back**).
 
 ### Phones and a TV
 
@@ -48,6 +94,8 @@ To show a room a phone already hosts, choose **TV screen** and enter its room co
 The TV is a read-only seat-less viewer. The server never sends it hands, gain details or move hints; it shows the board, dice, turn, scores, piece counts, card counts per hand, the bank and the log (the same public information every player already sees). Moves sent with a TV token are rejected. **Close TV screen** revokes its token without touching any seat. Anyone with the room code on your network can open a TV view, so it shows nothing private.
 
 Leaving a lobby frees your seat. If the host leaves, the next player becomes host. An empty room closes. After a match starts, seats cannot be removed or reassigned.
+
+**Taking a seat back:** a phone that lost its seat in a started match (cleared browser, another phone) joins with the room code, the name it played with and the 4-digit **room PIN**. Every seated phone shows the PIN next to the room code; the TV never does, because anyone with the room code can open a TV view. A wrong name or PIN gets the same answer and never lists the players. The server slows down guessing: after 10 wrong room codes, names or PINs in 10 minutes an address must wait, a room takes at most 20 wrong PINs in 10 minutes from all addresses together, and an address can open at most 30 rooms an hour. Rooms saved before PINs existed get one the first time a seat reconnects.
 
 ## Development
 
@@ -83,6 +131,7 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 ## Rules and Feedback
 
 - Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart. The most common rolls are marked: 6 and 8 in red, 5 and 9 in orange.
+- Everyone first rolls the dice for turn order, each on their own phone (a shared screen rolls for each player). The highest roll places first and takes turn 1, the next highest second, and so on; tied players roll again among themselves. After 30 seconds anyone may roll for a player who hasn't.
 - Place a village and adjacent road, then reverse player order for the second placement. Your second village grants starting resources.
 - Roll once per turn. Matching regions produce one resource per village, two per city, unless blocked by the bandit.
 - Build along your own network. Villages must be at least two edges apart. An opponent's settlement blocks road continuation. Limits: 15 roads, 5 villages, 4 cities per player.
@@ -91,7 +140,12 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 - If the bank cannot fulfill all claims for a resource on a roll, nobody receives that resource. Other resources still pay normally.
 - Development cards cost 1 Wheat, 1 Sheep and 1 Stone, bought after rolling from a shuffled 25-card deck: 14 Knight, 5 Victory Point, 2 Road Building, 2 Year of Plenty, 2 Monopoly. Play one card per turn, never on the turn you bought it (a Knight may be played before rolling). A Knight moves the bandit and steals; Road Building places two free roads; Year of Plenty takes any two resources from the bank; Monopoly collects every opponent's stock of one resource. Victory Point cards stay hidden and are revealed automatically when they win the match.
 - Largest Army: the first player to play 3 Knights gains 2 points, and loses them to anyone who later plays more.
-- First to 10 points wins. Villages are worth 1; cities 2. No longest-road bonus or AI players yet. Player-to-player trades work in network rooms.
+- Longest Road: the first unbroken road of 5 or more gains 2 points. A longer road takes it; a tie leaves it with the holder. Another player's village or city cuts a road where it stands, and if the holder's road is cut so that several players share the longest, nobody holds it until one pulls ahead.
+- First to 10 points wins. Villages are worth 1; cities 2. Points gained off-turn (a rival's road cut) count when your turn starts. No AI players yet. Player-to-player trades work in network rooms.
+- "Anyone have...?" requests: a player waiting for their turn posts what they need and what they give for it. It shows on the TV and every phone, and whoever is playing can take it with one tap after rolling. One request per player; it ends when taken, taken back, or when its owner's turn starts.
+- Reactions: a seated phone's 😀 button sends an emoji or a short line ("Nice try!", "Trade with me!"...). It rises over the sender's card on the TV and other phones for a few seconds. Reactions are never saved and never change the match revision, so they can't block a move.
+- Sounds: the TV plays dice, payouts, the bandit, steals, trades, builds, cards, awards, the win and reactions (toggle in its header; browsers stay silent until the screen is first touched or a remote key is pressed). Phones play the same sounds when their Sound button is on.
+- When a match ends, the TV and phones show awards (Lucky harvest, Master thief, Most robbed, Trade king, Bandit's friend, Road builder, Knight commander; ties share) and a chart of how the dice fell. They count only public events; saves from before awards count from their next move.
 - Development card hands are private like resources: other phones and the TV see only each player's card count and knights played. Saves from before development cards load with a fresh deck.
 
 Gain badges stay beside resource counts for **30 seconds**, fade over 700 ms, then clear. Simultaneous resources use separate rows. Repeated gains aggregate while each event retains its expiry. Dice production also briefly lights up producing tiles. Uploaded art locks after setup.
@@ -100,7 +154,7 @@ Gain badges stay beside resource counts for **30 seconds**, fade over 700 ms, th
 
 The **server is authoritative**, including shared-screen games. Every accepted move writes `server/data/<game-id>.json` using a temporary file and atomic rename. The server reloads these files on restart.
 
-The browser stores its seat token and latest permitted snapshot under `syria_traders_save_v1`. Artwork is separate under `syria_traders_art_v2`, avoiding large photo writes on every move. Setup drafts use `syria_traders_setup_v2` until a match is successfully created/joined; then the redundant draft is removed to make room for the finalized art. Refresh reconnects the saved seat and fetches the latest revision. Moves lock during disconnection and reconnect automatically. A phone waking from sleep reconnects at once with the same seat and hand. Each open game tab holds one of the browser's roughly six connections to the host, so a tab that is not on screen hands its live connection to the tab that is, and takes it back when shown again.
+The browser stores its seat token and latest permitted snapshot under `syria_traders_save_v1`. Artwork is separate under `syria_traders_art_v2`, avoiding large photo writes on every move. Setup drafts use `syria_traders_setup_v2` until a match is successfully created/joined; then the redundant draft is removed to make room for the finalized art. Refresh reconnects the saved seat and fetches the latest revision. Moves lock during disconnection and reconnect automatically. A phone waking from sleep reconnects at once with the same seat and hand. Besides the live stream, every screen asks the host for a tiny pulse (`GET /api/games/:id/pulse`) every few seconds; a phone whose browser or Wi-Fi keeps cutting the stream stays live and plays through the pulse alone. Each open game tab holds one of the browser's roughly six connections to the host, so a tab that is not on screen hands its live connection to the tab that is, and takes it back when shown again.
 
 Back up `server/data` to preserve games. Browser data is also needed for player access. **New table** forgets this browser's seat after confirmation; clearing browser data does the same. Account-based seat recovery is not implemented. Do not share save files or seat tokens.
 
@@ -128,7 +182,9 @@ client/
       GameSetup.jsx         Names, avatars, map arrangement, custom art
       Lobby.jsx             Invitations, seats, host-controlled start, TV QR code
       TableStatus.jsx       TV screen turn summary, bank and building costs
-      TradePanel.jsx        Player-to-player trade requests and offers
+      TradePanel.jsx        Player-to-player trade requests, offers and "Anyone have...?"
+      Reactions.jsx         Reaction button and the bubbles over player cards
+      MatchSummary.jsx      End-of-match awards and dice chart
       SeatHand.jsx          Phone strip with your own hand
       QrCode.jsx            Invite link as an SVG QR code
       GameBoard.jsx         SVG map, ports, placement targets
@@ -142,6 +198,7 @@ client/
     hooks/
       useMatch.js           Save/load, reconnect, guarded actions
       useResourceGains.js   Badge expiry and aggregation
+      useGameSounds.js      Table sounds for what just happened
     styles/
       index.css             Theme and shared elements
       app.css               Dashboard, board, setup, responsive layout
@@ -149,6 +206,7 @@ client/
       table.css             TV screen and phone seat layout
     utils/
       storage.js            Session snapshot and artwork cache
+      sound.js              Synthesized tap and table sounds
       images.js             Photo validation, resize, URL cleanup
   test/feedback.test.mjs
 server/
@@ -159,12 +217,15 @@ server/
     game/
       boardGenerator.js     Geometry and coastal ports
       gameService.js        Turn flow, production, building, scoring
-      rules.js              Placement and harbor discounts
+      rules.js              Placement, harbor discounts, longest road length
+      stats.js              Match statistics and end-of-match awards
+      reactions.js          Live, unsaved player reactions
       sessions.js           Seats, authorization, private game views
       gameStore.js          Atomic disk saves and revision events
   test/game.test.js
   test/table.test.js        TV screen never receives private data
   test/trade.test.js        Player trades swap only the agreed cards
+  test/fun.test.js          Longest Road, requests, awards and reactions
   data/                     Generated saves (ignored)
 shared/gameConfig.json      Regions, resources, colors, costs, tokens
 scripts/
@@ -185,6 +246,7 @@ The following routes require `Authorization: Bearer <token>`. Mutations also req
 - `GET /api/games/:id/events` (SSE revisions)
 - `POST /api/games/:id/start` (host only)
 - `POST /api/games/:id/leave` (before start; own seat only. A TV token closes that TV screen in any phase)
+- `POST /api/games/:id/order/roll` (opening roll for turn order while `phase` is `order-roll`; `{ "forPlayerId": "..." }` rolls for someone else, at once on a shared screen or after 30 seconds in a network room. Like discards, it doesn't need the latest revision)
 - `POST /api/games/:id/setup/place`
 - `POST /api/games/:id/roll`
 - `POST /api/games/:id/build/road`
@@ -192,6 +254,8 @@ The following routes require `Authorization: Bearer <token>`. Mutations also req
 - `POST /api/games/:id/build/city`
 - `POST /api/games/:id/trade/bank`
 - `POST /api/games/:id/trade/request`, `trade/offer`, `trade/withdraw`, `trade/accept`, `trade/decline`, `trade/cancel` (player trades; these name the request or offer instead of needing the latest revision)
+- `POST /api/games/:id/wish/post` (`{ "want": { "resource": "wheat", "amount": 1 }, "give": { "resource": "brick", "amount": 1 } }`, by a player waiting for their turn), `wish/withdraw`, `wish/accept` (`{ "wishId": "..." }`, by the active player after rolling). Like trades, these don't need the latest revision
+- `POST /api/games/:id/react` (`{ "reaction": "laugh" }`, a key of `reactions` in `shared/gameConfig.json`; network rooms only, one per player every 1.2 s). Sent to every screen on the SSE stream as `reaction`, never saved
 - `POST /api/games/:id/dev/buy`
 - `POST /api/games/:id/dev/play` (`{ "type": "knight" | "roadBuilding" | "yearOfPlenty" | "monopoly" }`, plus `resources: [a, b]` for Year of Plenty or `resource` for Monopoly)
 - `POST /api/games/:id/discard` (`{ "cards": { "wood": 2, ... } }` after a seven, matching `pendingDiscards`; the roller may send `{ "forPlayerId": "..." }` after a minute for random cards. Like trades, it doesn't need the latest revision)
