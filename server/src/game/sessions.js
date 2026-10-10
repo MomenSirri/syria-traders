@@ -2,7 +2,7 @@ const { randomBytes, createHash } = require("node:crypto");
 const store = require("./gameStore");
 const service = require("./gameService");
 const { lanAddresses } = require("../utils/network");
-const { boardSpec } = require("./boardGenerator");
+const { ALL_REGIONS } = require("./boardGenerator");
 const ports = require("../utils/ports");
 const presence = require("./presence");
 const attempts = require("../utils/attempts");
@@ -41,8 +41,7 @@ function mediaFor(payload, players) {
   players.forEach((player, index) => {
     playerImages[player.id] = image(payload.playerProfiles?.[index]?.avatar);
   });
-  // The biggest map includes every region of the smaller ones.
-  for (const region of boardSpec("xl").regions) {
+  for (const region of ALL_REGIONS) {
     const value = payload.hexTexturesByRegion?.[region.name];
     if (value) hexTexturesByRegion[region.name] = image(value);
   }

@@ -3,7 +3,15 @@ import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
 import Icon from "./Icon";
 import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
-import { boardSizeFor, boardSpec, drawRegions, fillsMap } from "../config/boards";
+import {
+  ALL_REGIONS,
+  MAP_TILES,
+  boardSizeFor,
+  boardSpec,
+  drawRegions,
+  fillsMap,
+  mapTilesProblem,
+} from "../config/boards";
 
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
@@ -16,8 +24,8 @@ function linkedMode() {
   if (tvAddress || params.has("tv") || location.pathname.replace(/\/+$/, "") === "/tv") return "tv";
   return params.has("room") ? "join" : null;
 }
-const mapFor = (size) => {
-  const spec = boardSpec(size);
+const mapFor = (size, tiles) => {
+  const spec = boardSpec(size, tiles);
   return {
     regionOrder: shuffled(drawRegions(spec).map((region) => region.name)),
     numberOrder: [...spec.numberTokens],
@@ -57,9 +65,7 @@ const rowsOf = (layout) =>
     .map((r) =>
       layout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
     );
-const regions = Object.fromEntries(
-  boardSpec("xl").regions.map((region) => [region.name, region]),
-);
+const regions = Object.fromEntries(ALL_REGIONS.map((region) => [region.name, region]));
 
 export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy, error }) {
   const [draft, setDraft] = useState(initial);
@@ -79,7 +85,8 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
   const viewing = draft.mode === "join" || (tv && room.trim() !== "");
   // Seats decide the map: one device counts its players, a room uses its seat choice.
   const seats = network ? draft.seats : draft.names.length;
-  const spec = boardSpec(boardSizeFor(seats));
+  // The host's tile choice; a choice too small for this map falls back to its default.
+  const spec = boardSpec(boardSizeFor(seats), draft.mapTiles);
   const rows = rowsOf(spec.boardLayout);
   const mapMatches =
     fillsMap(draft.regionOrder, spec) &&
@@ -87,11 +94,15 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
     draft.harborOrder.length === spec.harborTypes.length;
   useEffect(() => {
     if (!mapMatches) {
-      update({ ...mapFor(spec.size), balanced: true });
+      update({ ...mapFor(spec.size, spec.tiles), balanced: true });
       setSelected(0);
       setSwapFrom(null);
     }
-  }, [mapMatches, spec.size]);
+  }, [mapMatches, spec.size, spec.tiles]);
+  const missing = MAP_TILES.filter(([value]) => mapTilesProblem(spec.size, value));
+  const tilesNote = missing.length
+    ? `${missing.map(([, label]) => label).join(" or ")} alone doesn't have enough tiles for ${spec.boardLayout.length} territories.`
+    : "";
   const regionName = draft.regionOrder[selected] || draft.regionOrder[0];
   const region = regions[regionName];
   const texture = (name) =>
@@ -152,6 +163,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
           playerNames: [],
           playerProfiles: [],
           maxPlayers: seats,
+          mapTiles: spec.tiles,
           regionOrder: draft.regionOrder,
           numberOrder: draft.balanced ? null : draft.numberOrder,
           harborOrder: draft.harborOrder,
@@ -176,6 +188,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
       playerNames: names,
       playerProfiles: names.map((_, i) => ({ avatar: draft.avatars[i] })),
       maxPlayers: network ? seats : names.length > 6 ? 8 : names.length > 4 ? 6 : 4,
+      mapTiles: spec.tiles,
       regionOrder: draft.regionOrder,
       numberOrder: draft.balanced ? null : draft.numberOrder,
       harborOrder: draft.harborOrder,
@@ -382,7 +395,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 disabled={viewing}
                 onClick={() =>
                   update({
-                    // On the 7–8 player map a shuffle also draws a new set of Tunisian regions.
+                    // A shuffle also draws a new set of regions from the chosen tiles.
                     regionOrder: shuffled(drawRegions(spec).map((region) => region.name)),
                     numberOrder: shuffled(spec.numberTokens),
                     harborOrder: shuffled(spec.harborTypes),
@@ -394,13 +407,37 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 Shuffle map
               </button>
             </div>
-            <p className="muted">
-              {viewing
-                ? "The host prepares the map for everyone."
-                : swapFrom !== null
-                  ? "Choose another territory to exchange its position."
-                  : "Drag territories to rearrange. Select one to change its artwork."}
-            </p>
+            {/* One grid row, so the map below keeps its share of the card. */}
+            <div className="map-intro">
+              {!viewing && (
+                <div className="map-tiles-choice">
+                  <span>Tiles</span>
+                  <div className="mode-tabs" role="group" aria-label="Map tiles">
+                    {MAP_TILES.map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        className={spec.tiles === value ? "selected" : ""}
+                        aria-pressed={spec.tiles === value}
+                        disabled={Boolean(mapTilesProblem(spec.size, value))}
+                        title={mapTilesProblem(spec.size, value) || undefined}
+                        onClick={() => update({ mapTiles: value })}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!viewing && tilesNote && <p className="muted">{tilesNote}</p>}
+              <p className="muted">
+                {viewing
+                  ? "The host prepares the map for everyone."
+                  : swapFrom !== null
+                    ? "Choose another territory to exchange its position."
+                    : "Drag territories to rearrange. Select one to change its artwork."}
+              </p>
+            </div>
             <div className={`arrangement-rows ${spec.size === "standard" ? "" : `${spec.size}-map`}`}>
               {(mapMatches ? rows : []).map((row, i) => (
                 <div className="arrangement-row" key={i}>
