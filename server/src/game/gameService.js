@@ -3,7 +3,14 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const config = require("../../../shared/gameConfig.json");
 const store = require("./gameStore");
-const { boardSpec, boardSizeFor, generateBoard, regionSetProblem } = require("./boardGenerator");
+const {
+  boardSpec,
+  boardSizeFor,
+  defaultMapTiles,
+  generateBoard,
+  mapTilesProblem,
+  regionSetProblem,
+} = require("./boardGenerator");
 const {
   clone,
   resourceTemplate,
@@ -266,9 +273,13 @@ function initializeSetupFlow(game) {
 }
 
 function initializeActiveMatch(game) {
+  const spec = boardSpec(game.boardSize, game.mapTiles);
   game.board = generateBoard({
     boardSize: game.boardSize,
-    regionOrder: game.regionOrder,
+    mapTiles: spec.tiles,
+    // A room saved under older map rules draws a fresh map instead of failing to start.
+    regionOrder:
+      game.regionOrder && !regionSetProblem(game.regionOrder, spec) ? game.regionOrder : null,
     numberOrder: game.numberOrder,
     harborOrder: game.harborOrder,
   });
@@ -703,7 +714,7 @@ function buildHints(game) {
 }
 
 function serializeGame(game) {
-  const spec = boardSpec(game.boardSize);
+  const spec = boardSpec(game.boardSize, game.mapTiles);
   const roadLengths = game.board
     ? Object.fromEntries(
         game.players.map((player) => [player.id, longestRoadLength(game, player.id)]),
@@ -765,6 +776,7 @@ function serializeGame(game) {
       longestRoad: config.longestRoad,
       reactions: config.reactions,
       boardSize: spec.size,
+      mapTiles: spec.tiles,
       regions: spec.regions,
       boardLayout: spec.boardLayout,
       numberTokens: spec.numberTokens,
@@ -814,6 +826,7 @@ function createGame({
   regionOrder = null,
   numberOrder = null,
   harborOrder = null,
+  mapTiles = null,
   mode = "local",
 } = {}) {
   const boundedMaxPlayers = Number(maxPlayers);
@@ -825,8 +838,13 @@ function createGame({
     throw createError(`Choose a maximum of ${config.minPlayers} to ${config.maxPlayers} players.`);
   }
   const names = normalizeNames(playerNames);
-  // Five and six players need the larger map; seven and eight add Tunisia.
-  const spec = boardSpec(boardSizeFor(boundedMaxPlayers));
+  // Five and six players need the larger map, seven and eight the 44-hex one.
+  // The host picks its tiles: Syria, Tunisia or both.
+  const size = boardSizeFor(boundedMaxPlayers);
+  const tiles = mapTiles ?? defaultMapTiles(size);
+  const tilesProblem = mapTilesProblem(size, tiles);
+  if (tilesProblem) throw createError(tilesProblem);
+  const spec = boardSpec(size, tiles);
   const normalizedOrder = normalizeRegionOrder(regionOrder, spec);
   const normalizedNumberOrder = normalizeNumberOrder(numberOrder, spec);
   const normalizedHarborOrder = normalizeHarborOrder(harborOrder, spec);
@@ -845,6 +863,7 @@ function createGame({
     createdAt: new Date().toISOString(),
     maxPlayers: boundedMaxPlayers,
     boardSize: spec.size,
+    mapTiles: spec.tiles,
     status: "lobby",
     phase: "lobby",
     players: names.map((name, index) => createPlayer(name, index)),

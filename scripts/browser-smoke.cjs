@@ -263,7 +263,7 @@ async function checkLayout(page, width, height, filename) {
 async function checkSmartTv(base) {
   // A smart TV's own browser uses the plain-HTTP address, which only opens table screens.
   const smartTv = await pageFor(`http://127.0.0.1:${tvPort}/tv`);
-  const tabs = await smartTv.locator(".mode-tabs button").allTextContents();
+  const tabs = await smartTv.locator(".setup-form-card .mode-tabs button").allTextContents();
   assert.deepEqual(tabs, ["TV screen"]);
   assert.equal(
     await smartTv.evaluate(() => document.activeElement.textContent),
@@ -1059,12 +1059,23 @@ async function checkForgottenTabs(base) {
 
   // Seven or eight players add Tunisian cities for a 44-territory map.
   const eight = await pageFor(base);
+  // The host picks the tiles: a two-player game can be all Tunisia.
+  const tilesButton = (name) =>
+    eight.getByRole("group", { name: "Map tiles" }).getByRole("button", { name, exact: true });
+  await tilesButton("Tunisia").click();
+  assert.equal(await tilesButton("Tunisia").getAttribute("aria-pressed"), "true");
+  await eight.waitForFunction(() => document.querySelectorAll(".arrangement-tile").length === 19);
+  assert.equal(await eight.locator(".arrangement-tile").count(), 19);
   for (let i = 3; i <= 8; i++) {
     await eight.getByRole("button", { name: "+ Add player", exact: true }).click();
     await eight.getByLabel(`Player ${i} name`).fill(`Merchant ${i}`);
   }
   await eight.getByText("44 territories / 13 ports").waitFor();
   assert.equal(await eight.locator(".arrangement-tile").count(), 44);
+  // Neither country alone fills 44 territories, so the big map mixes both.
+  assert.ok(await tilesButton("Syria").isDisabled());
+  assert.ok(await tilesButton("Tunisia").isDisabled());
+  assert.equal(await tilesButton("Both").getAttribute("aria-pressed"), "true");
   await eight.screenshot({ path: path.join(output, "setup-eight-players.png") });
   await eight.getByRole("button", { name: "Begin the journey" }).click();
   await settled(eight);

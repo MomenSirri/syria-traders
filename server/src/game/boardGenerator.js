@@ -14,53 +14,65 @@ const NEIGHBOR_STEPS = [
 ];
 
 // The classic 19-hex map seats up to four; the 30-hex map is used by 5 and 6
-// player rooms, and 7 or 8 players play 44 painted hexes: classic Syria plus Tunisia.
-// Each bigger map keeps every region of the smaller ones. The 44-hex map lists
-// more Tunisian regions than it has room for: each match draws a set by resource
-// (drawPerMatch). Saves without a board size are classic.
-function boardSpec(size = "standard") {
-  if (size !== "large" && size !== "xl") {
-    return {
-      size: "standard",
-      boardLayout: config.boardLayout,
-      regions: config.regions,
-      numberTokens: config.numberTokens,
-      harborTypes: config.harborTypes,
-    };
-  }
-  const large = config.largeBoard;
-  const board = size === "xl" ? config.extraLargeBoard : large;
+// player rooms, and 7 or 8 players play on 44 hexes. The host picks the tiles:
+// Syria only, Tunisia only, or both mixed. Every match draws its regions from that
+// set by resource, so each map size always has the same resource mix. A set too
+// small for a map (or, on the 44-hex map, Syria's 11 unpainted regions) can't be
+// picked. Saves without a board size are classic; saves without tiles use the default.
+const MAP_TILES = ["syria", "tunisia", "mix"];
+const TUNISIA = config.extraLargeBoard.extraRegions;
+const SYRIA = [...config.regions, ...config.largeBoard.extraRegions];
+const ALL_REGIONS = [...SYRIA, ...TUNISIA];
+const tally = (regions) =>
+  regions.reduce((counts, { resource }) => ({ ...counts, [resource]: (counts[resource] || 0) + 1 }), {});
+const defaultMapTiles = (size) => (size === "xl" ? "mix" : "syria");
+const layouts = {
+  standard: config,
+  large: config.largeBoard,
+  xl: config.extraLargeBoard,
+};
+const tileCounts = {
+  standard: tally(config.regions),
+  large: tally(SYRIA),
+  xl: config.extraLargeBoard.tileCounts,
+};
+function tilePool(size, tiles) {
+  if (tiles === "tunisia") return TUNISIA;
+  // Mixed maps use only painted tiles: the classic Syrian regions and Tunisia.
+  if (tiles === "mix") return [...config.regions, ...TUNISIA];
+  return size === "standard" ? config.regions : size === "large" ? SYRIA : [];
+}
+// Why this tile set can't fill a map of this size, or null when it can.
+function mapTilesProblem(size, tiles) {
+  if (!MAP_TILES.includes(tiles)) return "Choose Syria, Tunisia or both for the map.";
+  const have = tally(tilePool(size, tiles));
+  const short = Object.entries(tileCounts[size]).find(([res, n]) => (have[res] || 0) < n);
+  if (!short) return null;
+  const country = tiles === "syria" ? "Syria" : "Tunisia";
+  return `${country} alone doesn't have enough tiles for this map.`;
+}
+
+function boardSpec(size = "standard", tiles = defaultMapTiles(size)) {
+  if (size !== "large" && size !== "xl") size = "standard";
+  if (mapTilesProblem(size, tiles)) tiles = defaultMapTiles(size);
+  const layout = layouts[size];
   return {
     size,
-    boardLayout: board.boardLayout,
-    regions: [
-      ...config.regions,
-      ...large.extraRegions,
-      ...(size === "xl" ? board.extraRegions : []),
-    ],
-    numberTokens: board.numberTokens,
-    harborTypes: board.harborTypes,
-    ...(size === "xl"
-      ? {
-          // Only painted tiles: the classic Syrian regions, then a draw from Tunisia.
-          fixedCount: config.regions.length,
-          poolStart: config.regions.length + large.extraRegions.length,
-          draw: board.drawPerMatch,
-        }
-      : {}),
+    tiles,
+    boardLayout: layout.boardLayout,
+    // The regions this map can use; each match draws `draw` of them by resource.
+    regions: tilePool(size, tiles),
+    draw: tileCounts[size],
+    numberTokens: layout.numberTokens,
+    harborTypes: layout.harborTypes,
   };
 }
 
-// The regions one match plays with: every fixed region plus a random draw.
+// The regions one match plays with: a random draw by resource from the map's set.
 function drawRegions(spec) {
-  if (!spec.draw) return spec.regions;
-  const pool = spec.regions.slice(spec.poolStart ?? spec.fixedCount);
-  return [
-    ...spec.regions.slice(0, spec.fixedCount),
-    ...Object.entries(spec.draw).flatMap(([resource, count]) =>
-      shuffle(pool.filter((region) => region.resource === resource)).slice(0, count),
-    ),
-  ];
+  return Object.entries(spec.draw).flatMap(([resource, count]) =>
+    shuffle(spec.regions.filter((region) => region.resource === resource)).slice(0, count),
+  );
 }
 
 // Why a list of region names cannot fill this map, or null when it can.
@@ -68,20 +80,12 @@ function regionSetProblem(names, spec) {
   if (names.length !== spec.boardLayout.length)
     return `must include ${spec.boardLayout.length} regions`;
   const known = new Map(spec.regions.map((region) => [region.name, region]));
-  const unknown = names.find((name) => !known.has(name));
-  if (unknown !== undefined) return `has an unknown region: ${unknown}`;
+  const outside = names.find((name) => !known.has(name));
+  if (outside !== undefined) return `cannot use ${outside} on this map`;
   if (new Set(names).size !== names.length) return "repeats a region";
-  if (spec.draw) {
-    const fixed = spec.regions.slice(0, spec.fixedCount);
-    if (fixed.some((region) => !names.includes(region.name))) return "leaves out a fixed region";
-    const drawn = names.slice().filter((name) => !fixed.some((region) => region.name === name));
-    const pool = new Set(spec.regions.slice(spec.poolStart ?? spec.fixedCount).map((r) => r.name));
-    const outside = drawn.find((name) => !pool.has(name));
-    if (outside !== undefined) return `cannot use ${outside} on this map`;
-    for (const [resource, count] of Object.entries(spec.draw)) {
-      if (drawn.filter((name) => known.get(name).resource === resource).length !== count)
-        return `needs ${count} drawn ${resource} regions`;
-    }
+  for (const [resource, count] of Object.entries(spec.draw)) {
+    if (names.filter((name) => known.get(name).resource === resource).length !== count)
+      return `needs ${count} ${resource} regions`;
   }
   return null;
 }
@@ -213,7 +217,7 @@ function harborSlots(seaCount, harborCount) {
 }
 
 function generateBoard(options = {}) {
-  const spec = boardSpec(options.boardSize);
+  const spec = boardSpec(options.boardSize, options.mapTiles);
   const positions = [...spec.boardLayout];
   const regions = resolveRegions(options.regionOrder, spec);
   const numberTokens = resolveNumberTokens(options.numberOrder, spec);
@@ -386,8 +390,12 @@ function generateBoard(options = {}) {
 module.exports = {
   HEX_SIZE,
   boardSpec,
+  ALL_REGIONS,
+  MAP_TILES,
   boardSizeFor,
+  defaultMapTiles,
   drawRegions,
+  mapTilesProblem,
   generateBoard,
   regionSetProblem,
 };

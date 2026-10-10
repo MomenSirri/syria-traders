@@ -310,8 +310,8 @@
     ]
   },
   "extraLargeBoard": {
-    "note": "Used by 7 and 8 player rooms. Only painted tiles: the 19 classic Syrian regions plus Tunisian regions drawn per match (drawPerMatch, by resource). The large map's extra Syrian regions still use flat art, so they sit this map out.",
-    "drawPerMatch": { "wheat": 5, "wood": 5, "stone": 6, "brick": 3, "sheep": 4, "desert": 2 },
+    "note": "Used by 7 and 8 player rooms. tileCounts is the resource mix every 44-hex map uses, whichever tiles the host picks.",
+    "tileCounts": { "wheat": 9, "wood": 9, "stone": 9, "brick": 6, "sheep": 8, "desert": 3 },
     "boardLayout": [
       { "q": -1, "r": -3 },
       { "q": 0, "r": -3 },

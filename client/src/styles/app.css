@@ -1081,6 +1081,28 @@ g[role="button"]:focus-visible {
   color: var(--gold-soft) !important;
   box-shadow: var(--shadow-1), var(--inset-top) !important;
 }
+.map-intro {
+  display: grid;
+  gap: var(--sp-2);
+}
+.map-tiles-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.map-tiles-choice > span {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.map-tiles-choice .mode-tabs {
+  flex: 1;
+  max-width: 340px;
+}
+.mode-tabs button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .muted {
   color: var(--text-muted);
   font-size: var(--fs-sm);
@@ -1967,6 +1989,11 @@ g[role="button"]:focus-visible {
   }
   .map-arrangement-card {
     min-height: 500px;
+  }
+  /* Stacked layouts give the map its own room under the tile choice and notes.
+     A size container needs a real height: min-height alone leaves its hexes at zero. */
+  .arrangement-rows {
+    height: clamp(300px, 60vw, 560px);
   }
   .lobby {
     padding: var(--sp-6);

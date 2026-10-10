@@ -10,13 +10,22 @@ const service = require("../src/game/gameService");
 const { rollInOrder } = require("./orderRoll");
 const sessions = require("../src/game/sessions");
 const {
+  ALL_REGIONS,
   boardSpec,
   drawRegions,
+  mapTilesProblem,
   generateBoard,
   regionSetProblem,
 } = require("../src/game/boardGenerator");
 const config = require("../../shared/gameConfig.json");
 
+const regionOf = (name) => ALL_REGIONS.find((region) => region.name === name);
+const regionsDir = path.join(__dirname, "../../client/public/terrain/regions");
+const painted = (name) =>
+  fs.existsSync(
+    path.join(regionsDir, `${name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}.webp`),
+  );
+const TUNISIAN = new Set(config.extraLargeBoard.extraRegions.map((region) => region.name));
 const SIX = ["Nour", "Yazan", "Lina", "Omar", "Rana", "Sami"];
 const EIGHT = [...SIX, "Amal", "Karim"];
 
@@ -104,47 +113,38 @@ test("player limits and map choice are validated", () => {
   assert.equal(room.settings.boardSize, "standard");
 });
 
-test("the 7-8 player map uses only painted tiles: classic Syria plus 25 from Tunisia", () => {
+test("the 7-8 player map mixes painted Syrian and Tunisian tiles by resource", () => {
   const spec = boardSpec("xl");
+  assert.equal(spec.tiles, "mix");
   const names = spec.regions.map((region) => region.name);
-  assert.equal(new Set(names).size, 58, "Region names are unique");
-  assert.deepEqual(
-    names.slice(30),
-    config.extraLargeBoard.extraRegions.map((region) => region.name),
-  );
+  assert.equal(new Set(names).size, 47, "19 classic Syrian and 28 Tunisian regions");
   const drawn = drawRegions(spec);
   assert.equal(drawn.length, 44);
   assert.equal(regionSetProblem(drawn.map((region) => region.name), spec), null);
   const productive = drawn.filter((region) => region.resource !== "desert").length;
   assert.equal(spec.numberTokens.length, productive, "One number token per productive region");
   // Every tile on this map has a painting; the large map's flat-art extras sit out.
-  const art = (name) => `${name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}.webp`;
-  const regionsDir = path.join(__dirname, "../../client/public/terrain/regions");
   const counts = {};
   for (const region of drawn) {
-    assert.ok(fs.existsSync(path.join(regionsDir, art(region.name))), `${region.name} is painted`);
+    assert.ok(painted(region.name), `${region.name} is painted`);
     counts[region.resource] = (counts[region.resource] || 0) + 1;
   }
   assert.deepEqual(counts, { wheat: 9, wood: 9, stone: 9, brick: 6, sheep: 8, desert: 3 });
-  // Over many matches every Tunisian region gets its turn on the map.
+  // Over many matches every region gets its turn on the map.
   const seen = new Set();
   for (let i = 0; i < 200; i++) drawRegions(spec).forEach((region) => seen.add(region.name));
   assert.equal(seen.size, 47);
-  const isWheat = (name) => spec.regions.find((r) => r.name === name).resource === "wheat";
   const flat = drawn.map((region) => region.name);
-  flat[flat.findIndex((name, i) => i >= 19 && isWheat(name))] = "Qamishli";
+  flat[flat.findIndex((name) => regionOf(name).resource === "wheat")] = "Qamishli";
   assert.match(regionSetProblem(flat, spec), /cannot use Qamishli/);
-  // An arrangement must keep the drawn resource mix and every Syrian region.
+  // An arrangement must keep the map's resource mix.
   const swapped = drawn.map((region) => region.name);
-  const spareWood = spec.regions
-    .slice(30)
-    .find((region) => region.resource === "wood" && !swapped.includes(region.name));
-  const wheatIndex = swapped.findIndex(
-    (name, i) => i >= 19 && spec.regions.find((r) => r.name === name).resource === "wheat",
+  const spareWood = spec.regions.find(
+    (region) => region.resource === "wood" && !swapped.includes(region.name),
   );
-  swapped[wheatIndex] = spareWood.name;
+  swapped[swapped.findIndex((name) => regionOf(name).resource === "wheat")] = spareWood.name;
   assert.match(regionSetProblem(swapped, spec), /wheat|wood/);
-  assert.match(regionSetProblem([...swapped.slice(1), spareWood.name], spec), /fixed|repeats/);
+  assert.match(regionSetProblem([...swapped.slice(0, -1), swapped[0]], spec), /repeats/);
   // The large map's hexes all stay, so the island only grows outward.
   const cells = new Set(spec.boardLayout.map(({ q, r }) => `${q},${r}`));
   assert.ok(boardSpec("large").boardLayout.every(({ q, r }) => cells.has(`${q},${r}`)));
@@ -221,4 +221,69 @@ test("saves from before board sizes still load and play on the classic map", () 
 after(() => {
   if (path.basename(process.env.GAME_DATA_DIR).startsWith("syria-traders-test-"))
     fs.rmSync(process.env.GAME_DATA_DIR, { recursive: true, force: true });
+});
+
+test("the host picks Syria, Tunisia or both for the map's tiles", () => {
+  // Which tile sets can fill each map size.
+  assert.equal(mapTilesProblem("standard", "syria"), null);
+  assert.equal(mapTilesProblem("standard", "tunisia"), null);
+  assert.equal(mapTilesProblem("standard", "mix"), null);
+  assert.equal(mapTilesProblem("large", "syria"), null);
+  assert.match(mapTilesProblem("large", "tunisia"), /Tunisia alone/);
+  assert.equal(mapTilesProblem("large", "mix"), null);
+  assert.match(mapTilesProblem("xl", "syria"), /Syria alone/);
+  assert.match(mapTilesProblem("xl", "tunisia"), /Tunisia alone/);
+  assert.equal(mapTilesProblem("xl", "mix"), null);
+  assert.match(mapTilesProblem("standard", "egypt"), /Choose/);
+
+  // A classic Tunisia map: 19 Tunisian regions in the classic resource mix.
+  const tunisia = service.createGame({ playerNames: ["A", "B"], mapTiles: "tunisia" });
+  assert.equal(tunisia.settings.mapTiles, "tunisia");
+  const tiles = tunisia.board.tiles.map((tile) => tile.region);
+  assert.equal(tiles.length, 19);
+  assert.ok(tiles.every((name) => TUNISIAN.has(name)));
+  const mix = (names) =>
+    names.reduce((c, name) => ({ ...c, [regionOf(name).resource]: (c[regionOf(name).resource] || 0) + 1 }), {});
+  assert.deepEqual(mix(tiles), mix(config.regions.map((region) => region.name)));
+
+  // Both: painted tiles only, from either country, on any map size.
+  for (const [players, max] of [[["A", "B"], 4], [SIX, 6], [EIGHT, 8]]) {
+    const game = service.createGame({ playerNames: players, maxPlayers: max, mapTiles: "mix" });
+    const board = game.board.tiles;
+    assert.ok(board.every((tile) => painted(tile.region)), `${max}-seat mixed map is all painted`);
+  }
+  // Syria keeps the classic and large maps as they were, and is the default there.
+  assert.equal(service.createGame({ playerNames: ["A", "B"] }).settings.mapTiles, "syria");
+  assert.equal(service.createGame({ playerNames: EIGHT, maxPlayers: 8 }).settings.mapTiles, "mix");
+  // A choice that can't fill the map is refused, and an arrangement must match the choice.
+  assert.throws(
+    () => service.createGame({ playerNames: EIGHT, maxPlayers: 8, mapTiles: "syria" }),
+    /Syria alone/,
+  );
+  assert.throws(
+    () =>
+      service.createGame({
+        playerNames: ["A", "B"],
+        mapTiles: "tunisia",
+        regionOrder: config.regions.map((region) => region.name),
+      }),
+    /cannot use/,
+  );
+});
+
+test("a saved room without a tile choice, or with an outdated map, still starts", () => {
+  const game = service.createGame({ mode: "online", playerNames: EIGHT, maxPlayers: 8 });
+  const saved = store.getGame(game.id);
+  delete saved.mapTiles;
+  // A 7-8 player room saved before painted-only maps listed the flat Syrian regions.
+  saved.regionOrder = [
+    ...config.regions,
+    ...config.largeBoard.extraRegions,
+    ...config.extraLargeBoard.extraRegions.slice(0, 14),
+  ].map((region) => region.name);
+  store.saveGame(saved);
+  const started = service.startGame(game.id);
+  assert.equal(started.settings.mapTiles, "mix");
+  assert.equal(started.board.tiles.length, 44);
+  assert.ok(started.board.tiles.every((tile) => painted(tile.region)));
 });
