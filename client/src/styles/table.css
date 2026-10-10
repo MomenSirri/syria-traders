@@ -112,9 +112,22 @@
     font-size: var(--fs-xl);
     line-height: 1;
   }
-  .table-view .players-3 .hand-mini,
-  .table-view .players-4 .hand-mini {
-    display: none;
+  .table-view .players-3 .stat-label,
+  .table-view .players-4 .stat-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .table-view .players-3 .stat-icon,
+  .table-view .players-4 .stat-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
+    color: var(--player-color);
+  }
+  .table-view .players-3 .stat-icon-hand,
+  .table-view .players-4 .stat-icon-hand {
+    color: var(--gold-soft);
   }
   .table-view .players-3 .player-dev-row,
   .table-view .players-4 .player-dev-row {

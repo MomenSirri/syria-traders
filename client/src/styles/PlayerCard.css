@@ -221,19 +221,11 @@
   margin-left: 3px;
   font-variant-numeric: tabular-nums;
 }
-/* The hand count joins the stats only where the TV stacks short cards (table.css). */
-.structure-hand {
+/* The hand count and the stat icons join the stats only where the TV stacks short
+   cards into tiles (table.css). */
+.structure-hand,
+.stat-icon {
   display: none;
-}
-.hand-mini {
-  display: inline-block;
-  width: 9px;
-  height: 12px;
-  margin-right: 4px;
-  vertical-align: -1px;
-  border-radius: 2px;
-  background: repeating-linear-gradient(45deg, #1b4a3a 0 2px, #235c48 2px 3px);
-  border: 1px solid var(--gold-soft);
 }
 .player-dev-row {
   display: flex;
