@@ -130,7 +130,7 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 
 ## Rules and Feedback
 
-- Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart.
+- Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart. The most common rolls are marked: 6 and 8 in red, 5 and 9 in orange.
 - Everyone first rolls the dice for turn order, each on their own phone (a shared screen rolls for each player). The highest roll places first and takes turn 1, the next highest second, and so on; tied players roll again among themselves. After 30 seconds anyone may roll for a player who hasn't.
 - Place a village and adjacent road, then reverse player order for the second placement. Your second village grants starting resources.
 - Roll once per turn. Matching regions produce one resource per village, two per city, unless blocked by the bandit.

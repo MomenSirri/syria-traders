@@ -287,7 +287,15 @@ export default function GameBoard({
                     {tile.region}
                   </text>
                   {tile.numberToken && (
-                    <g className={[6, 8].includes(tile.numberToken) ? "hot-token" : ""}>
+                    <g
+                      className={
+                        [6, 8].includes(tile.numberToken)
+                          ? "hot-token"
+                          : [5, 9].includes(tile.numberToken)
+                            ? "warm-token"
+                            : ""
+                      }
+                    >
                       <circle
                         className="number-token"
                         cx={tile.center.x}
