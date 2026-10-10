@@ -23,6 +23,19 @@ function keyboard(event, callback) {
   }
 }
 
+// Pieces read as plain board-game buildings: a house for a village and two houses,
+// one taller with windows, for a city.
+const PIECES = {
+  village: {
+    body: "M-11 13V-1L0-12 11-1V13Z",
+    windows: "M-2.5 5h5v8h-5Z M-7.5 0h4v4h-4Z M3.5 0h4v4h-4Z",
+  },
+  city: {
+    body: "M-20 13V-3L-11-12-2-3V-8L7-17 16-8V13Z",
+    windows:
+      "M-13 5h5v8h-5Z M3-5h4v4h-4Z M9-5h4v4h-4Z M3 2h4v4h-4Z M9 2h4v4h-4Z M5.5 9h5v4h-5Z",
+  },
+};
 const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false, serial: 0 };
 // A build sends a tremor through the map: tiles near the new piece jolt away from it
 // and the wave fades with distance. A road barely stirs the nearby tiles, a village
@@ -405,6 +418,22 @@ export default function GameBoard({
                 </g>
               );
             })}
+          {/* Every road's white edge sits under every coloured road, so a player's
+              connected roads read as one smooth line with no seams at the turns. */}
+          <g className="road-edge-layer">
+            {edges
+              .filter((edge) => edge.ownerId)
+              .map((edge) => (
+                <line
+                  key={edge.id}
+                  x1={vertices[edge.v1].x}
+                  y1={vertices[edge.v1].y}
+                  x2={vertices[edge.v2].x}
+                  y2={vertices[edge.v2].y}
+                  className={fresh.edges.has(edge.id) ? "road-edge fresh-piece" : "road-edge"}
+                />
+              ))}
+          </g>
           <g className="edge-layer">
             {edges.map((edge) => {
               const a = vertices[edge.v1],
@@ -429,7 +458,7 @@ export default function GameBoard({
                       x2={b.x}
                       y2={b.y}
                       stroke={owner?.color || "#f9d576"}
-                      strokeWidth={owner ? 12 : 8}
+                      strokeWidth={owner ? 11 : 8}
                       strokeLinecap="round"
                       className={target ? "hint-road" : "built-road"}
                     />
@@ -462,7 +491,8 @@ export default function GameBoard({
             {vertices.map((vertex) => {
               const owner = owners[vertex.ownerId],
                 target = validVertices.has(vertex.id),
-                chosen = selectedSetupVertex === vertex.id;
+                chosen = selectedSetupVertex === vertex.id,
+                piece = vertex.building === "city" ? PIECES.city : PIECES.village;
               const select = () =>
                 setup ? onSetupVertexSelect(vertex.id) : onVertexSelect(vertex.id);
               return (
@@ -488,18 +518,14 @@ export default function GameBoard({
                     />
                   )}
                   {owner && (
-                    <path
-                      transform={`translate(${vertex.x},${vertex.y})`}
-                      d={
-                        vertex.building === "city"
-                          ? "M-14 12V-8h10V-17H8v9h8v20Z"
-                          : "M-12 11V-3L0-15 12-3v14Z"
-                      }
-                      fill={owner.color}
-                      stroke="#fff6df"
-                      strokeWidth="3"
+                    <g
+                      transform={`translate(${vertex.x},${vertex.y}) scale(1.25)`}
                       className="building-piece"
-                    />
+                    >
+                      <path d={piece.body} className="piece-edge" />
+                      <path d={piece.body} fill={owner.color} />
+                      <path d={piece.windows} className="piece-windows" />
+                    </g>
                   )}
                   {target && (
                     <circle

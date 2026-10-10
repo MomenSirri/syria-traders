@@ -389,7 +389,7 @@
 }
 .harbor-label-bg {
   fill: #fdf6e3;
-  stroke: var(--gold-deep);
+  stroke: #fff;
   stroke-width: 2;
   filter: drop-shadow(0 2px 2px #0b2a2f66);
 }
@@ -400,7 +400,7 @@
   font-weight: 800;
 }
 .tile-outline {
-  stroke: #f6ebcf;
+  stroke: #fff;
   stroke-width: 5;
   stroke-linejoin: round;
   pointer-events: none;
@@ -412,7 +412,7 @@
   pointer-events: none;
 }
 .tile-resource circle {
-  stroke: #fff8e6;
+  stroke: #fff;
   stroke-width: 2.5;
   filter: drop-shadow(0 2px 2px #00000059);
 }
@@ -434,7 +434,7 @@
 .tile-label-bg {
   fill: #fdf7ea;
   fill-opacity: 0.9;
-  stroke: #00000014;
+  stroke: none;
 }
 .tile-name {
   font-family: var(--font-ui);
@@ -446,7 +446,7 @@
 }
 .number-token {
   fill: #fffaf0;
-  stroke: var(--gold-deep);
+  stroke: #fff;
   stroke-width: 2.5;
   filter: drop-shadow(0 2px 2px #00000052);
 }
@@ -465,7 +465,7 @@
   fill: #b5371f;
 }
 .hot-token .number-token {
-  stroke: #b5371f;
+  stroke: #fff;
 }
 .robber-marker circle {
   fill: #15130f;
@@ -532,20 +532,31 @@
 .board-target {
   cursor: pointer;
 }
-.built-road,
-.building-piece {
-  filter: drop-shadow(0 2px 2px #0c1d16a6);
+/* No shadows or dark edges on pieces: a white edge keeps them clear of the art. */
+.road-edge {
+  stroke: #fff;
+  stroke-width: 17;
+  stroke-linecap: round;
+}
+.piece-edge {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+}
+.piece-windows {
+  fill: #fff;
 }
 /* Opacity-only pulses keep target boxes stable for clicks. */
 .hint-vertex {
   fill: #ffe9a0;
-  stroke: #3d3420;
+  stroke: #fff;
   stroke-width: 2.5;
   animation: target-glow 1.4s ease-in-out infinite;
 }
 .selected-setup-vertex {
   fill: var(--gold);
-  stroke: #3d2a14;
+  stroke: #fff;
   stroke-width: 3;
 }
 .hint-road {
