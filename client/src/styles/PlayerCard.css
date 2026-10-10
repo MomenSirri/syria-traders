@@ -25,36 +25,139 @@
 .players-6 {
   grid-template-rows: repeat(3, minmax(0, 1fr));
 }
-/* Five or six seats: hands become one row of counts so every card fits. */
+.players-7,
+.players-8 {
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+}
+/* Five to eight seats: hands become one row of counts so every card fits. */
 @media (min-width: 701px) {
   .players-5 .card-fan,
   .players-6 .card-fan,
+  .players-7 .card-fan,
+  .players-8 .card-fan,
   .players-5 .private-hand > span,
   .players-6 .private-hand > span,
+  .players-7 .private-hand > span,
+  .players-8 .private-hand > span,
   .players-5 .player-card-footer > span,
   .players-6 .player-card-footer > span,
+  .players-7 .player-card-footer > span,
+  .players-8 .player-card-footer > span,
   .players-5 .resource-name-cell,
-  .players-6 .resource-name-cell {
+  .players-6 .resource-name-cell,
+  .players-7 .resource-name-cell,
+  .players-8 .resource-name-cell {
     display: none;
   }
   .players-5 .private-hand,
-  .players-6 .private-hand {
+  .players-6 .private-hand,
+  .players-7 .private-hand,
+  .players-8 .private-hand {
     gap: 0;
   }
   .players-5 .player-resources,
-  .players-6 .player-resources {
+  .players-6 .player-resources,
+  .players-7 .player-resources,
+  .players-8 .player-resources {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     padding-right: 0;
   }
   .players-5 .resource-row,
-  .players-6 .resource-row {
+  .players-6 .resource-row,
+  .players-7 .resource-row,
+  .players-8 .resource-row {
     grid-template-columns: 1fr;
     justify-items: center;
     gap: 2px;
   }
   .players-5 .resource-amount-cell,
-  .players-6 .resource-amount-cell {
+  .players-6 .resource-amount-cell,
+  .players-7 .resource-amount-cell,
+  .players-8 .resource-amount-cell {
     text-align: center;
+  }
+}
+/* Seven or eight seats stack four cards per column, so each card tightens up. */
+@media (min-width: 701px) {
+  .players-7 .player-card,
+  .players-8 .player-card {
+    padding: var(--sp-2) var(--sp-3);
+    gap: 6px;
+  }
+  .players-7 .player-header,
+  .players-8 .player-header {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-bottom: 0;
+  }
+  .players-7 .player-avatar,
+  .players-8 .player-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+  .players-7 .player-title-block h3,
+  .players-8 .player-title-block h3 {
+    font-size: 16px;
+  }
+  .players-7 .player-score,
+  .players-8 .player-score {
+    width: 38px;
+    height: 38px;
+    font-size: 8px;
+  }
+  .players-7 .player-score strong,
+  .players-8 .player-score strong {
+    font-size: 17px;
+  }
+  .players-7 .player-structure-row,
+  .players-8 .player-structure-row {
+    padding-bottom: 4px;
+  }
+  .players-7 .player-resources,
+  .players-8 .player-resources {
+    row-gap: 0;
+  }
+}
+/* Narrow cards (eight seats in a TV's side column) drop the portrait so the name
+   and the "Playing now" pill keep their room; the colour inlay still says who it is. */
+.players-7 .player-card,
+.players-8 .player-card {
+  container-type: inline-size;
+}
+@container (max-width: 230px) {
+  .players-7 .player-avatar,
+  .players-8 .player-avatar {
+    display: none;
+  }
+  .players-7 .player-header,
+  .players-8 .player-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+@container (max-width: 170px) {
+  .players-7 .player-header,
+  .players-8 .player-header {
+    gap: 4px;
+  }
+  .players-7 .player-score,
+  .players-8 .player-score {
+    width: 30px;
+    height: 30px;
+    font-size: 0;
+  }
+  .players-7 .player-score strong,
+  .players-8 .player-score strong {
+    font-size: 15px;
+  }
+  .players-7 .active-player .player-state,
+  .players-8 .active-player .player-state {
+    padding: 1px 6px;
+    font-size: 10px;
+  }
+  .players-7 .active-player .player-state::before,
+  .players-8 .active-player .player-state::before {
+    display: none;
   }
 }
 .player-card {

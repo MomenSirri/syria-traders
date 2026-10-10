@@ -4,7 +4,11 @@ import ResourceIcon from "./ResourceIcon";
 import config from "../../../shared/gameConfig.json";
 const PRESETS = presetMapById();
 const REGION_NAMES = new Set(
-  [...config.regions, ...(config.largeBoard?.extraRegions ?? [])].map((region) => region.name),
+  [
+    ...config.regions,
+    ...(config.largeBoard?.extraRegions ?? []),
+    ...(config.extraLargeBoard?.extraRegions ?? []),
+  ].map((region) => region.name),
 );
 const SIZE = 90;
 const CORNERS = [-30, 30, 90, 150, 210, 270];

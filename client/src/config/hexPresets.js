@@ -15,6 +15,11 @@ const PAINTED = new Set([
   "afrin-highlands", "aleppo", "badiya", "damascus", "daraa", "deir-ez-zor", "hama",
   "hasakah", "homs", "idlib", "jabal-ansariyah", "latakia", "manbij", "palmyra-foothills",
   "quneitra-plains", "raqqa-steppe", "rif-dimashq", "suwayda", "tartus",
+  // Tunisian regions of the 7-8 player map, painted with Codex.
+  "ain-draham", "ariana", "beja", "ben-arous", "bizerte", "djerba", "dougga", "douz",
+  "gabes", "gafsa", "jendouba", "kairouan", "kasserine", "le-kef", "mahdia", "manouba",
+  "monastir", "nabeul", "sbeitla", "sfax", "sidi-bouzid", "siliana", "sousse",
+  "tabarka", "tataouine", "tozeur", "tunis", "zaghouan",
 ]);
 export const regionArtUrl = (region) => {
   const name = slug(region);

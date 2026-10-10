@@ -1,6 +1,6 @@
 # Syria Traders
 
-An original Syrian-inspired resource, trading, and settlement game. React, plain CSS, Node.js, Express, and an SVG board. Supports 2-6 people sharing a screen or joining a room from separate browsers on the same local network.
+An original Syrian-inspired resource, trading, and settlement game. React, plain CSS, Node.js, Express, and an SVG board. Supports 2-8 people sharing a screen or joining a room from separate browsers on the same local network.
 
 New to the game? Read **[How to Play](docs/HOW-TO-PLAY.md)** for the rules explained from scratch.
 
@@ -51,7 +51,7 @@ Port 8443 now serves both the built game and API. Rebuilding on launch prevents 
 2. Copy the lobby invite. It uses the host's LAN IP instead of `localhost`. If several adapters exist, select your Wi-Fi/Ethernet address, not a VPN/virtual adapter.
 3. Friends open the link on the same network, enter their names, and choose **Join the table**. They may need to accept the local certificate warning.
 4. Allow Node.js on **Private networks** in Windows Firewall if prompted. Do not disable the firewall. Guest Wi-Fi/client isolation can prevent devices reaching each other.
-5. Wait for 2-6 players (choose **Up to 6 players** under Seats when creating the room), then the host presses **Start the match**. Joining does not auto-start the room at two players.
+5. Wait for 2-8 players (choose **Up to 6 players** or **Up to 8 players** under Seats when creating the room), then the host presses **Start the match**. Joining does not auto-start the room at two players.
 
 Each browser has its own player seat and private hand. Only the active player can act. To test several players on one PC, use separate profiles/incognito contexts, not tabs sharing browser storage. Keep the host PC awake and its server running. This is trusted-LAN multiplayer, not public internet matchmaking.
 
@@ -86,6 +86,8 @@ The TV always shows what a road, village and city cost.
 **Animations:** when anyone rolls, every screen tumbles its dice and the TV shows a big dice roll. Paid-out cards fly from the producing tiles to each player's card on the TV with a short "+2" badge (trades fly between the two players), new roads and buildings pop onto the board, the bandit drops onto its new region, and each new event is announced briefly over the board. Amounts are never kept on the TV: the server sends them to the TV for 8 seconds only, and the log now says who was paid, not how much. Each phone still shows its own gains. Reduced-motion settings turn the movement off.
 
 **Five or six players:** one-device games with five or six names, and rooms created with **Up to 6 players** under Seats, play on a larger 30-territory map (11 extra Syrian regions, 28 number tokens, 11 harbors) with two more player colours. Up to four players keep the classic 19-territory map, and saved games load on the map they started with. The official 5-6 player "special building phase" between turns is not included.
+
+**Seven or eight players:** one-device games with seven or eight names, and rooms created with **Up to 8 players**, play on a 44-territory map: the 30 Syrian regions plus 14 Tunisian regions, drawn fresh for each match from 28 painted Tunisian tiles that cover all 24 governorates (3 wheat, 2 wood, 3 stone, 3 brick, 2 sheep, 1 desert, so the resource mix never changes). **Shuffle map** in setup draws a new Tunisian set. The map has 41 number tokens, 13 harbors and two more player colours (brown and indigo).
 
 **Trading between players (network rooms):** after rolling, the active player chooses a resource and amount and presses **Ask players**. Other phones that hold those cards can offer them for something in return (1-4 cards of one resource). The active player accepts one offer or declines them; the server swaps the cards only if both hands still have them. Requests and offers are public, like at a real table, and the TV shows them read-only. An open request closes at the end of the turn.
 
@@ -130,7 +132,7 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 
 ## Rules and Feedback
 
-- Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart. The most common rolls are marked: 6 and 8 in red, 5 and 9 in orange.
+- Setup is separate from play. Add names/photos, reorder 19 territories (30 for five or six players, 44 for seven or eight), upload terrain, randomize map/ports, or manually swap number tokens. Balanced numbers keep adjacent 6/8 tiles apart. The most common rolls are marked: 6 and 8 in red, 5 and 9 in orange.
 - Everyone first rolls the dice for turn order, each on their own phone (a shared screen rolls for each player). The highest roll places first and takes turn 1, the next highest second, and so on; tied players roll again among themselves. After 30 seconds anyone may roll for a player who hasn't.
 - Place a village and adjacent road, then reverse player order for the second placement. Your second village grants starting resources.
 - Roll once per turn. Matching regions produce one resource per village, two per city, unless blocked by the bandit.
@@ -163,7 +165,7 @@ Pre-upgrade browser snapshots without a session cannot safely be imported as net
 ## Layout and Performance
 
 - Letterboxed 16:9 desktop dashboard (widths 1200px and above). No main-page scrolling at tested desktop sizes; the log has its own permanent scrollbar.
-- Four players use a 2x2 grid instead of four squeezed vertical cards; five or six use 2x3 with each hand shown as one row of counts. Resource rows are at least 24px with 8px gaps. Gain badges have a reserved gutter.
+- Four players use a 2x2 grid instead of four squeezed vertical cards; five or six use 2x3 and seven or eight use 2x4, with each hand shown as one row of counts. Resource rows are at least 24px with 8px gaps. Gain badges have a reserved gutter.
 - Smaller/portrait devices reflow and allow page scrolling. Readability takes priority over forcing a desktop layout onto a phone.
 - The SVG board fits its actual bounds. Labels, tokens, roads, and keyboard-accessible build targets scale together.
 - Original local SVG illustrations replace unrelated external photos. Custom images are cropped/resized before upload. Included illustrations are not documentary photos of the regions.

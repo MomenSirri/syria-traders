@@ -3,7 +3,7 @@ import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
 import Icon from "./Icon";
 import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
-import { boardSizeFor, boardSpec } from "../config/boards";
+import { boardSizeFor, boardSpec, drawRegions, fillsMap } from "../config/boards";
 
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
@@ -19,7 +19,7 @@ function linkedMode() {
 const mapFor = (size) => {
   const spec = boardSpec(size);
   return {
-    regionOrder: shuffled(spec.regions.map((region) => region.name)),
+    regionOrder: shuffled(drawRegions(spec).map((region) => region.name)),
     numberOrder: [...spec.numberTokens],
     harborOrder: [...spec.harborTypes],
   };
@@ -58,7 +58,7 @@ const rowsOf = (layout) =>
       layout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
     );
 const regions = Object.fromEntries(
-  boardSpec("large").regions.map((region) => [region.name, region]),
+  boardSpec("xl").regions.map((region) => [region.name, region]),
 );
 
 export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy, error }) {
@@ -82,8 +82,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
   const spec = boardSpec(boardSizeFor(seats));
   const rows = rowsOf(spec.boardLayout);
   const mapMatches =
-    draft.regionOrder.length === spec.regions.length &&
-    draft.regionOrder.every((name) => spec.regions.some((region) => region.name === name)) &&
+    fillsMap(draft.regionOrder, spec) &&
     draft.numberOrder.length === spec.numberTokens.length &&
     draft.harborOrder.length === spec.harborTypes.length;
   useEffect(() => {
@@ -176,7 +175,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
       mode: draft.mode,
       playerNames: names,
       playerProfiles: names.map((_, i) => ({ avatar: draft.avatars[i] })),
-      maxPlayers: network ? seats : names.length > 4 ? 6 : 4,
+      maxPlayers: network ? seats : names.length > 6 ? 8 : names.length > 4 ? 6 : 4,
       regionOrder: draft.regionOrder,
       numberOrder: draft.balanced ? null : draft.numberOrder,
       harborOrder: draft.harborOrder,
@@ -231,7 +230,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 ? "Show the whole table on a big screen. Players join and play on their own phones; their hands never appear here."
                 : network
                   ? "Each player joins from their own browser. Your resource hand stays private."
-                  : "Pass the screen between 2 to 6 players. Everyone's hand is visible."}
+                  : "Pass the screen between 2 to 8 players. Everyone's hand is visible."}
             </p>
             {!tv && (
               <div className="setup-player-list">
@@ -308,11 +307,12 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
               <label className="room-field">
                 Seats
                 <select
-                  value={draft.seats > 4 ? 6 : 4}
+                  value={draft.seats > 6 ? 8 : draft.seats > 4 ? 6 : 4}
                   onChange={(event) => update({ seats: Number(event.target.value) })}
                 >
                   <option value={4}>Up to 4 players (classic map)</option>
                   <option value={6}>Up to 6 players (large map)</option>
+                  <option value={8}>Up to 8 players (Syria and Tunisia map)</option>
                 </select>
               </label>
             )}
@@ -382,7 +382,8 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 disabled={viewing}
                 onClick={() =>
                   update({
-                    regionOrder: shuffled(draft.regionOrder),
+                    // On the 7–8 player map a shuffle also draws a new set of Tunisian regions.
+                    regionOrder: shuffled(drawRegions(spec).map((region) => region.name)),
                     numberOrder: shuffled(spec.numberTokens),
                     harborOrder: shuffled(spec.harborTypes),
                     balanced: true,
@@ -400,7 +401,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                   ? "Choose another territory to exchange its position."
                   : "Drag territories to rearrange. Select one to change its artwork."}
             </p>
-            <div className={`arrangement-rows ${spec.size === "large" ? "large-map" : ""}`}>
+            <div className={`arrangement-rows ${spec.size === "standard" ? "" : `${spec.size}-map`}`}>
               {(mapMatches ? rows : []).map((row, i) => (
                 <div className="arrangement-row" key={i}>
                   {row.map(({ index }) => {
@@ -449,7 +450,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 Balanced dice numbers
               </label>
               <span>
-                {spec.regions.length} territories / {spec.harborTypes.length} ports /{" "}
+                {spec.boardLayout.length} territories / {spec.harborTypes.length} ports /{" "}
                 {config.winPoints} points to win
               </span>
             </div>

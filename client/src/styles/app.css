@@ -1261,6 +1261,10 @@ g[role="button"]:focus-visible {
 .arrangement-rows.large-map {
   --hex-w: min(15.2cqw, calc(17.6cqh * 0.866));
 }
+/* The 44-territory map keeps seven rows, eight hexes across at its widest. */
+.arrangement-rows.xl-map {
+  --hex-w: min(11.6cqw, calc(17.6cqh * 0.866));
+}
 .hex-clip,
 .arrangement-tile,
 .arrangement-tile img {

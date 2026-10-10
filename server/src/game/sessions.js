@@ -41,8 +41,8 @@ function mediaFor(payload, players) {
   players.forEach((player, index) => {
     playerImages[player.id] = image(payload.playerProfiles?.[index]?.avatar);
   });
-  // The large map includes every classic region plus its own.
-  for (const region of boardSpec("large").regions) {
+  // The biggest map includes every region of the smaller ones.
+  for (const region of boardSpec("xl").regions) {
     const value = payload.hexTexturesByRegion?.[region.name];
     if (value) hexTexturesByRegion[region.name] = image(value);
   }

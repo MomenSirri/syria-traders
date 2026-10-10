@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Syria Traders: a LAN multiplayer trading game for 2-6 players, with phones as private hands and an optional TV table screen. React + plain CSS client (`client/`, Vite), Express server (`server/`), shared rules data in `shared/gameConfig.json`. See README.md for rules, API and code map.
+Syria Traders: a LAN multiplayer trading game for 2-8 players, with phones as private hands and an optional TV table screen. React + plain CSS client (`client/`, Vite), Express server (`server/`), shared rules data in `shared/gameConfig.json`. See README.md for rules, API and code map.
 
 ## Setup
 
