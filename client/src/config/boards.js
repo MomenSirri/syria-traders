@@ -1,8 +1,8 @@
 import config from "../../../shared/gameConfig.json";
 
 // Mirrors boardSpec on the server: the classic 19-territory map seats up to
-// four, 5 or 6 players play on the 30-territory map, and 7 or 8 players add 14
-// Tunisian regions, drawn by resource from a larger set, for 44 territories.
+// four, 5 or 6 players play on the 30-territory map, and 7 or 8 players play
+// 44 painted territories: the 19 classic Syrian ones plus 25 drawn from Tunisia.
 export const boardSizeFor = (players) =>
   players > 6 ? "xl" : players > 4 ? "large" : "standard";
 
@@ -28,7 +28,12 @@ export function boardSpec(size) {
     numberTokens: board.numberTokens,
     harborTypes: board.harborTypes,
     ...(size === "xl"
-      ? { fixedCount: config.regions.length + large.extraRegions.length, draw: board.drawPerMatch }
+      ? {
+          // Only painted tiles: the classic Syrian regions, then a draw from Tunisia.
+          fixedCount: config.regions.length,
+          poolStart: config.regions.length + large.extraRegions.length,
+          draw: board.drawPerMatch,
+        }
       : {}),
   };
 }
@@ -45,7 +50,7 @@ const shuffled = (list) => {
 // The regions one match plays with: every fixed region plus a random draw.
 export function drawRegions(spec) {
   if (!spec.draw) return spec.regions;
-  const pool = spec.regions.slice(spec.fixedCount);
+  const pool = spec.regions.slice(spec.poolStart ?? spec.fixedCount);
   return [
     ...spec.regions.slice(0, spec.fixedCount),
     ...Object.entries(spec.draw).flatMap(([resource, count]) =>
@@ -63,6 +68,8 @@ export function fillsMap(names, spec) {
   if (!spec.draw) return true;
   const fixed = new Set(spec.regions.slice(0, spec.fixedCount).map((region) => region.name));
   if ([...fixed].some((name) => !names.includes(name))) return false;
+  const pool = new Set(spec.regions.slice(spec.poolStart ?? spec.fixedCount).map((r) => r.name));
+  if (!names.every((name) => fixed.has(name) || pool.has(name))) return false;
   return Object.entries(spec.draw).every(
     ([resource, count]) =>
       names.filter((name) => !fixed.has(name) && known.get(name).resource === resource)
