@@ -465,6 +465,24 @@ async function checkForgottenTabs(base) {
   assert.equal((await snapshot(local)).phase, "main");
   assert.equal(await local.locator(".player-header img").count(), 1);
   assert.ok((await local.locator(".resource-popup").count()) > 0);
+  // Check the badge timing straight after the last placement, while its gains are
+  // still fresh. Install a controlled clock before reload so the hook's timers use it.
+  await local.clock.install();
+  await local.reload();
+  await settled(local);
+  const gainState = await snapshot(local);
+  const lastGain = Math.max(...gainState.gainEvents.map((event) => event.at));
+  // Badges run on the server clock (page time + clockOffset); response latency makes the
+  // offset negative, so ignoring it leaves too little margin on slower CI machines.
+  const serverNow = (await local.evaluate(() => Date.now())) + (gainState.clockOffset || 0);
+  await local.clock.fastForward(Math.max(0, lastGain + 5900 - serverNow));
+  assert.ok((await local.locator(".resource-popup:not(.resource-popup-fading)").count()) > 0);
+  await local.clock.fastForward(120);
+  // React renders after the fired timer, so wait for the DOM rather than reading it at once.
+  await local.locator(".resource-popup-fading").first().waitFor({ timeout: 3000 });
+  await local.clock.fastForward(710);
+  await local.locator(".resource-popup").first().waitFor({ state: "detached", timeout: 3000 });
+  console.log("PASS browser gain badges hold for 6 seconds and fade/clear");
   await checkLayout(local, 1920, 1080, "dashboard-1920.png");
   await checkLayout(local, 1366, 768, "dashboard-1366.png");
   await checkLayout(local, 1280, 720, "dashboard-1280.png");
@@ -479,23 +497,6 @@ async function checkForgottenTabs(base) {
   assert.equal(await local.locator(".player-header img").count(), 1);
   console.log("PASS local setup, photos, placements, desktop/mobile layouts and refresh");
 
-  // Install a controlled clock before reload so the hook's timers use it.
-  await local.clock.install();
-  await local.reload();
-  await settled(local);
-  const gainState = await snapshot(local);
-  const lastGain = Math.max(...gainState.gainEvents.map((event) => event.at));
-  // Badges run on the server clock (page time + clockOffset); response latency makes the
-  // offset negative, so ignoring it leaves too little margin on slower CI machines.
-  const serverNow = (await local.evaluate(() => Date.now())) + (gainState.clockOffset || 0);
-  await local.clock.fastForward(Math.max(0, lastGain + 29900 - serverNow));
-  assert.ok((await local.locator(".resource-popup:not(.resource-popup-fading)").count()) > 0);
-  await local.clock.fastForward(120);
-  // React renders after the fired timer, so wait for the DOM rather than reading it at once.
-  await local.locator(".resource-popup-fading").first().waitFor({ timeout: 3000 });
-  await local.clock.fastForward(710);
-  await local.locator(".resource-popup").first().waitFor({ state: "detached", timeout: 3000 });
-  console.log("PASS browser gain badges hold for 30 seconds and fade/clear");
 
   const host = await pageFor(base);
   await host.getByRole("button", { name: "Host room", exact: true }).click();
