@@ -2336,3 +2336,128 @@ g[role="button"]:focus-visible {
     transform: translate(-1.5px, -1px) rotate(-0.1deg);
   }
 }
+
+/* ==========================================================================
+   Victory finale: dark map, glowing winner, faded rivals, fireworks (GameBoard)
+   ========================================================================== */
+.board-svg .sea-layer,
+.board-svg .tile-layer,
+.board-svg .bandit-layer {
+  transition: filter 2s ease;
+}
+/* The table under the map dims too: an inset shadow can fade in over the felt. */
+.board-panel {
+  transition: box-shadow 2s ease;
+}
+.board-panel.finale-panel {
+  box-shadow:
+    inset 0 0 0 2000px #000000b0,
+    var(--shadow-2);
+}
+.finale .board-svg .sea-layer,
+.finale .board-svg .tile-layer,
+.finale .board-svg .bandit-layer {
+  filter: brightness(0.32) saturate(0.55);
+}
+.faded-piece {
+  opacity: 0.07;
+  filter: grayscale(1);
+  transition:
+    opacity 2s ease,
+    filter 2s ease;
+}
+.winner-piece {
+  animation: winner-glow 2.4s ease-in-out 1.2s infinite;
+  filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px var(--winner-color));
+}
+@keyframes winner-glow {
+  50% {
+    filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 22px var(--winner-color))
+      drop-shadow(0 0 34px var(--winner-color));
+  }
+}
+.fireworks {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.firework {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.firework i {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0;
+}
+/* Sparks are short streaks pointing away from the burst. */
+.firework .firework-spark {
+  left: 0;
+  top: -2px;
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  transform-origin: 0 50%;
+}
+.firework-rocket {
+  background: #fff6dc;
+  box-shadow: 0 0 8px #fff6dc;
+  animation: firework-rise 4.8s ease-out infinite;
+}
+.firework-spark {
+  background: var(--winner-color);
+  box-shadow:
+    0 0 8px var(--winner-color),
+    0 0 18px var(--winner-color);
+  animation: firework-burst 4.8s ease-out infinite;
+}
+.firework-spark.spark-white {
+  background: #fff;
+  box-shadow:
+    0 0 8px #fff,
+    0 0 16px #fff;
+}
+@keyframes firework-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(260px) scaleY(2.4);
+  }
+  4% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+  22%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@keyframes firework-burst {
+  0%,
+  20% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(0) scale(1);
+  }
+  23% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateX(150px) scale(1);
+  }
+  68%,
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(185px) scale(0.3, 0.5);
+  }
+}

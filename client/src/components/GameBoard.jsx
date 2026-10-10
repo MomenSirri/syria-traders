@@ -113,6 +113,42 @@ function useFreshPieces(gameId, board) {
   return fresh;
 }
 
+// Fireworks for the finale: each one rises, then bursts into sparks in the winner's
+// colour and white. Positions and timings are fixed so every screen matches.
+const BURSTS = [
+  [18, 22, 0],
+  [78, 18, 0.7],
+  [50, 12, 1.3],
+  [30, 55, 1.9],
+  [70, 50, 2.4],
+  [12, 70, 3.0],
+  [88, 72, 3.5],
+  [50, 40, 4.1],
+];
+const SPARKS = 22;
+function Fireworks() {
+  return (
+    <div className="fireworks" aria-hidden="true">
+      {BURSTS.map(([left, top, delay], burst) => (
+        <div
+          key={burst}
+          className="firework"
+          style={{ left: `${left}%`, top: `${top}%`, animationDelay: `${delay}s` }}
+        >
+          <i className="firework-rocket" style={{ animationDelay: `${delay}s` }} />
+          {Array.from({ length: SPARKS }, (_, spark) => (
+            <i
+              key={spark}
+              className={`firework-spark ${spark % 3 === 0 ? "spark-white" : ""}`}
+              style={{ "--angle": `${(360 / SPARKS) * spark}deg`, animationDelay: `${delay}s` }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function GameBoard({
   game,
   selectedAction,
@@ -162,6 +198,12 @@ export default function GameBoard({
   );
   const validTiles = new Set(selectedAction === "robber" ? hints.validRobberTiles : []);
   const owners = Object.fromEntries(game.players.map((player) => [player.id, player]));
+  // Victory finale: the map goes dark, the winner's routes and buildings glow and
+  // everyone else's fade away while fireworks go off over the board.
+  const winner = owners[game.winnerId];
+  const finale = (ownerId) =>
+    !winner || !ownerId ? "" : ownerId === winner.id ? "winner-piece" : "faded-piece";
+  const classes = (...names) => names.filter(Boolean).join(" ") || undefined;
   const hint = !interactive
     ? game.winnerId
       ? "A journey well played. Start a new table whenever you are ready."
@@ -178,7 +220,7 @@ export default function GameBoard({
           ? `Choose a highlighted place for your ${selectedAction}.`
           : "Follow the coast. Build a route. Reach 10 points.";
   return (
-    <section className="board-panel">
+    <section className={winner ? "board-panel finale-panel" : "board-panel"}>
       <div className="board-caption">
         <span className="eyebrow">The caravan coast</span>
         <span>
@@ -186,7 +228,12 @@ export default function GameBoard({
         </span>
       </div>
       <div
-        className={`board-stage ${quake?.kind === "city" ? `city-quake-${quake.serial % 2 ? "a" : "b"}` : ""}`}
+        className={classes(
+          "board-stage",
+          quake?.kind === "city" && `city-quake-${quake.serial % 2 ? "a" : "b"}`,
+          winner && "finale",
+        )}
+        style={winner ? { "--winner-color": winner.color } : undefined}
       >
         <svg
           className="board-svg"
@@ -430,7 +477,11 @@ export default function GameBoard({
                   y1={vertices[edge.v1].y}
                   x2={vertices[edge.v2].x}
                   y2={vertices[edge.v2].y}
-                  className={fresh.edges.has(edge.id) ? "road-edge fresh-piece" : "road-edge"}
+                  className={classes(
+                    "road-edge",
+                    fresh.edges.has(edge.id) && "fresh-piece",
+                    finale(edge.ownerId),
+                  )}
                 />
               ))}
           </g>
@@ -444,7 +495,7 @@ export default function GameBoard({
               return (
                 <g
                   key={edge.id}
-                  className={fresh.edges.has(edge.id) ? "fresh-piece" : undefined}
+                  className={classes(fresh.edges.has(edge.id) && "fresh-piece", finale(edge.ownerId))}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={target ? `Build road on edge ${edge.id}` : undefined}
@@ -498,7 +549,10 @@ export default function GameBoard({
               return (
                 <g
                   key={vertex.id}
-                  className={fresh.vertices.has(vertex.id) ? "fresh-piece" : undefined}
+                  className={classes(
+                    fresh.vertices.has(vertex.id) && "fresh-piece",
+                    finale(vertex.ownerId),
+                  )}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={
@@ -541,6 +595,7 @@ export default function GameBoard({
             })}
           </g>
         </svg>
+        {winner && <Fireworks />}
       </div>
       <p className="board-hint">{hint}</p>
     </section>

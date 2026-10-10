@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const HOT = { 6: "hot", 8: "hot", 5: "warm", 9: "warm", 7: "seven" };
 // How often each total is expected per 36 rolls, for the faint guide marks.
@@ -6,11 +6,19 @@ const WAYS = { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 4, 10: 3, 11: 2, 12:
 
 // The end of a match: the winner, fun awards from the match, and how the dice fell.
 // Everything here was already public at the table; no hand is revealed.
+// On the TV it waits a few seconds so the victory finale on the map has the stage.
+export const FINALE_MS = 7000;
 export default function MatchSummary({ game, table }) {
   const [hidden, setHidden] = useState(false);
+  const [waiting, setWaiting] = useState(table);
+  useEffect(() => {
+    if (!table) return;
+    const timer = setTimeout(() => setWaiting(false), FINALE_MS);
+    return () => clearTimeout(timer);
+  }, [table]);
   const summary = game.summary;
   const winner = game.players.find((player) => player.id === game.winnerId);
-  if (!summary || !winner || hidden) return null;
+  if (!summary || !winner || hidden || waiting) return null;
   const name = (id) => game.players.find((player) => player.id === id);
   const dice = Object.entries(summary.dice).map(([total, count]) => [Number(total), count]);
   const rolls = dice.reduce((sum, [, count]) => sum + count, 0);
