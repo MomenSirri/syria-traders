@@ -3,7 +3,7 @@ import config from "../../../shared/gameConfig.json";
 import { prepareImage } from "../utils/images";
 import Icon from "./Icon";
 import { DEFAULT_ASSET_BY_RESOURCE, presetMapById, regionArtUrl } from "../config/hexPresets";
-import { boardSizeFor, boardSpec } from "../config/boards";
+import { boardSizeFor, boardSpec, drawRegions, fillsMap } from "../config/boards";
 
 const PRESETS = presetMapById();
 const DRAFT_KEY = "syria_traders_setup_v2";
@@ -19,7 +19,7 @@ function linkedMode() {
 const mapFor = (size) => {
   const spec = boardSpec(size);
   return {
-    regionOrder: shuffled(spec.regions.map((region) => region.name)),
+    regionOrder: shuffled(drawRegions(spec).map((region) => region.name)),
     numberOrder: [...spec.numberTokens],
     harborOrder: [...spec.harborTypes],
   };
@@ -82,8 +82,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
   const spec = boardSpec(boardSizeFor(seats));
   const rows = rowsOf(spec.boardLayout);
   const mapMatches =
-    draft.regionOrder.length === spec.regions.length &&
-    draft.regionOrder.every((name) => spec.regions.some((region) => region.name === name)) &&
+    fillsMap(draft.regionOrder, spec) &&
     draft.numberOrder.length === spec.numberTokens.length &&
     draft.harborOrder.length === spec.harborTypes.length;
   useEffect(() => {
@@ -383,7 +382,8 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 disabled={viewing}
                 onClick={() =>
                   update({
-                    regionOrder: shuffled(draft.regionOrder),
+                    // On the 7–8 player map a shuffle also draws a new set of Tunisian regions.
+                    regionOrder: shuffled(drawRegions(spec).map((region) => region.name)),
                     numberOrder: shuffled(spec.numberTokens),
                     harborOrder: shuffled(spec.harborTypes),
                     balanced: true,
@@ -450,7 +450,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 Balanced dice numbers
               </label>
               <span>
-                {spec.regions.length} territories / {spec.harborTypes.length} ports /{" "}
+                {spec.boardLayout.length} territories / {spec.harborTypes.length} ports /{" "}
                 {config.winPoints} points to win
               </span>
             </div>

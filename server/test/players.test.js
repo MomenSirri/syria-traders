@@ -9,7 +9,12 @@ const store = require("../src/game/gameStore");
 const service = require("../src/game/gameService");
 const { rollInOrder } = require("./orderRoll");
 const sessions = require("../src/game/sessions");
-const { boardSpec, generateBoard } = require("../src/game/boardGenerator");
+const {
+  boardSpec,
+  drawRegions,
+  generateBoard,
+  regionSetProblem,
+} = require("../src/game/boardGenerator");
 const config = require("../../shared/gameConfig.json");
 
 const SIX = ["Nour", "Yazan", "Lina", "Omar", "Rana", "Sami"];
@@ -99,16 +104,34 @@ test("player limits and map choice are validated", () => {
   assert.equal(room.settings.boardSize, "standard");
 });
 
-test("the 7-8 player map adds 14 Tunisian cities around the large map", () => {
+test("the 7-8 player map draws 14 Tunisian regions around the large map", () => {
   const spec = boardSpec("xl");
   const names = spec.regions.map((region) => region.name);
-  assert.equal(new Set(names).size, 44, "Region names are unique");
+  assert.equal(new Set(names).size, 58, "Region names are unique");
   assert.deepEqual(
     names.slice(30),
     config.extraLargeBoard.extraRegions.map((region) => region.name),
   );
-  const productive = spec.regions.filter((region) => region.resource !== "desert").length;
+  const drawn = drawRegions(spec);
+  assert.equal(drawn.length, 44);
+  assert.equal(regionSetProblem(drawn.map((region) => region.name), spec), null);
+  const productive = drawn.filter((region) => region.resource !== "desert").length;
   assert.equal(spec.numberTokens.length, productive, "One number token per productive region");
+  // Over many matches every Tunisian region gets its turn on the map.
+  const seen = new Set();
+  for (let i = 0; i < 200; i++) drawRegions(spec).forEach((region) => seen.add(region.name));
+  assert.equal(seen.size, 58);
+  // An arrangement must keep the drawn resource mix and every Syrian region.
+  const swapped = drawn.map((region) => region.name);
+  const spareWood = spec.regions
+    .slice(30)
+    .find((region) => region.resource === "wood" && !swapped.includes(region.name));
+  const wheatIndex = swapped.findIndex(
+    (name, i) => i >= 30 && spec.regions.find((r) => r.name === name).resource === "wheat",
+  );
+  swapped[wheatIndex] = spareWood.name;
+  assert.match(regionSetProblem(swapped, spec), /wheat|wood/);
+  assert.match(regionSetProblem([...swapped.slice(1), spareWood.name], spec), /fixed|repeats/);
   // The large map's hexes all stay, so the island only grows outward.
   const cells = new Set(spec.boardLayout.map(({ q, r }) => `${q},${r}`));
   assert.ok(boardSpec("large").boardLayout.every(({ q, r }) => cells.has(`${q},${r}`)));

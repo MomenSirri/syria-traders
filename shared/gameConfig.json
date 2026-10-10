@@ -310,7 +310,8 @@
     ]
   },
   "extraLargeBoard": {
-    "note": "Used by 7 and 8 player rooms. Tunisian cities join the large map's 30 territories.",
+    "note": "Used by 7 and 8 player rooms. Each match draws Tunisian regions (drawPerMatch, by resource) to join the large map's 30 territories.",
+    "drawPerMatch": { "wheat": 3, "wood": 2, "stone": 3, "brick": 3, "sheep": 2, "desert": 1 },
     "boardLayout": [
       { "q": -1, "r": -3 },
       { "q": 0, "r": -3 },
@@ -431,6 +432,76 @@
         "name": "Douz",
         "resource": "desert",
         "flavor": "The gateway to the Sahara's great dunes."
+      },
+      {
+        "name": "Ariana",
+        "resource": "wood",
+        "flavor": "Rose gardens and green orchards north of Tunis."
+      },
+      {
+        "name": "Ben Arous",
+        "resource": "wood",
+        "flavor": "Pine slopes of Bou Kornine above the Gulf of Tunis."
+      },
+      {
+        "name": "Manouba",
+        "resource": "wheat",
+        "flavor": "Medjerda farmland of grain fields and orange groves."
+      },
+      {
+        "name": "Zaghouan",
+        "resource": "stone",
+        "flavor": "The Roman water temple and its long aqueduct arches."
+      },
+      {
+        "name": "Bizerte",
+        "resource": "sheep",
+        "flavor": "Green grazing land around the lake and Jebel Ichkeul."
+      },
+      {
+        "name": "Siliana",
+        "resource": "wheat",
+        "flavor": "High wheat plateaus around the ruins of Makthar."
+      },
+      {
+        "name": "Sousse",
+        "resource": "stone",
+        "flavor": "Old stone ramparts standing by the sea."
+      },
+      {
+        "name": "Monastir",
+        "resource": "brick",
+        "flavor": "Potters' kilns of Moknine and sun-baked clay."
+      },
+      {
+        "name": "Kairouan",
+        "resource": "sheep",
+        "flavor": "Steppe pastures around the old Aghlabid water basins."
+      },
+      {
+        "name": "Sfax",
+        "resource": "wood",
+        "flavor": "Endless olive groves and a stone olive press."
+      },
+      {
+        "name": "Sidi Bouzid",
+        "resource": "sheep",
+        "flavor": "Open steppe of grazing flocks and prickly pear."
+      },
+      {
+        "name": "Gabes",
+        "resource": "wood",
+        "flavor": "A seaside oasis of palms and pomegranates."
+      },
+      {
+        "name": "Tataouine",
+        "resource": "desert",
+        "flavor": "Desert ksour granaries on the edge of the Sahara."
+      },
+      {
+        "name": "Gafsa",
+        "resource": "desert",
+        "flavor": "Red rock gorges and a hidden oasis."
       }
     ]
   }

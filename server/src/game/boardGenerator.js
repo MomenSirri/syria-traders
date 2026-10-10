@@ -14,9 +14,10 @@ const NEIGHBOR_STEPS = [
 ];
 
 // The classic 19-hex map seats up to four; the 30-hex map is used by 5 and 6
-// player rooms, and 7 or 8 players add Tunisian cities for a 44-hex map. Each
-// bigger map keeps every region of the smaller ones. Saves without a board size
-// are classic.
+// player rooms, and 7 or 8 players add 14 Tunisian regions for a 44-hex map.
+// Each bigger map keeps every region of the smaller ones. The 44-hex map lists
+// more Tunisian regions than it has room for: each match draws a set by resource
+// (drawPerMatch). Saves without a board size are classic.
 function boardSpec(size = "standard") {
   if (size !== "large" && size !== "xl") {
     return {
@@ -39,7 +40,42 @@ function boardSpec(size = "standard") {
     ],
     numberTokens: board.numberTokens,
     harborTypes: board.harborTypes,
+    ...(size === "xl"
+      ? { fixedCount: config.regions.length + large.extraRegions.length, draw: board.drawPerMatch }
+      : {}),
   };
+}
+
+// The regions one match plays with: every fixed region plus a random draw.
+function drawRegions(spec) {
+  if (!spec.draw) return spec.regions;
+  const pool = spec.regions.slice(spec.fixedCount);
+  return [
+    ...spec.regions.slice(0, spec.fixedCount),
+    ...Object.entries(spec.draw).flatMap(([resource, count]) =>
+      shuffle(pool.filter((region) => region.resource === resource)).slice(0, count),
+    ),
+  ];
+}
+
+// Why a list of region names cannot fill this map, or null when it can.
+function regionSetProblem(names, spec) {
+  if (names.length !== spec.boardLayout.length)
+    return `must include ${spec.boardLayout.length} regions`;
+  const known = new Map(spec.regions.map((region) => [region.name, region]));
+  const unknown = names.find((name) => !known.has(name));
+  if (unknown !== undefined) return `has an unknown region: ${unknown}`;
+  if (new Set(names).size !== names.length) return "repeats a region";
+  if (spec.draw) {
+    const fixed = spec.regions.slice(0, spec.fixedCount);
+    if (fixed.some((region) => !names.includes(region.name))) return "leaves out a fixed region";
+    const drawn = names.slice().filter((name) => !fixed.some((region) => region.name === name));
+    for (const [resource, count] of Object.entries(spec.draw)) {
+      if (drawn.filter((name) => known.get(name).resource === resource).length !== count)
+        return `needs ${count} drawn ${resource} regions`;
+    }
+  }
+  return null;
 }
 
 const boardSizeFor = (maxPlayers) =>
@@ -79,12 +115,11 @@ function arraySignature(values) {
 
 function resolveRegions(regionOrder, spec) {
   if (!Array.isArray(regionOrder) || !regionOrder.length) {
-    return shuffle(spec.regions);
+    return shuffle(drawRegions(spec));
   }
 
-  if (regionOrder.length !== spec.regions.length) {
-    throw new Error(`regionOrder must include exactly ${spec.regions.length} region names.`);
-  }
+  const problem = regionSetProblem(regionOrder.map((name) => String(name || "").trim()), spec);
+  if (problem) throw new Error(`regionOrder ${problem}.`);
 
   const knownRegionsByName = new Map(spec.regions.map((region) => [region.name, region]));
   const usedNames = new Set();
@@ -344,5 +379,7 @@ module.exports = {
   HEX_SIZE,
   boardSpec,
   boardSizeFor,
+  drawRegions,
   generateBoard,
+  regionSetProblem,
 };

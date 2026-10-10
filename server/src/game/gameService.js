@@ -3,7 +3,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const config = require("../../../shared/gameConfig.json");
 const store = require("./gameStore");
-const { boardSpec, boardSizeFor, generateBoard } = require("./boardGenerator");
+const { boardSpec, boardSizeFor, generateBoard, regionSetProblem } = require("./boardGenerator");
 const {
   clone,
   resourceTemplate,
@@ -56,24 +56,9 @@ function normalizeRegionOrder(regionOrder, spec) {
   if (!Array.isArray(regionOrder)) {
     throw createError("regionOrder must be an array of region names.");
   }
-  if (regionOrder.length !== spec.regions.length) {
-    throw createError(`regionOrder must include ${spec.regions.length} regions.`);
-  }
-
-  const knownNames = new Set(spec.regions.map((region) => region.name));
-  const usedNames = new Set();
-
   const normalized = regionOrder.map((name) => String(name || "").trim());
-  normalized.forEach((name) => {
-    if (!knownNames.has(name)) {
-      throw createError(`Unknown region in arrangement: ${name}`);
-    }
-    if (usedNames.has(name)) {
-      throw createError(`Duplicate region in arrangement: ${name}`);
-    }
-    usedNames.add(name);
-  });
-
+  const problem = regionSetProblem(normalized, spec);
+  if (problem) throw createError(`regionOrder ${problem}.`);
   return normalized;
 }
 
