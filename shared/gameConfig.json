@@ -310,8 +310,8 @@
     ]
   },
   "extraLargeBoard": {
-    "note": "Used by 7 and 8 player rooms. Each match draws Tunisian regions (drawPerMatch, by resource) to join the large map's 30 territories.",
-    "drawPerMatch": { "wheat": 3, "wood": 2, "stone": 3, "brick": 3, "sheep": 2, "desert": 1 },
+    "note": "Used by 7 and 8 player rooms. Only painted tiles: the 19 classic Syrian regions plus Tunisian regions drawn per match (drawPerMatch, by resource). The large map's extra Syrian regions still use flat art, so they sit this map out.",
+    "drawPerMatch": { "wheat": 5, "wood": 5, "stone": 6, "brick": 3, "sheep": 4, "desert": 2 },
     "boardLayout": [
       { "q": -1, "r": -3 },
       { "q": 0, "r": -3 },

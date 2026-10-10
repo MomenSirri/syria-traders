@@ -104,7 +104,7 @@ test("player limits and map choice are validated", () => {
   assert.equal(room.settings.boardSize, "standard");
 });
 
-test("the 7-8 player map draws 14 Tunisian regions around the large map", () => {
+test("the 7-8 player map uses only painted tiles: classic Syria plus 25 from Tunisia", () => {
   const spec = boardSpec("xl");
   const names = spec.regions.map((region) => region.name);
   assert.equal(new Set(names).size, 58, "Region names are unique");
@@ -117,17 +117,30 @@ test("the 7-8 player map draws 14 Tunisian regions around the large map", () => 
   assert.equal(regionSetProblem(drawn.map((region) => region.name), spec), null);
   const productive = drawn.filter((region) => region.resource !== "desert").length;
   assert.equal(spec.numberTokens.length, productive, "One number token per productive region");
+  // Every tile on this map has a painting; the large map's flat-art extras sit out.
+  const art = (name) => `${name.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "")}.webp`;
+  const regionsDir = path.join(__dirname, "../../client/public/terrain/regions");
+  const counts = {};
+  for (const region of drawn) {
+    assert.ok(fs.existsSync(path.join(regionsDir, art(region.name))), `${region.name} is painted`);
+    counts[region.resource] = (counts[region.resource] || 0) + 1;
+  }
+  assert.deepEqual(counts, { wheat: 9, wood: 9, stone: 9, brick: 6, sheep: 8, desert: 3 });
   // Over many matches every Tunisian region gets its turn on the map.
   const seen = new Set();
   for (let i = 0; i < 200; i++) drawRegions(spec).forEach((region) => seen.add(region.name));
-  assert.equal(seen.size, 58);
+  assert.equal(seen.size, 47);
+  const isWheat = (name) => spec.regions.find((r) => r.name === name).resource === "wheat";
+  const flat = drawn.map((region) => region.name);
+  flat[flat.findIndex((name, i) => i >= 19 && isWheat(name))] = "Qamishli";
+  assert.match(regionSetProblem(flat, spec), /cannot use Qamishli/);
   // An arrangement must keep the drawn resource mix and every Syrian region.
   const swapped = drawn.map((region) => region.name);
   const spareWood = spec.regions
     .slice(30)
     .find((region) => region.resource === "wood" && !swapped.includes(region.name));
   const wheatIndex = swapped.findIndex(
-    (name, i) => i >= 30 && spec.regions.find((r) => r.name === name).resource === "wheat",
+    (name, i) => i >= 19 && spec.regions.find((r) => r.name === name).resource === "wheat",
   );
   swapped[wheatIndex] = spareWood.name;
   assert.match(regionSetProblem(swapped, spec), /wheat|wood/);

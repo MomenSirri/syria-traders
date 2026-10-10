@@ -14,7 +14,7 @@ const NEIGHBOR_STEPS = [
 ];
 
 // The classic 19-hex map seats up to four; the 30-hex map is used by 5 and 6
-// player rooms, and 7 or 8 players add 14 Tunisian regions for a 44-hex map.
+// player rooms, and 7 or 8 players play 44 painted hexes: classic Syria plus Tunisia.
 // Each bigger map keeps every region of the smaller ones. The 44-hex map lists
 // more Tunisian regions than it has room for: each match draws a set by resource
 // (drawPerMatch). Saves without a board size are classic.
@@ -41,7 +41,12 @@ function boardSpec(size = "standard") {
     numberTokens: board.numberTokens,
     harborTypes: board.harborTypes,
     ...(size === "xl"
-      ? { fixedCount: config.regions.length + large.extraRegions.length, draw: board.drawPerMatch }
+      ? {
+          // Only painted tiles: the classic Syrian regions, then a draw from Tunisia.
+          fixedCount: config.regions.length,
+          poolStart: config.regions.length + large.extraRegions.length,
+          draw: board.drawPerMatch,
+        }
       : {}),
   };
 }
@@ -49,7 +54,7 @@ function boardSpec(size = "standard") {
 // The regions one match plays with: every fixed region plus a random draw.
 function drawRegions(spec) {
   if (!spec.draw) return spec.regions;
-  const pool = spec.regions.slice(spec.fixedCount);
+  const pool = spec.regions.slice(spec.poolStart ?? spec.fixedCount);
   return [
     ...spec.regions.slice(0, spec.fixedCount),
     ...Object.entries(spec.draw).flatMap(([resource, count]) =>
@@ -70,6 +75,9 @@ function regionSetProblem(names, spec) {
     const fixed = spec.regions.slice(0, spec.fixedCount);
     if (fixed.some((region) => !names.includes(region.name))) return "leaves out a fixed region";
     const drawn = names.slice().filter((name) => !fixed.some((region) => region.name === name));
+    const pool = new Set(spec.regions.slice(spec.poolStart ?? spec.fixedCount).map((r) => r.name));
+    const outside = drawn.find((name) => !pool.has(name));
+    if (outside !== undefined) return `cannot use ${outside} on this map`;
     for (const [resource, count] of Object.entries(spec.draw)) {
       if (drawn.filter((name) => known.get(name).resource === resource).length !== count)
         return `needs ${count} drawn ${resource} regions`;
