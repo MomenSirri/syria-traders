@@ -68,8 +68,27 @@ function awards(game, roadLengths) {
   };
   const dice = {};
   for (let total = 2; total <= 12; total += 1) dice[total] = game.stats?.dice?.[total] || 0;
+  // The match in numbers: one public row per player, highest score first.
+  const players = game.players
+    .map((player) => {
+      const counted = game.stats?.players?.[player.id] || {};
+      return {
+        playerId: player.id,
+        score: player.score || 0,
+        roads: (player.roads || []).length,
+        villages: (player.villages || []).length,
+        cities: (player.cities || []).length,
+        diceCards: counted.diceCards || 0,
+        trades: counted.trades || 0,
+        steals: counted.steals || 0,
+        knights: player.knightsPlayed || 0,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
   return {
     dice,
+    turns: game.turn || 0,
+    players,
     awards: AWARDS.map(({ stat, ...award }) => {
       const best = Math.max(0, ...game.players.map((player) => value(player, stat)));
       return {

@@ -23,10 +23,60 @@ function keyboard(event, callback) {
   }
 }
 
-const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false };
+// Pieces read as plain board-game buildings: a house for a village and two houses,
+// one taller with windows, for a city.
+const PIECES = {
+  village: {
+    body: "M-11 13V-1L0-12 11-1V13Z",
+    windows: "M-2.5 5h5v8h-5Z M-7.5 0h4v4h-4Z M3.5 0h4v4h-4Z",
+  },
+  city: {
+    body: "M-20 13V-3L-11-12-2-3V-8L7-17 16-8V13Z",
+    windows:
+      "M-13 5h5v8h-5Z M3-5h4v4h-4Z M9-5h4v4h-4Z M3 2h4v4h-4Z M9 2h4v4h-4Z M5.5 9h5v4h-5Z",
+  },
+};
+const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false, serial: 0 };
+// A build sends a tremor through the map: tiles near the new piece jolt away from it
+// and the wave fades with distance. A road barely stirs the nearby tiles, a village
+// shakes its neighbourhood, and a city rocks the whole map.
+const QUAKES = {
+  road: { push: 4, reach: 230, ms: 520 },
+  village: { push: 9, reach: 420, ms: 760 },
+  city: { push: 17, reach: 900, ms: 1100 },
+};
+function quakeFor(fresh, board) {
+  if (!board || (!fresh.vertices.size && !fresh.edges.size)) return null;
+  const built = [...fresh.vertices].map((id) => board.vertices[id]);
+  const site =
+    built.find((vertex) => vertex.building === "city") ||
+    built.find((vertex) => vertex.building === "village");
+  if (site) return { kind: site.building, x: site.x, y: site.y, serial: fresh.serial };
+  const edge = board.edges[[...fresh.edges][0]];
+  const a = board.vertices[edge.v1],
+    b = board.vertices[edge.v2];
+  return { kind: "road", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, serial: fresh.serial };
+}
+function quakeStyle(quake, center) {
+  if (!quake) return undefined;
+  const { push, reach, ms } = QUAKES[quake.kind];
+  const dx = center.x - quake.x,
+    dy = center.y - quake.y;
+  const distance = Math.hypot(dx, dy);
+  const strength = push * Math.max(0, 1 - distance / reach);
+  if (strength < 0.5) return undefined;
+  const unit = distance > 1 ? 1 / distance : 0;
+  // Alternate two identical keyframes so a quick second build restarts the wave.
+  return {
+    "--qx": `${(dx * unit * strength).toFixed(2)}px`,
+    "--qy": `${(dy * unit * strength + (unit ? 0 : -strength)).toFixed(2)}px`,
+    animation: `tile-quake-${quake.serial % 2 ? "a" : "b"} ${ms}ms cubic-bezier(0.3, 0.7, 0.4, 1) ${Math.round(distance * 0.45)}ms both`,
+  };
+}
 // Pieces that appeared since the last update get a short entrance animation.
 function useFreshPieces(gameId, board) {
   const previous = useRef(null);
+  const serial = useRef(0);
   const [fresh, setFresh] = useState(NO_FRESH);
   const roads = board ? board.edges.filter((e) => e.ownerId).map((e) => e.id) : [];
   const homes = board
@@ -52,13 +102,51 @@ function useFreshPieces(gameId, board) {
           .map((entry) => Number(entry.split(":")[0])),
       ),
       robber: before.robber !== board.robberTileId,
+      serial: serial.current + 1,
     };
     if (!next.edges.size && !next.vertices.size && !next.robber) return;
+    serial.current = next.serial;
     setFresh(next);
     const timer = setTimeout(() => setFresh(NO_FRESH), 1600);
     return () => clearTimeout(timer);
   }, [key]);
   return fresh;
+}
+
+// Fireworks for the finale: each one rises, then bursts into sparks in the winner's
+// colour and white. Positions and timings are fixed so every screen matches.
+const BURSTS = [
+  [18, 22, 0],
+  [78, 18, 0.7],
+  [50, 12, 1.3],
+  [30, 55, 1.9],
+  [70, 50, 2.4],
+  [12, 70, 3.0],
+  [88, 72, 3.5],
+  [50, 40, 4.1],
+];
+const SPARKS = 22;
+function Fireworks() {
+  return (
+    <div className="fireworks" aria-hidden="true">
+      {BURSTS.map(([left, top, delay], burst) => (
+        <div
+          key={burst}
+          className="firework"
+          style={{ left: `${left}%`, top: `${top}%`, animationDelay: `${delay}s` }}
+        >
+          <i className="firework-rocket" style={{ animationDelay: `${delay}s` }} />
+          {Array.from({ length: SPARKS }, (_, spark) => (
+            <i
+              key={spark}
+              className={`firework-spark ${spark % 3 === 0 ? "spark-white" : ""}`}
+              style={{ "--angle": `${(360 / SPARKS) * spark}deg`, animationDelay: `${delay}s` }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function GameBoard({
@@ -77,6 +165,7 @@ export default function GameBoard({
 }) {
   const board = game.board;
   const fresh = useFreshPieces(game.id, board);
+  const quake = useMemo(() => quakeFor(fresh, board), [fresh]);
   const viewBox = useMemo(() => {
     if (!board) return "0 0 100 100";
     // Fit the actual outer corners instead of adding a large invisible margin.
@@ -109,6 +198,12 @@ export default function GameBoard({
   );
   const validTiles = new Set(selectedAction === "robber" ? hints.validRobberTiles : []);
   const owners = Object.fromEntries(game.players.map((player) => [player.id, player]));
+  // Victory finale: the map goes dark, the winner's routes and buildings glow and
+  // everyone else's fade away while fireworks go off over the board.
+  const winner = owners[game.winnerId];
+  const finale = (ownerId) =>
+    !winner || !ownerId ? "" : ownerId === winner.id ? "winner-piece" : "faded-piece";
+  const classes = (...names) => names.filter(Boolean).join(" ") || undefined;
   const hint =
     game.phase === "order-roll"
       ? "Everyone rolls the dice. The highest roll goes first."
@@ -128,14 +223,21 @@ export default function GameBoard({
               ? `Choose a highlighted place for your ${selectedAction}.`
               : "Follow the coast. Build a route. Reach 10 points.";
   return (
-    <section className="board-panel">
+    <section className={winner ? "board-panel finale-panel" : "board-panel"}>
       <div className="board-caption">
         <span className="eyebrow">The caravan coast</span>
         <span>
           {tiles.length} territories / {seaTiles.filter((sea) => sea.harbor).length} harbors
         </span>
       </div>
-      <div className="board-stage">
+      <div
+        className={classes(
+          "board-stage",
+          quake?.kind === "city" && `city-quake-${quake.serial % 2 ? "a" : "b"}`,
+          winner && "finale",
+        )}
+        style={winner ? { "--winner-color": winner.color } : undefined}
+      >
         <svg
           className="board-svg"
           viewBox={viewBox}
@@ -181,7 +283,7 @@ export default function GameBoard({
           </defs>
           <g className="sea-layer">
             {seaTiles.map((sea) => (
-              <g key={sea.id} className="sea-tile">
+              <g key={sea.id} className="sea-tile" style={quakeStyle(quake, sea.center)}>
                 <polygon points={points(corners(sea.center))} fill="url(#sea-waves)" />
                 {sea.harbor && (
                   <g>
@@ -229,6 +331,7 @@ export default function GameBoard({
                 <g
                   key={tile.id}
                   data-tile-id={tile.id}
+                  style={quakeStyle(quake, tile.center)}
                   className={`tile-group ${target ? "robber-target" : ""} ${blocked ? "blocked-tile" : ""} ${previewTileId === tile.id ? "robber-preview" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
@@ -344,7 +447,7 @@ export default function GameBoard({
               const tile = tiles[tileId];
               return (
                 <g key={`${kind}-${tileId}`} className={`bandit-layer ${kind}-layer`}>
-                  {/* Black and white like a cordon: no player colour, so never a road. */}
+                  {/* Grey and white like a cordon: no player colour, so never a road. */}
                   <polygon
                     className="bandit-outline-base"
                     points={points(tile.vertexIds.map((id) => vertices[id]))}
@@ -373,6 +476,26 @@ export default function GameBoard({
                 </g>
               );
             })}
+          {/* Every road's white edge sits under every coloured road, so a player's
+              connected roads read as one smooth line with no seams at the turns. */}
+          <g className="road-edge-layer">
+            {edges
+              .filter((edge) => edge.ownerId)
+              .map((edge) => (
+                <line
+                  key={edge.id}
+                  x1={vertices[edge.v1].x}
+                  y1={vertices[edge.v1].y}
+                  x2={vertices[edge.v2].x}
+                  y2={vertices[edge.v2].y}
+                  className={classes(
+                    "road-edge",
+                    fresh.edges.has(edge.id) && "fresh-piece",
+                    finale(edge.ownerId),
+                  )}
+                />
+              ))}
+          </g>
           <g className="edge-layer">
             {edges.map((edge) => {
               const a = vertices[edge.v1],
@@ -383,7 +506,7 @@ export default function GameBoard({
               return (
                 <g
                   key={edge.id}
-                  className={fresh.edges.has(edge.id) ? "fresh-piece" : undefined}
+                  className={classes(fresh.edges.has(edge.id) && "fresh-piece", finale(edge.ownerId))}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={target ? `Build road on edge ${edge.id}` : undefined}
@@ -397,7 +520,7 @@ export default function GameBoard({
                       x2={b.x}
                       y2={b.y}
                       stroke={owner?.color || "#f9d576"}
-                      strokeWidth={owner ? 12 : 8}
+                      strokeWidth={owner ? 11 : 8}
                       strokeLinecap="round"
                       className={target ? "hint-road" : "built-road"}
                     />
@@ -430,13 +553,17 @@ export default function GameBoard({
             {vertices.map((vertex) => {
               const owner = owners[vertex.ownerId],
                 target = validVertices.has(vertex.id),
-                chosen = selectedSetupVertex === vertex.id;
+                chosen = selectedSetupVertex === vertex.id,
+                piece = vertex.building === "city" ? PIECES.city : PIECES.village;
               const select = () =>
                 setup ? onSetupVertexSelect(vertex.id) : onVertexSelect(vertex.id);
               return (
                 <g
                   key={vertex.id}
-                  className={fresh.vertices.has(vertex.id) ? "fresh-piece" : undefined}
+                  className={classes(
+                    fresh.vertices.has(vertex.id) && "fresh-piece",
+                    finale(vertex.ownerId),
+                  )}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}
                   aria-label={
@@ -456,18 +583,14 @@ export default function GameBoard({
                     />
                   )}
                   {owner && (
-                    <path
-                      transform={`translate(${vertex.x},${vertex.y})`}
-                      d={
-                        vertex.building === "city"
-                          ? "M-14 12V-8h10V-17H8v9h8v20Z"
-                          : "M-12 11V-3L0-15 12-3v14Z"
-                      }
-                      fill={owner.color}
-                      stroke="#fff6df"
-                      strokeWidth="3"
+                    <g
+                      transform={`translate(${vertex.x},${vertex.y}) scale(1.25)`}
                       className="building-piece"
-                    />
+                    >
+                      <path d={piece.body} className="piece-edge" />
+                      <path d={piece.body} fill={owner.color} />
+                      <path d={piece.windows} className="piece-windows" />
+                    </g>
                   )}
                   {target && (
                     <circle
@@ -483,6 +606,7 @@ export default function GameBoard({
             })}
           </g>
         </svg>
+        {winner && <Fireworks />}
       </div>
       <p className="board-hint">{hint}</p>
     </section>

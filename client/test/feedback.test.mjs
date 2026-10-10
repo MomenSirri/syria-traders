@@ -7,7 +7,7 @@ const event = (at, amount = 1, resource = "wheat") => ({
   at,
   gains: [{ playerId: "one", resource, amount }],
 });
-test("gains remain solid for 30 seconds, then fade and clear", () => {
+test("gains remain solid for 6 seconds, then fade and clear", () => {
   assert.equal(visibleGains([event(1000)], 1000 + STICKY_MS - 1)[0].fading, false);
   assert.equal(visibleGains([event(1000)], 1000 + STICKY_MS)[0].fading, true);
   assert.deepEqual(visibleGains([event(1000)], 1000 + STICKY_MS + FADE_MS), []);
@@ -18,8 +18,8 @@ test("simultaneous resources stay separate; repeated gains aggregate without los
   assert.equal(gains.length, 2);
   assert.equal(gains[0].amount, 3);
   assert.equal(gains[1].resource, "wood");
-  assert.equal(visibleGains(events, 31700)[0].amount, 2);
-  assert.equal(visibleGains(events, 32000)[0].fading, true);
+  assert.equal(visibleGains(events, 1000 + STICKY_MS + FADE_MS)[0].amount, 2);
+  assert.equal(visibleGains(events, 2000 + STICKY_MS)[0].fading, true);
 });
 test("save/load keeps the exact match and seat; art is not rewritten for each move", () => {
   const values = new Map();

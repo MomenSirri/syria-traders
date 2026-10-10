@@ -389,7 +389,7 @@
 }
 .harbor-label-bg {
   fill: #fdf6e3;
-  stroke: var(--gold-deep);
+  stroke: #fff;
   stroke-width: 2;
   filter: drop-shadow(0 2px 2px #0b2a2f66);
 }
@@ -400,7 +400,7 @@
   font-weight: 800;
 }
 .tile-outline {
-  stroke: #f6ebcf;
+  stroke: #fff;
   stroke-width: 5;
   stroke-linejoin: round;
   pointer-events: none;
@@ -412,7 +412,7 @@
   pointer-events: none;
 }
 .tile-resource circle {
-  stroke: #fff8e6;
+  stroke: #fff;
   stroke-width: 2.5;
   filter: drop-shadow(0 2px 2px #00000059);
 }
@@ -434,7 +434,7 @@
 .tile-label-bg {
   fill: #fdf7ea;
   fill-opacity: 0.9;
-  stroke: #00000014;
+  stroke: none;
 }
 .tile-name {
   font-family: var(--font-ui);
@@ -446,7 +446,7 @@
 }
 .number-token {
   fill: #fffaf0;
-  stroke: var(--gold-deep);
+  stroke: #fff;
   stroke-width: 2.5;
   filter: drop-shadow(0 2px 2px #00000052);
 }
@@ -465,7 +465,7 @@
   fill: #b5371f;
 }
 .hot-token .number-token {
-  stroke: #b5371f;
+  stroke: #fff;
 }
 /* 5 and 9 are the next most common rolls (4 in 36), in orange after red 6 and 8. */
 .warm-token .token-text,
@@ -473,7 +473,7 @@
   fill: #c76a12;
 }
 .warm-token .number-token {
-  stroke: #c76a12;
+  stroke: #fff;
 }
 .robber-marker circle {
   fill: #15130f;
@@ -487,8 +487,8 @@
   font-size: 17px;
 }
 /* The bandit's territory reads as blocked at a glance: faded, darker art under a
-   dark hatch, a black-and-white border marching round it above its neighbours,
-   and a greyed number. No player colour is black or white, so it never looks
+   dark hatch, a grey-and-white border marching round it above its neighbours,
+   and a greyed number. No player colour is grey or white, so it never looks
    like a road. */
 .bandit-layer {
   pointer-events: none;
@@ -502,9 +502,9 @@
   stroke-linejoin: round;
 }
 .bandit-outline-base {
-  stroke: #0b0b0b;
+  stroke: #707070;
   stroke-width: 9;
-  filter: drop-shadow(0 0 5px #000c);
+  filter: drop-shadow(0 0 4px #0006);
 }
 .bandit-outline-dash {
   stroke: #fff;
@@ -540,20 +540,31 @@
 .board-target {
   cursor: pointer;
 }
-.built-road,
-.building-piece {
-  filter: drop-shadow(0 2px 2px #0c1d16a6);
+/* No shadows or dark edges on pieces: a white edge keeps them clear of the art. */
+.road-edge {
+  stroke: #fff;
+  stroke-width: 17;
+  stroke-linecap: round;
+}
+.piece-edge {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+}
+.piece-windows {
+  fill: #fff;
 }
 /* Opacity-only pulses keep target boxes stable for clicks. */
 .hint-vertex {
   fill: #ffe9a0;
-  stroke: #3d3420;
+  stroke: #fff;
   stroke-width: 2.5;
   animation: target-glow 1.4s ease-in-out infinite;
 }
 .selected-setup-vertex {
   fill: var(--gold);
-  stroke: #3d2a14;
+  stroke: #fff;
   stroke-width: 3;
 }
 .hint-road {
@@ -2244,5 +2255,217 @@ g[role="button"]:focus-visible {
   }
   .icon-action-btn {
     min-height: 0;
+  }
+}
+
+/* ==========================================================================
+   Build tremor: tiles jolt away from a new road, village or city (GameBoard)
+   ========================================================================== */
+@keyframes tile-quake-a {
+  0% {
+    transform: translate(0, 0);
+  }
+  16% {
+    transform: translate(var(--qx), var(--qy));
+  }
+  38% {
+    transform: translate(calc(var(--qx) * -0.55), calc(var(--qy) * -0.55));
+  }
+  60% {
+    transform: translate(calc(var(--qx) * 0.3), calc(var(--qy) * 0.3));
+  }
+  80% {
+    transform: translate(calc(var(--qx) * -0.12), calc(var(--qy) * -0.12));
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes tile-quake-b {
+  0% {
+    transform: translate(0, 0);
+  }
+  16% {
+    transform: translate(var(--qx), var(--qy));
+  }
+  38% {
+    transform: translate(calc(var(--qx) * -0.55), calc(var(--qy) * -0.55));
+  }
+  60% {
+    transform: translate(calc(var(--qx) * 0.3), calc(var(--qy) * 0.3));
+  }
+  80% {
+    transform: translate(calc(var(--qx) * -0.12), calc(var(--qy) * -0.12));
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+/* A city also rocks the whole map once, like a heavy stone set down on the table. */
+.board-stage.city-quake-a {
+  animation: map-rock-a 900ms ease-out both;
+}
+.board-stage.city-quake-b {
+  animation: map-rock-b 900ms ease-out both;
+}
+@keyframes map-rock-a {
+  0%,
+  100% {
+    transform: none;
+  }
+  12% {
+    transform: translateY(5px) scale(0.994);
+  }
+  28% {
+    transform: translate(-4px, -3px) rotate(-0.35deg);
+  }
+  46% {
+    transform: translate(3px, 2px) rotate(0.25deg);
+  }
+  66% {
+    transform: translate(-1.5px, -1px) rotate(-0.1deg);
+  }
+}
+@keyframes map-rock-b {
+  0%,
+  100% {
+    transform: none;
+  }
+  12% {
+    transform: translateY(5px) scale(0.994);
+  }
+  28% {
+    transform: translate(-4px, -3px) rotate(-0.35deg);
+  }
+  46% {
+    transform: translate(3px, 2px) rotate(0.25deg);
+  }
+  66% {
+    transform: translate(-1.5px, -1px) rotate(-0.1deg);
+  }
+}
+
+/* ==========================================================================
+   Victory finale: dark map, glowing winner, faded rivals, fireworks (GameBoard)
+   ========================================================================== */
+.board-svg .sea-layer,
+.board-svg .tile-layer,
+.board-svg .bandit-layer {
+  transition: filter 2s ease;
+}
+/* The table under the map dims too: an inset shadow can fade in over the felt. */
+.board-panel {
+  transition: box-shadow 2s ease;
+}
+.board-panel.finale-panel {
+  box-shadow:
+    inset 0 0 0 2000px #000000b0,
+    var(--shadow-2);
+}
+.finale .board-svg .sea-layer,
+.finale .board-svg .tile-layer,
+.finale .board-svg .bandit-layer {
+  filter: brightness(0.32) saturate(0.55);
+}
+.faded-piece {
+  opacity: 0.07;
+  filter: grayscale(1);
+  transition:
+    opacity 2s ease,
+    filter 2s ease;
+}
+.winner-piece {
+  animation: winner-glow 2.4s ease-in-out 1.2s infinite;
+  filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px var(--winner-color));
+}
+@keyframes winner-glow {
+  50% {
+    filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 22px var(--winner-color))
+      drop-shadow(0 0 34px var(--winner-color));
+  }
+}
+.fireworks {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.firework {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.firework i {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0;
+}
+/* Sparks are short streaks pointing away from the burst. */
+.firework .firework-spark {
+  left: 0;
+  top: -2px;
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  transform-origin: 0 50%;
+}
+.firework-rocket {
+  background: #fff6dc;
+  box-shadow: 0 0 8px #fff6dc;
+  animation: firework-rise 4.8s ease-out infinite;
+}
+.firework-spark {
+  background: var(--winner-color);
+  box-shadow:
+    0 0 8px var(--winner-color),
+    0 0 18px var(--winner-color);
+  animation: firework-burst 4.8s ease-out infinite;
+}
+.firework-spark.spark-white {
+  background: #fff;
+  box-shadow:
+    0 0 8px #fff,
+    0 0 16px #fff;
+}
+@keyframes firework-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(260px) scaleY(2.4);
+  }
+  4% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+  22%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@keyframes firework-burst {
+  0%,
+  20% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(0) scale(1);
+  }
+  23% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateX(150px) scale(1);
+  }
+  68%,
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(185px) scale(0.3, 0.5);
   }
 }

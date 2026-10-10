@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export const STICKY_MS = 30000;
+export const STICKY_MS = 6000;
 export const FADE_MS = 700;
 
 // Events carry server timestamps. Refresh/reconnect never restarts an old timer.

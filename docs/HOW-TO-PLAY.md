@@ -158,7 +158,7 @@ The first player with an unbroken road of 5 or more segments gets 2 points. Some
 
 ## Winning
 
-The match ends the moment a player reaches 10 points on their turn. Then every screen shows the **end-of-match awards** (for example Lucky harvest, Master thief, Most robbed, Trade king, Bandit's friend, Road builder, Knight commander; ties share an award) and a chart of how the dice fell during the match.
+The match ends the moment a player reaches 10 points on their turn. First the TV plays a short victory finale with fireworks. Then every screen shows **the match in numbers** (points, roads, homes, cities, dice cards, trades, steals and knights for every player), the **end-of-match awards** (for example Lucky harvest, Master thief, Most robbed, Trade king, Bandit's friend, Road builder, Knight commander; ties share an award) and a chart of how the dice fell during the match.
 
 ## Having fun at the table
 

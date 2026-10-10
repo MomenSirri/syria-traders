@@ -145,10 +145,10 @@ It builds, then serves plain HTTP on `0.0.0.0:8080` with the smart-TV port off. 
 - "Anyone have...?" requests: a player waiting for their turn posts what they need and what they give for it. It shows on the TV and every phone, and whoever is playing can take it with one tap after rolling. One request per player; it ends when taken, taken back, or when its owner's turn starts.
 - Reactions: a seated phone's 😀 button sends an emoji or a short line ("Nice try!", "Trade with me!"...). It rises over the sender's card on the TV and other phones for a few seconds. Reactions are never saved and never change the match revision, so they can't block a move.
 - Sounds: the TV plays dice, payouts, the bandit, steals, trades, builds, cards, awards, the win and reactions (toggle in its header; browsers stay silent until the screen is first touched or a remote key is pressed). Phones play the same sounds when their Sound button is on.
-- When a match ends, the TV and phones show awards (Lucky harvest, Master thief, Most robbed, Trade king, Bandit's friend, Road builder, Knight commander; ties share) and a chart of how the dice fell. They count only public events; saves from before awards count from their next move.
+- When a match ends, the victory finale plays for 7 seconds (the map darkens, the winner's pieces glow, rivals' pieces fade, fireworks). Then the TV and phones show the match in numbers (a table of points, roads, homes, cities, dice cards, trades, steals and knights for every player, plus turns and rolls), awards (Lucky harvest, Master thief, Most robbed, Trade king, Bandit's friend, Road builder, Knight commander; ties share) and a chart of how the dice fell. They count only public events; saves from before awards count from their next move.
 - Development card hands are private like resources: other phones and the TV see only each player's card count and knights played. Saves from before development cards load with a fresh deck.
 
-Gain badges stay beside resource counts for **30 seconds**, fade over 700 ms, then clear. Simultaneous resources use separate rows. Repeated gains aggregate while each event retains its expiry. Dice production also briefly lights up producing tiles. Uploaded art locks after setup.
+Gain badges stay beside resource counts for **6 seconds**, fade over 700 ms, then clear. Simultaneous resources use separate rows. Repeated gains aggregate while each event retains its expiry. Dice production also briefly lights up producing tiles. Uploaded art locks after setup.
 
 ## Saves and Recovery
 
@@ -184,7 +184,7 @@ client/
       TableStatus.jsx       TV screen turn summary, bank and building costs
       TradePanel.jsx        Player-to-player trade requests, offers and "Anyone have...?"
       Reactions.jsx         Reaction button and the bubbles over player cards
-      MatchSummary.jsx      End-of-match awards and dice chart
+      MatchSummary.jsx      End-of-match numbers table, awards and dice chart
       SeatHand.jsx          Phone strip with your own hand
       QrCode.jsx            Invite link as an SVG QR code
       GameBoard.jsx         SVG map, ports, placement targets
