@@ -133,6 +133,12 @@
   .table-view .players-4 .player-dev-row {
     justify-content: center;
   }
+  /* A card with dev cards or a badge is one line taller: the score bar alone
+     says how close they are, so the text above it steps aside. */
+  .table-view .players-3 .player-card:has(.player-dev-row) .player-card-footer > span,
+  .table-view .players-4 .player-card:has(.player-dev-row) .player-card-footer > span {
+    display: none;
+  }
   /* Two narrow columns for five or six merchants: drop the portrait so names fit. */
   .table-view .players-5 .player-header,
   .table-view .players-6 .player-header {
@@ -329,6 +335,47 @@
 /* Phone seat: own hand first. The strip only appears on narrow screens. */
 .seat-hand {
   display: none;
+}
+@media (min-width: 1200px) and (max-width: 1279px) {
+  .table-view .players-3 .player-dev-row .dev-mini,
+  .table-view .players-4 .player-dev-row .dev-mini {
+    display: none;
+  }
+}
+/* Narrower TV screens: the stat icon sits above its label so the tiles never crowd. */
+@media (min-width: 1200px) and (max-width: 1599px) {
+  .table-view .players-3 .stat-label,
+  .table-view .players-4 .stat-label {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11px;
+  }
+  .table-view .players-3 .player-structure-row > span,
+  .table-view .players-4 .player-structure-row > span {
+    padding: 3px 2px;
+  }
+  .table-view .players-3 .player-structure-row b,
+  .table-view .players-4 .player-structure-row b {
+    font-size: 18px;
+  }
+  .table-view .players-3 .player-dev-row,
+  .table-view .players-4 .player-dev-row {
+    gap: 2px 5px;
+    font-size: 11px;
+  }
+  .table-view .players-3 .army-badge,
+  .table-view .players-4 .army-badge {
+    padding: 0 4px;
+  }
+  .table-view .players-3 .badge-long,
+  .table-view .players-4 .badge-long {
+    display: none;
+  }
+  .table-view .players-3 .player-card,
+  .table-view .players-4 .player-card {
+    gap: 4px;
+    padding-block: var(--sp-2);
+  }
 }
 @media (max-width: 700px) {
   .seat-view .seat-hand {
@@ -1369,8 +1416,8 @@
   inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
   z-index: var(--z-banner);
-  width: min(760px, 94%);
-  max-height: 94%;
+  width: min(1040px, 96%);
+  max-height: 96%;
   overflow-y: auto;
 }
 .summary-winner {
@@ -1389,6 +1436,104 @@
 .summary-winner > span:last-child {
   color: var(--gold-soft);
   font-weight: 700;
+}
+.summary-winner small {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.summary-table {
+  display: grid;
+  gap: var(--sp-2);
+  overflow-x: auto;
+}
+.summary-table .eyebrow,
+.summary-columns .eyebrow {
+  color: var(--gold);
+}
+.summary-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.summary-table th,
+.summary-table td {
+  padding: var(--sp-2) var(--sp-2);
+  text-align: center;
+  white-space: nowrap;
+}
+.summary-table thead th {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+.summary-table thead th:first-child,
+.summary-table tbody th {
+  text-align: left;
+}
+.summary-table tbody tr {
+  border-top: 1px solid var(--border);
+  animation: panel-in var(--dur-slow) var(--ease) both;
+}
+.summary-table tbody tr:nth-child(2) {
+  animation-delay: 150ms;
+}
+.summary-table tbody tr:nth-child(3) {
+  animation-delay: 300ms;
+}
+.summary-table tbody tr:nth-child(n + 4) {
+  animation-delay: 450ms;
+}
+.summary-table tbody tr:first-child {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--player-color) 26%, transparent),
+    transparent 70%
+  );
+}
+.summary-table tbody th {
+  font-weight: 800;
+  color: var(--text);
+}
+.summary-table td {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.summary-table td:nth-child(2) {
+  color: var(--text);
+  font-weight: 800;
+}
+.summary-table td.best {
+  color: var(--gold);
+  font-weight: 800;
+}
+.summary-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: var(--sp-2);
+  border-radius: 50%;
+  background: var(--player-color);
+  color: #fff;
+  font: 800 var(--fs-xs) / 1 var(--font-ui);
+  font-style: normal;
+  vertical-align: middle;
+}
+.summary-columns {
+  display: grid;
+  gap: var(--sp-4);
+  align-items: start;
+}
+.summary-columns > * {
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .summary-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }
 .summary-awards {
   list-style: none;
@@ -1455,7 +1600,7 @@
 }
 .dice-bars {
   display: grid;
-  grid-template-columns: repeat(11, 1fr);
+  grid-template-columns: repeat(11, minmax(0, 1fr));
   gap: 4px;
   height: 150px;
 }
@@ -1494,7 +1639,10 @@
   height: 0;
   border-top: 2px dashed #ffffff55;
 }
-.dice-total {
+/* Not the header's dice total: no minimum width, so twelve totals fit. */
+.dice-bar .dice-total {
+  min-width: 0;
+  margin-left: 0;
   font-weight: 800;
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -1515,12 +1663,90 @@
   }
 }
 .on-table .summary-awards b {
-  font-size: clamp(20px, 2.6vh, 28px);
+  font-size: clamp(18px, 2.2vh, 24px);
+}
+.on-table .summary-table th,
+.on-table .summary-table td {
+  font-size: clamp(16px, 2vh, 22px);
+}
+.on-table .summary-table thead th {
+  font-size: clamp(11px, 1.3vh, 14px);
 }
 .on-table .dice-bars {
   height: clamp(140px, 20vh, 220px);
 }
+/* On a smaller TV screen the board panel is small: the summary takes the whole
+   screen, and on a short screen everything packs tighter so nothing needs a scroll. */
+@media (min-width: 701px) and (max-width: 1199px) {
+  .table-view .dashboard-board .match-summary {
+    position: fixed;
+    width: 96vw;
+    max-height: 96vh;
+  }
+}
+@media (min-width: 701px) and (max-height: 820px) {
+  .match-summary.on-table {
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .on-table .summary-winner strong {
+    font-size: 34px;
+  }
+  .on-table .summary-table th,
+  .on-table .summary-table td {
+    padding: 3px var(--sp-2);
+    font-size: 15px;
+  }
+  .on-table .summary-table thead th {
+    font-size: 10px;
+  }
+  .on-table .summary-rank {
+    width: 18px;
+    height: 18px;
+  }
+  .on-table .summary-columns {
+    gap: var(--sp-3);
+  }
+  .on-table .summary-awards {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 4px;
+  }
+  .on-table .summary-awards li {
+    padding: 4px var(--sp-2);
+    gap: 0;
+  }
+  .on-table .summary-awards b {
+    font-size: 15px;
+  }
+  .on-table .summary-awards small {
+    font-size: 11px;
+  }
+  .on-table .dice-bars {
+    height: 120px;
+  }
+}
 @media (max-width: 700px) {
+  /* A phone keeps the headline numbers; homes, cities and knights are on the cards. */
+  .summary-table th:nth-child(4),
+  .summary-table th:nth-child(5),
+  .summary-table th:nth-child(9),
+  .summary-table td:nth-child(4),
+  .summary-table td:nth-child(5),
+  .summary-table td:nth-child(9) {
+    display: none;
+  }
+  .summary-table th,
+  .summary-table td {
+    padding: var(--sp-1) 3px;
+    font-size: 14px;
+  }
+  .summary-table thead th {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+  .summary-rank {
+    display: none;
+  }
   .dashboard-board .match-summary {
     position: static;
     transform: none;

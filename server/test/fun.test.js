@@ -360,6 +360,12 @@ test("the finished match lists awards and the dice chart, counting only public e
   assert.deepEqual(award("harvest").playerIds.sort(), [nour, yazan].sort(), "ties share");
   assert.equal(award("trader").value, 1);
   assert.equal(award("knight"), undefined, "no award for zero");
+  const rows = state.summary.players;
+  assert.equal(rows.length, 3, "a row for every player");
+  assert.equal(rows[0].playerId, nour, "the winner leads the table");
+  assert.equal(rows[0].steals, 2);
+  assert.equal(rows.find((row) => row.playerId === yazan).trades, 1);
+  assert.ok(rows.every((row) => row.roads > 0 && !("resources" in row)), "public counts only");
 });
 
 let server, base;

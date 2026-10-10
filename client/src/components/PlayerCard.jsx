@@ -120,8 +120,16 @@ export default memo(function PlayerCard({
           <span title="Knights played">
             Knights <b>{player.knightsPlayed || 0}</b>
           </span>
-          {largestArmy && <em className="army-badge">Largest Army +2</em>}
-          {longestRoad && <em className="army-badge road-badge">Longest Road +2</em>}
+          {largestArmy && (
+            <em className="army-badge">
+              <span className="badge-long">Largest </span>Army +2
+            </em>
+          )}
+          {longestRoad && (
+            <em className="army-badge road-badge">
+              <span className="badge-long">Longest </span>Road +2
+            </em>
+          )}
         </div>
       )}
       {player.resources ? (
