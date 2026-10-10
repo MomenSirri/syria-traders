@@ -14,9 +14,11 @@ const NEIGHBOR_STEPS = [
 ];
 
 // The classic 19-hex map seats up to four; the 30-hex map is used by 5 and 6
-// player rooms. Saves without a board size are classic.
+// player rooms, and 7 or 8 players add Tunisian cities for a 44-hex map. Each
+// bigger map keeps every region of the smaller ones. Saves without a board size
+// are classic.
 function boardSpec(size = "standard") {
-  if (size !== "large") {
+  if (size !== "large" && size !== "xl") {
     return {
       size: "standard",
       boardLayout: config.boardLayout,
@@ -26,16 +28,22 @@ function boardSpec(size = "standard") {
     };
   }
   const large = config.largeBoard;
+  const board = size === "xl" ? config.extraLargeBoard : large;
   return {
-    size: "large",
-    boardLayout: large.boardLayout,
-    regions: [...config.regions, ...large.extraRegions],
-    numberTokens: large.numberTokens,
-    harborTypes: large.harborTypes,
+    size,
+    boardLayout: board.boardLayout,
+    regions: [
+      ...config.regions,
+      ...large.extraRegions,
+      ...(size === "xl" ? board.extraRegions : []),
+    ],
+    numberTokens: board.numberTokens,
+    harborTypes: board.harborTypes,
   };
 }
 
-const boardSizeFor = (maxPlayers) => (maxPlayers > 4 ? "large" : "standard");
+const boardSizeFor = (maxPlayers) =>
+  maxPlayers > 6 ? "xl" : maxPlayers > 4 ? "large" : "standard";
 
 function axialToPixel(q, r) {
   return {

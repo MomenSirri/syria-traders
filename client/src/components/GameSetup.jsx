@@ -58,7 +58,7 @@ const rowsOf = (layout) =>
       layout.map((coord, index) => ({ ...coord, index })).filter((coord) => coord.r === r),
     );
 const regions = Object.fromEntries(
-  boardSpec("large").regions.map((region) => [region.name, region]),
+  boardSpec("xl").regions.map((region) => [region.name, region]),
 );
 
 export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy, error }) {
@@ -176,7 +176,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
       mode: draft.mode,
       playerNames: names,
       playerProfiles: names.map((_, i) => ({ avatar: draft.avatars[i] })),
-      maxPlayers: network ? seats : names.length > 4 ? 6 : 4,
+      maxPlayers: network ? seats : names.length > 6 ? 8 : names.length > 4 ? 6 : 4,
       regionOrder: draft.regionOrder,
       numberOrder: draft.balanced ? null : draft.numberOrder,
       harborOrder: draft.harborOrder,
@@ -231,7 +231,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                 ? "Show the whole table on a big screen. Players join and play on their own phones; their hands never appear here."
                 : network
                   ? "Each player joins from their own browser. Your resource hand stays private."
-                  : "Pass the screen between 2 to 6 players. Everyone's hand is visible."}
+                  : "Pass the screen between 2 to 8 players. Everyone's hand is visible."}
             </p>
             {!tv && (
               <div className="setup-player-list">
@@ -308,11 +308,12 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
               <label className="room-field">
                 Seats
                 <select
-                  value={draft.seats > 4 ? 6 : 4}
+                  value={draft.seats > 6 ? 8 : draft.seats > 4 ? 6 : 4}
                   onChange={(event) => update({ seats: Number(event.target.value) })}
                 >
                   <option value={4}>Up to 4 players (classic map)</option>
                   <option value={6}>Up to 6 players (large map)</option>
+                  <option value={8}>Up to 8 players (Syria and Tunisia map)</option>
                 </select>
               </label>
             )}
@@ -400,7 +401,7 @@ export default function GameSetup({ onCreateGame, onJoinGame, onWatchGame, busy,
                   ? "Choose another territory to exchange its position."
                   : "Drag territories to rearrange. Select one to change its artwork."}
             </p>
-            <div className={`arrangement-rows ${spec.size === "large" ? "large-map" : ""}`}>
+            <div className={`arrangement-rows ${spec.size === "standard" ? "" : `${spec.size}-map`}`}>
               {(mapMatches ? rows : []).map((row, i) => (
                 <div className="arrangement-row" key={i}>
                   {row.map(({ index }) => {

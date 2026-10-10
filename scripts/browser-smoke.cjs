@@ -1057,6 +1057,41 @@ async function checkForgottenTabs(base) {
   }
   console.log("PASS six players on the large map, setup to first turn, cards fit");
 
+  // Seven or eight players add Tunisian cities for a 44-territory map.
+  const eight = await pageFor(base);
+  for (let i = 3; i <= 8; i++) {
+    await eight.getByRole("button", { name: "+ Add player", exact: true }).click();
+    await eight.getByLabel(`Player ${i} name`).fill(`Merchant ${i}`);
+  }
+  await eight.getByText("44 territories / 13 ports").waitFor();
+  assert.equal(await eight.locator(".arrangement-tile").count(), 44);
+  await eight.screenshot({ path: path.join(output, "setup-eight-players.png") });
+  await eight.getByRole("button", { name: "Begin the journey" }).click();
+  await settled(eight);
+  await rollForOrder([eight]);
+  assert.equal(await eight.locator(".tile-layer .tile-group").count(), 44);
+  assert.equal(await eight.locator(".player-card").count(), 8);
+  for (let i = 0; i < 16; i++) await place(eight);
+  assert.equal((await snapshot(eight)).phase, "main");
+  for (const [width, height] of [
+    [1920, 1080],
+    [1280, 720],
+  ]) {
+    await eight.setViewportSize({ width, height });
+    await eight.screenshot({ path: path.join(output, `eight-players-${width}.png`) });
+    const overflow = await eight
+      .locator(".player-card")
+      .evaluateAll((cards) =>
+        cards.filter(
+          (card) =>
+            card.querySelector(".player-card-footer").getBoundingClientRect().bottom >
+            card.getBoundingClientRect().bottom - 3,
+        ),
+      );
+    assert.equal(overflow.length, 0, `Eight player cards overflow at ${width}x${height}`);
+  }
+  console.log("PASS eight players on the Tunisia map, setup to first turn, cards fit");
+
   // The smart-TV address invites phones to the HTTPS host, so it only applies with HTTPS on.
   if (useHttps) await checkSmartTv(base);
   else console.log("SKIP smart-TV address (needs the HTTPS host; covered by the HTTPS run)");

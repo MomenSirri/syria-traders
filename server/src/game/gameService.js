@@ -840,7 +840,7 @@ function createGame({
     throw createError(`Choose a maximum of ${config.minPlayers} to ${config.maxPlayers} players.`);
   }
   const names = normalizeNames(playerNames);
-  // Five and six players need the larger map.
+  // Five and six players need the larger map; seven and eight add Tunisia.
   const spec = boardSpec(boardSizeFor(boundedMaxPlayers));
   const normalizedOrder = normalizeRegionOrder(regionOrder, spec);
   const normalizedNumberOrder = normalizeNumberOrder(numberOrder, spec);

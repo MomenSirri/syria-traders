@@ -77,7 +77,9 @@
     grid-auto-rows: minmax(0, 1fr);
   }
   .table-view .player-list.players-5,
-  .table-view .player-list.players-6 {
+  .table-view .player-list.players-6,
+  .table-view .player-list.players-7,
+  .table-view .player-list.players-8 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-auto-rows: minmax(0, 1fr);
   }
@@ -1903,4 +1905,11 @@
   justify-content: center;
   width: 100%;
   min-height: 52px;
+}
+/* Eight seats on a smaller TV: the two card columns are narrow, so trim the sides. */
+@media (min-width: 1200px) and (max-width: 1599px) {
+  .table-view .players-7 .player-card,
+  .table-view .players-8 .player-card {
+    padding-inline: var(--sp-2);
+  }
 }

@@ -1,6 +1,6 @@
 {
   "gameTitle": "Syria Traders",
-  "maxPlayers": 6,
+  "maxPlayers": 8,
   "minPlayers": 2,
   "winPoints": 10,
   "resources": ["wheat", "wood", "stone", "brick", "sheep"],
@@ -21,7 +21,7 @@
     "desert": "#d9bf8e",
     "sea": "#4a7f98"
   },
-  "playerColors": ["#c74e3d", "#2a7b9b", "#8f5fb3", "#e0a629", "#3f8f5f", "#c2577f"],
+  "playerColors": ["#c74e3d", "#2a7b9b", "#8f5fb3", "#e0a629", "#3f8f5f", "#c2577f", "#8b5a34", "#3d4fb0"],
   "buildingCosts": {
     "road": {
       "wood": 1,
@@ -306,6 +306,131 @@
         "name": "Al-Hamad",
         "resource": "desert",
         "flavor": "A wide stony plateau where only caravans pass."
+      }
+    ]
+  },
+  "extraLargeBoard": {
+    "note": "Used by 7 and 8 player rooms. Tunisian cities join the large map's 30 territories.",
+    "boardLayout": [
+      { "q": -1, "r": -3 },
+      { "q": 0, "r": -3 },
+      { "q": 1, "r": -3 },
+      { "q": 2, "r": -3 },
+      { "q": 3, "r": -3 },
+      { "q": -2, "r": -2 },
+      { "q": -1, "r": -2 },
+      { "q": 0, "r": -2 },
+      { "q": 1, "r": -2 },
+      { "q": 2, "r": -2 },
+      { "q": 3, "r": -2 },
+      { "q": -3, "r": -1 },
+      { "q": -2, "r": -1 },
+      { "q": -1, "r": -1 },
+      { "q": 0, "r": -1 },
+      { "q": 1, "r": -1 },
+      { "q": 2, "r": -1 },
+      { "q": 3, "r": -1 },
+      { "q": -4, "r": 0 },
+      { "q": -3, "r": 0 },
+      { "q": -2, "r": 0 },
+      { "q": -1, "r": 0 },
+      { "q": 0, "r": 0 },
+      { "q": 1, "r": 0 },
+      { "q": 2, "r": 0 },
+      { "q": 3, "r": 0 },
+      { "q": -4, "r": 1 },
+      { "q": -3, "r": 1 },
+      { "q": -2, "r": 1 },
+      { "q": -1, "r": 1 },
+      { "q": 0, "r": 1 },
+      { "q": 1, "r": 1 },
+      { "q": 2, "r": 1 },
+      { "q": -4, "r": 2 },
+      { "q": -3, "r": 2 },
+      { "q": -2, "r": 2 },
+      { "q": -1, "r": 2 },
+      { "q": 0, "r": 2 },
+      { "q": 1, "r": 2 },
+      { "q": -4, "r": 3 },
+      { "q": -3, "r": 3 },
+      { "q": -2, "r": 3 },
+      { "q": -1, "r": 3 },
+      { "q": 0, "r": 3 }
+    ],
+    "numberTokens": [
+      2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 12, 12, 12
+    ],
+    "harborTypes": ["3:1", "3:1", "3:1", "3:1", "3:1", "3:1", "Wheat", "Wheat", "Wood", "Stone", "Brick", "Sheep", "Sheep"],
+    "extraRegions": [
+      {
+        "name": "Beja",
+        "resource": "wheat",
+        "flavor": "Tunisia's breadbasket of rolling golden hills."
+      },
+      {
+        "name": "Jendouba",
+        "resource": "wheat",
+        "flavor": "Medjerda valley wheat around the ruins of Bulla Regia."
+      },
+      {
+        "name": "Le Kef",
+        "resource": "wheat",
+        "flavor": "A hilltop fortress town above the high grain plains."
+      },
+      {
+        "name": "Tabarka",
+        "resource": "wood",
+        "flavor": "Cork oak forests running down to a coral coast."
+      },
+      {
+        "name": "Ain Draham",
+        "resource": "wood",
+        "flavor": "Misty Kroumirie mountains thick with cork oak."
+      },
+      {
+        "name": "Carthage",
+        "resource": "stone",
+        "flavor": "An ancient harbour city of columns and sea-worn stone."
+      },
+      {
+        "name": "Dougga",
+        "resource": "stone",
+        "flavor": "A Roman hill town of honey-coloured stone."
+      },
+      {
+        "name": "El Djem",
+        "resource": "stone",
+        "flavor": "A giant Roman amphitheatre rising from the olive plain."
+      },
+      {
+        "name": "Tozeur",
+        "resource": "brick",
+        "flavor": "An oasis town of patterned sun-dried brick."
+      },
+      {
+        "name": "Nabeul",
+        "resource": "brick",
+        "flavor": "A potters' town famous for its glazed clay."
+      },
+      {
+        "name": "Djerba",
+        "resource": "brick",
+        "flavor": "An island of clay jars and potters' kilns."
+      },
+      {
+        "name": "Kasserine",
+        "resource": "sheep",
+        "flavor": "High steppe pastures below Jebel Chambi."
+      },
+      {
+        "name": "Sbeitla",
+        "resource": "sheep",
+        "flavor": "Spring pastures around old Roman arches."
+      },
+      {
+        "name": "Douz",
+        "resource": "desert",
+        "flavor": "The gateway to the Sahara's great dunes."
       }
     ]
   }

@@ -27,6 +27,10 @@ const sheep = (x, y, s, flip = false) =>
   `<g transform="translate(${x} ${y}) scale(${flip ? -s : s} ${s})"><path d="M-11 6v10M-3 6v10M5 6v10M11 6v10" stroke="#3b3326" stroke-width="3.2"/><ellipse cx="0" cy="0" rx="17" ry="11" fill="#fbf6e9"/><circle cx="-9" cy="-6" r="7" fill="#fbf6e9"/><circle cx="6" cy="-7" r="8" fill="#fbf6e9"/><ellipse cx="19" cy="-3" rx="6" ry="7.5" fill="#3b3326"/></g>`;
 const camel = (x, y, s, c) =>
   `<g transform="translate(${x} ${y}) scale(${s})" fill="${c}"><path d="M-22 0c0-10 6-16 12-16 4 0 6-8 12-8s8 8 10 10l6-6c3-3 8-2 8 2l-4 4-6 10c-2 4-4 6-8 6H-18z"/><path d="M-18 0h3v20h-3zM-8 0h3v20h-3zM6 0h3v20H6zM14 0h3v20h-3z"/></g>`;
+const palm = (x, y, s, c, trunk = "#8a6a44") =>
+  `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-2 0q-2-26 2-46h3q-2 22 1 46Z" fill="${trunk}"/><g fill="${c}"><path d="M1-46q-20-6-30 8 14-4 30-6Z"/><path d="M1-46q20-6 30 8-14-4-30-6Z"/><path d="M1-46q-12-16-28-12 16 2 28 14Z"/><path d="M1-46q12-16 28-12-16 2-28 14Z"/><path d="M1-46q-2-14 4-20 0 10-2 20Z"/></g></g>`;
+const jar = (x, y, s, c) =>
+  `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-7-30h14v5q12 6 12 18 0 10-8 17H-11q-8-7-8-17 0-12 12-18Z" fill="${c}"/><path d="M-13-6h26" stroke="#f0cfb0" stroke-width="2.5" opacity=".7"/></g>`;
 const waves = (y, c, amp = 6) =>
   `<path d="M-10 ${y}q20 -${amp} 40 0t40 0t40 0t40 0t40 0t40 0t40 0t40 0t40 0" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>`;
 const wheatRows = (y0, c1, c2) =>
@@ -463,6 +467,175 @@ ${bricks(30, 238, 100, 40, "#a85e38", "#f0cfb0")}
 <path d="M-10 214h340V330H-10Z" fill="#c8915a"/>
 <g fill="#8d6239"><ellipse cx="40" cy="236" rx="12" ry="5"/><ellipse cx="120" cy="252" rx="8" ry="4"/><ellipse cx="210" cy="240" rx="10" ry="4"/><ellipse cx="290" cy="262" rx="12" ry="5"/><ellipse cx="70" cy="290" rx="9" ry="4"/><ellipse cx="180" cy="300" rx="12" ry="5"/></g>
 ${camel(240, 140, 0.9, "#6b4a2c")}${camel(286, 144, 0.75, "#6b4a2c")}`,
+    ),
+  // ---- Tunisian cities that join the 44-territory map for 7 and 8 players ----
+  Beja: () =>
+    svg(
+      "#f3dc8e",
+      `${sun(256, 62, 24, "#fff1bf")}
+<path d="M0 132Q70 92 150 124T330 112V330H0Z" fill="#d9b54f"/>
+<!-- Rolling hills of the Tunisian breadbasket, with a Roman bridge over the wadi -->
+<g fill="#d8c7a0"><path d="M18 136V104h104v32h-8v-12a14 14 0 0 0-28 0v12h-12v-12a14 14 0 0 0-28 0v12Z"/><rect x="14" y="98" width="112" height="8"/></g>
+<path d="M-10 146Q60 138 140 148" fill="none" stroke="#4f93a0" stroke-width="7"/>
+${wheatRows(178, "#e8c862", "#c99c34")}
+${olive(268, 132, 0.9, "#7d8a3c")}
+${stalks(46, 304, "#a57c22")}${stalks(276, 300, "#a57c22")}`,
+    ),
+  Jendouba: () =>
+    svg(
+      "#f1d78a",
+      `<path d="M0 120Q90 96 180 116T330 108V330H0Z" fill="#cfa847"/>
+<!-- Bulla Regia's column stumps above the Medjerda valley wheat -->
+<g fill="#e3d3ae"><rect x="26" y="70" width="12" height="50"/><rect x="50" y="84" width="12" height="36"/><rect x="74" y="64" width="12" height="56"/><rect x="20" y="64" width="72" height="8"/></g>
+${olive(250, 118, 1.1, "#7d8a3c")}${olive(292, 112, 0.85, "#6b7a32")}
+<path d="M-10 156Q120 140 180 158T340 150V176Q200 186 140 172T-10 180Z" fill="#4f93a0"/>
+${waves(166, "#9fd1d4", 3)}
+${wheatRows(200, "#e8c862", "#c99c34")}
+${stalks(150, 310, "#a57c22")}`,
+    ),
+  "Le Kef": () =>
+    svg(
+      "#f4dd96",
+      `${sun(254, 58, 20, "#fff3c8")}
+<!-- The kasbah walls of Le Kef on its rocky hill above the high plains -->
+<path d="M0 150Q20 70 80 64T170 150Z" fill="#b8a07a"/>
+<g fill="#e3cfa4"><rect x="34" y="70" width="96" height="30"/><rect x="28" y="56" width="20" height="44"/><rect x="116" y="56" width="20" height="44"/></g>
+<g fill="#c9b07e"><rect x="28" y="50" width="6" height="8"/><rect x="42" y="50" width="6" height="8"/><rect x="116" y="50" width="6" height="8"/><rect x="130" y="50" width="6" height="8"/></g>
+<path d="M0 148h330V330H0Z" fill="#d4ab45"/>
+${wheatRows(170, "#e9c65d", "#c79a2f")}
+${stalks(60, 306, "#9a7320")}${stalks(262, 304, "#9a7320")}`,
+    ),
+  Tabarka: () =>
+    svg(
+      "#cfe4e6",
+      `<path d="M0 110Q60 60 130 90T200 120V200H0Z" fill="#3e8257"/>
+<!-- Cork oak hills meeting the coral coast and the Genoese fort on its rock -->
+${olive(30, 120, 1.15, "#1f5440", "#a8653a")}${olive(80, 108, 1, "#2b6a4a", "#a8653a")}${olive(130, 122, 0.95, "#1f5440", "#a8653a")}
+<path d="M-10 170Q160 150 340 166V330H-10Z" fill="#3a7fa0"/>
+${waves(196, "#9fd1d4", 4)}${waves(236, "#7fbfd0", 4)}
+<path d="M222 200q30-70 64-70t50 70Z" fill="#8f8a7a"/>
+<g fill="#d8c7a0"><rect x="238" y="104" width="62" height="30"/><rect x="232" y="92" width="16" height="42"/><rect x="290" y="92" width="16" height="42"/></g>
+<g fill="#c4b088"><rect x="232" y="86" width="6" height="8"/><rect x="244" y="86" width="6" height="8"/><rect x="290" y="86" width="6" height="8"/><rect x="302" y="86" width="6" height="8"/></g>
+<path d="M20 290h70l-10 14H30Z" fill="#f2ecdc"/><path d="M54 290v-34l22 30Z" fill="#fbf6e9"/>`,
+    ),
+  "Ain Draham": () =>
+    svg(
+      "#d5e4e4",
+      `<path d="M0 100L60 50 120 90 190 40 260 96 330 60V330H0Z" fill="#5f8a74"/>
+<!-- Misty Kroumirie mountains thick with cork oak, and a red-roofed chalet -->
+<path d="M-10 136Q100 118 200 136T340 130V160Q220 156 120 164T-10 158Z" fill="#eef4f2" opacity=".85"/>
+${olive(34, 138, 1.2, "#1f5440", "#a8653a")}${olive(286, 134, 1.25, "#2b6a4a", "#a8653a")}
+<path d="M0 180Q80 164 160 178T330 170V330H0Z" fill="#3e8257"/>
+<rect x="132" y="226" width="56" height="38" fill="#efe5cf"/><path d="M124 228l36-26 36 26Z" fill="#b8693f"/><rect x="152" y="242" width="14" height="22" fill="#6b4a2c"/>
+${olive(54, 300, 1, "#245a42", "#a8653a")}${olive(270, 304, 1.05, "#1f5440", "#a8653a")}`,
+    ),
+  Carthage: () =>
+    svg(
+      "#dfe6ea",
+      `${sun(70, 60, 20, "#fff6dc")}
+<!-- Carthage: tall Roman columns above its old round harbour -->
+<g fill="#e7dfc9"><rect x="196" y="52" width="14" height="96"/><rect x="228" y="40" width="14" height="108"/><rect x="260" y="60" width="14" height="88"/><rect x="190" y="46" width="58" height="8"/></g>
+<g fill="#aab6c6"><rect x="192" y="144" width="86" height="8"/></g>
+<path d="M0 150Q100 132 200 148T330 144V200H0Z" fill="#aab6c6"/>
+<path d="M-10 196Q160 180 340 196V330H-10Z" fill="#3a7fa0"/>
+<circle cx="160" cy="262" r="40" fill="none" stroke="#e7dfc9" stroke-width="10"/><circle cx="160" cy="262" r="12" fill="#e7dfc9"/>
+${waves(220, "#9fd1d4", 4)}
+<g fill="#7c8a8f"><rect x="30" y="286" width="40" height="18"/><rect x="250" y="292" width="44" height="16"/></g>`,
+    ),
+  Dougga: () =>
+    svg(
+      "#e6dfca",
+      `${sun(70, 58, 20, "#fff6dc")}
+<path d="M0 150Q90 96 200 120T330 112V330H0Z" fill="#b9ad8e"/>
+<!-- Dougga's honey-coloured Capitol: four columns under a pediment on the hilltop -->
+<g fill="#e3cfa0"><path d="M188 66l52-26 52 26Z"/><rect x="190" y="66" width="100" height="8"/><rect x="196" y="74" width="12" height="54"/><rect x="222" y="74" width="12" height="54"/><rect x="246" y="74" width="12" height="54"/><rect x="272" y="74" width="12" height="54"/><rect x="186" y="126" width="108" height="10"/></g>
+${olive(46, 140, 0.9, "#6b7a32")}
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#9aa39a"/>
+<g fill="#e7dfc9"><rect x="30" y="246" width="40" height="22"/><rect x="76" y="256" width="30" height="16"/><rect x="236" y="250" width="46" height="24"/></g>
+<g fill="#7c8a8f"><rect x="44" y="290" width="34" height="16"/><rect x="250" y="292" width="38" height="16"/></g>`,
+    ),
+  "El Djem": () =>
+    svg(
+      "#ece2c8",
+      `${sun(254, 56, 20, "#fff6dc")}
+<!-- The great Roman amphitheatre of El Djem: stacked rows of arches -->
+<path d="M0 150Q100 140 200 150T330 146V330H0Z" fill="#c9bf9f"/>
+<path d="M14 150V64q66-22 132 0v86Z" fill="#e3cfa0"/>
+<g fill="#a89a77"><rect x="24" y="74" width="12" height="18" rx="6"/><rect x="44" y="70" width="12" height="18" rx="6"/><rect x="64" y="68" width="12" height="18" rx="6"/><rect x="84" y="68" width="12" height="18" rx="6"/><rect x="104" y="70" width="12" height="18" rx="6"/><rect x="124" y="74" width="12" height="18" rx="6"/>
+<rect x="24" y="104" width="12" height="20" rx="6"/><rect x="44" y="102" width="12" height="20" rx="6"/><rect x="64" y="100" width="12" height="20" rx="6"/><rect x="84" y="100" width="12" height="20" rx="6"/><rect x="104" y="102" width="12" height="20" rx="6"/><rect x="124" y="104" width="12" height="20" rx="6"/></g>
+${olive(220, 236, 1.1, "#7a8a5a")}${olive(282, 246, 0.95, "#6b7a4a")}
+<g fill="#7c8a8f"><rect x="34" y="266" width="44" height="20"/><rect x="88" y="280" width="30" height="16"/></g>`,
+    ),
+  Tozeur: () =>
+    svg(
+      "#f2d6bb",
+      `${sun(70, 58, 20, "#fff1dc")}
+<!-- Tozeur's patterned brick facades beside the palm oasis -->
+${bricks(176, 64, 130, 86, "#c9824f", "#f0cfb0")}
+<g fill="#a85e38"><path d="M196 86l10-10 10 10-10 10Z"/><path d="M226 86l10-10 10 10-10 10Z"/><path d="M256 86l10-10 10 10-10 10Z"/><path d="M286 86l10-10 10 10-10 10Z" opacity=".8"/></g>
+<rect x="228" y="112" width="26" height="38" rx="13" fill="#5a2e1a"/>
+${palm(46, 150, 1.1, "#3e8257")}${palm(100, 144, 0.9, "#4f9161")}
+<path d="M0 150h330V330H0Z" fill="#dd9572"/>
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#c98258"/>
+${palm(40, 300, 0.85, "#3e8257")}${palm(286, 306, 0.9, "#4f9161")}`,
+    ),
+  Nabeul: () =>
+    svg(
+      "#f1d3b6",
+      `${sun(250, 58, 20, "#fff1dc")}
+<!-- A potters' town: white walls, blue doors and glazed clay jars -->
+<g fill="#f6efe2"><rect x="16" y="82" width="70" height="68"/><rect x="86" y="104" width="54" height="46"/></g>
+<rect x="38" y="112" width="22" height="38" rx="11" fill="#2f6fa6"/><rect x="104" y="118" width="16" height="16" fill="#2f6fa6"/>
+<path d="M0 150Q100 136 200 150T330 144V330H0Z" fill="#dd9572"/>
+${jar(212, 128, 1.1, "#b8693f")}${jar(254, 132, 0.9, "#2f6fa6")}${jar(290, 130, 1, "#b8693f")}
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#c98258"/>
+${jar(52, 286, 1.2, "#a85e38")}${jar(94, 292, 0.9, "#e0b35a")}${jar(240, 290, 1.1, "#a85e38")}${jar(282, 296, 0.85, "#2f6fa6")}`,
+    ),
+  Djerba: () =>
+    svg(
+      "#f2d6bb",
+      `<!-- Djerba: an island potter's workshop and clay jars by a turquoise sea -->
+<path d="M-10 60Q160 44 340 60V130H-10Z" fill="#5fb3c4"/>
+${waves(84, "#bfe6ea", 4)}
+<path d="M0 120Q100 104 200 120T330 114V330H0Z" fill="#dd9572"/>
+<rect x="186" y="112" width="72" height="38" fill="#c98258"/><rect x="182" y="106" width="80" height="8" fill="#b8693f"/><rect x="212" y="126" width="20" height="24" fill="#5a2e1a"/>
+${palm(286, 150, 0.95, "#3e8257")}${palm(40, 148, 0.85, "#4f9161")}
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#c98258"/>
+${jar(50, 288, 1.15, "#b8693f")}${jar(88, 294, 0.85, "#a85e38")}${jar(236, 290, 1.2, "#b8693f")}${jar(278, 296, 0.9, "#a85e38")}`,
+    ),
+  Kasserine: () =>
+    svg(
+      "#dbe9c4",
+      `<!-- High steppe pastures below Jebel Chambi, Tunisia's highest peak -->
+<path d="M0 150L70 70 110 104 170 40 240 110 330 80V330H0Z" fill="#8a9a7a"/>
+<path d="M152 58l18-18 18 18-8 4-10-6-10 6Z" fill="#eef1e6"/>
+${pine(36, 146, 0.9, "#3e6f4f")}${pine(286, 142, 1, "#3e6f4f")}
+<path d="M0 150Q100 132 200 148T330 142V330H0Z" fill="#bcd57e"/>
+<path d="M0 220Q120 200 330 222V330H0Z" fill="#8bab61"/>
+${sheep(62, 262, 1.1)}${sheep(250, 258, 1.15, true)}${sheep(160, 298, 1)}${sheep(290, 304, 0.8, true)}`,
+    ),
+  Sbeitla: () =>
+    svg(
+      "#d4e7c8",
+      `${sun(70, 58, 20, "#fff6d4")}
+<!-- Spring pasture around Sbeitla's Roman triumphal arch -->
+<g fill="#e3cfa0"><path d="M188 150V66h104v84h-30v-40a22 22 0 0 0-44 0v40Z"/><rect x="182" y="58" width="116" height="10"/></g>
+<path d="M0 150Q100 132 200 148T330 142V330H0Z" fill="#a9c873"/>
+${roundTree(40, 140, 0.9, "#5f8f4a")}
+<path d="M0 214Q140 198 330 216V330H0Z" fill="#8bab61"/>
+${sheep(60, 262, 1.1)}${sheep(236, 258, 1.15, true)}${sheep(150, 300, 1)}`,
+    ),
+  Douz: () =>
+    svg(
+      "#f3d9a8",
+      `${sun(250, 64, 30, "#fff0c8")}
+<!-- Douz, the gate of the Sahara: a palm grove at the foot of the great dunes -->
+${palm(40, 150, 1.1, "#4f7a3c")}${palm(86, 156, 0.9, "#5f8a4a")}
+<path d="M-10 160Q80 120 180 156T330 136V330H-10Z" fill="#e2b273"/>
+<path d="M-10 214Q120 160 330 206V330H-10Z" fill="#d39c5c"/>
+<path d="M-10 266Q160 216 330 276V330H-10Z" fill="#c18648"/>
+${camel(222, 196, 1.1, "#7a5432")}${camel(276, 202, 0.9, "#7a5432")}
+<path d="M30 300q20-10 40 0M210 306q24-10 48 0" fill="none" stroke="#e8c088" stroke-width="3" stroke-linecap="round"/>`,
     ),
 };
 
