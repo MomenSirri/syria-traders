@@ -49,7 +49,8 @@ export default function useGameSounds(game, reactions, enabled) {
       visuals && Date.now() + (game.clockOffset || 0) - Date.parse(visuals.at) < FRESH_MS;
     if (fresh && now.flashId !== before.flashId) {
       const kind = visuals.kind;
-      if (kind === "roll") {
+      if (kind === "order-roll") playTableSound("dice");
+      else if (kind === "roll") {
         playTableSound("dice");
         if (visuals.resourceDeltas?.length || visuals.producingTileIds?.length)
           playTableSound("coins", 650);

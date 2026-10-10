@@ -467,6 +467,14 @@
 .hot-token .number-token {
   stroke: #fff;
 }
+/* 5 and 9 are the next most common rolls (4 in 36), in orange after red 6 and 8. */
+.warm-token .token-text,
+.warm-token .token-pips circle {
+  fill: #c76a12;
+}
+.warm-token .number-token {
+  stroke: #fff;
+}
 .robber-marker circle {
   fill: #15130f;
   stroke: var(--gold-soft);

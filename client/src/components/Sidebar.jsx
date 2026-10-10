@@ -1,6 +1,7 @@
 import PlayerCard from "./PlayerCard";
 export default function Sidebar({ game, resourcePopups = [], playerImages = {} }) {
-  const currentId = game.players[game.currentPlayerIndex]?.id;
+  // Nobody is playing yet while the table rolls for turn order.
+  const currentId = game.phase === "order-roll" ? null : game.players[game.currentPlayerIndex]?.id;
   return (
     <section className="players-panel panel">
       <div className="section-heading">

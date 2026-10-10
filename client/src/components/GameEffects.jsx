@@ -45,8 +45,15 @@ export default function GameEffects({ game, table }) {
   useEffect(() => {
     if (!visuals || Date.now() + (game.clockOffset || 0) - Date.parse(visuals.at) > FRESH_MS)
       return;
-    if (table && ["roll", "seven"].includes(visuals.kind) && game.lastDicePair) {
-      const roll = { id: nextId++, pair: game.lastDicePair, seven: visuals.kind === "seven" };
+    if (table && ["roll", "seven", "order-roll"].includes(visuals.kind) && game.lastDicePair) {
+      const roller = game.players.find((entry) => entry.id === visuals.playerId);
+      const roll = {
+        id: nextId++,
+        pair: game.lastDicePair,
+        seven: visuals.kind === "seven",
+        // The opening rolls for turn order name who rolled; a 7 there is just a number.
+        who: visuals.kind === "order-roll" ? roller : null,
+      };
       setDice(roll);
       later(() => setDice((current) => (current?.id === roll.id ? null : current)), 2200);
     }
@@ -239,7 +246,12 @@ export default function GameEffects({ game, table }) {
         </span>
       ))}
       {dice && (
-        <div className={`fx-dice ${dice.seven ? "fx-seven" : ""}`} key={dice.id} style={middle}>
+        <div
+          className={`fx-dice ${dice.seven ? "fx-seven" : ""}`}
+          key={dice.id}
+          style={{ ...middle, ...(dice.who ? { "--player-color": dice.who.color } : {}) }}
+        >
+          {dice.who && <em className="fx-dice-who">{dice.who.name} rolls</em>}
           <DiceDisplay pair={dice.pair} rolling />
           <strong>{dice.pair[0] + dice.pair[1]}</strong>
           {dice.seven && <span>The bandit awakens!</span>}

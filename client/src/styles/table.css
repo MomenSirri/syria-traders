@@ -1777,3 +1777,130 @@
     min-height: 44px;
   }
 }
+
+/* Before setup: everyone rolls, the highest goes first. Shown on every screen. */
+.order-roll-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-banner);
+  width: min(460px, 94%);
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  background: #121a26f5;
+  backdrop-filter: blur(8px);
+  border-color: #e2b45099;
+  box-shadow:
+    0 0 40px #e2b45033,
+    var(--shadow-4);
+  animation: robber-in var(--dur-slow) var(--ease);
+}
+.order-roll-panel > .eyebrow {
+  color: var(--gold-soft);
+}
+.order-roll-panel > p {
+  margin: 0;
+  color: var(--text-2);
+}
+.order-roll-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.order-roll-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 8px 4px 0;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--player-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+}
+.order-roll-row.latest {
+  border-color: color-mix(in srgb, var(--player-color) 70%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--player-color) 30%, transparent);
+}
+.order-roll-place {
+  width: 38px;
+  text-align: center;
+  font: 700 var(--fs-sm) var(--font-ui);
+  color: var(--gold-soft);
+}
+.order-roll-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.order-roll-wait {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+}
+.order-roll-row .dice-display {
+  padding: 2px 6px;
+  gap: 4px;
+}
+.order-roll-row .die-face {
+  width: 26px;
+  height: 26px;
+}
+.order-roll-button {
+  justify-self: stretch;
+  min-height: 52px;
+  font-size: var(--fs-lg);
+}
+/* On the TV the table reads the rolls from across the room. */
+.order-roll-tv {
+  width: min(680px, 80%);
+  gap: var(--sp-4);
+  padding: var(--sp-6) var(--sp-8);
+}
+.order-roll-tv > .eyebrow {
+  font-size: var(--fs-lg);
+}
+.order-roll-tv > p {
+  font-size: var(--fs-xl);
+}
+.order-roll-tv .order-roll-row {
+  min-height: 64px;
+  font-size: var(--fs-xl);
+}
+.order-roll-tv .order-roll-place {
+  width: 56px;
+  font-size: var(--fs-lg);
+}
+.order-roll-tv .order-roll-wait {
+  font-size: var(--fs-lg);
+}
+.order-roll-tv .die-face {
+  width: 40px;
+  height: 40px;
+}
+.fx-dice .fx-dice-who {
+  font: 700 var(--fs-xl) var(--font-ui);
+  font-style: normal;
+  color: color-mix(in srgb, var(--player-color, var(--gold)) 60%, #fff);
+}
+/* A phone rolls from the action bar at the top; the board panel just shows the rolls. */
+@media (max-width: 700px) {
+  .order-roll-button {
+    display: none;
+  }
+}
+.order-roll-bar-button {
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+}

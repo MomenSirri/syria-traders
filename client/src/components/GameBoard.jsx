@@ -204,21 +204,24 @@ export default function GameBoard({
   const finale = (ownerId) =>
     !winner || !ownerId ? "" : ownerId === winner.id ? "winner-piece" : "faded-piece";
   const classes = (...names) => names.filter(Boolean).join(" ") || undefined;
-  const hint = !interactive
-    ? game.winnerId
-      ? "A journey well played. Start a new table whenever you are ready."
-      : `Waiting for ${game.players[game.currentPlayerIndex]?.name || "the active player"} to play.`
-    : setup
-      ? selectedSetupVertex === null
-        ? "Choose a glowing site for your village."
-        : "Connect your village with one glowing road."
-      : selectedAction === "robber"
-        ? hints.validRobberTiles?.length
-          ? "Tap a new region for the bandit, then confirm."
-          : "The bandit moves once big hands have returned their cards."
-        : selectedAction
-          ? `Choose a highlighted place for your ${selectedAction}.`
-          : "Follow the coast. Build a route. Reach 10 points.";
+  const hint =
+    game.phase === "order-roll"
+      ? "Everyone rolls the dice. The highest roll goes first."
+      : !interactive
+        ? game.winnerId
+          ? "A journey well played. Start a new table whenever you are ready."
+          : `Waiting for ${game.players[game.currentPlayerIndex]?.name || "the active player"} to play.`
+        : setup
+          ? selectedSetupVertex === null
+            ? "Choose a glowing site for your village."
+            : "Connect your village with one glowing road."
+          : selectedAction === "robber"
+            ? hints.validRobberTiles?.length
+              ? "Tap a new region for the bandit, then confirm."
+              : "The bandit moves once big hands have returned their cards."
+            : selectedAction
+              ? `Choose a highlighted place for your ${selectedAction}.`
+              : "Follow the coast. Build a route. Reach 10 points.";
   return (
     <section className={winner ? "board-panel finale-panel" : "board-panel"}>
       <div className="board-caption">
@@ -387,7 +390,15 @@ export default function GameBoard({
                     {tile.region}
                   </text>
                   {tile.numberToken && (
-                    <g className={[6, 8].includes(tile.numberToken) ? "hot-token" : ""}>
+                    <g
+                      className={
+                        [6, 8].includes(tile.numberToken)
+                          ? "hot-token"
+                          : [5, 9].includes(tile.numberToken)
+                            ? "warm-token"
+                            : ""
+                      }
+                    >
                       <circle
                         className="number-token"
                         cx={tile.center.x}
