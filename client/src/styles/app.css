@@ -479,8 +479,8 @@
   font-size: 17px;
 }
 /* The bandit's territory reads as blocked at a glance: faded, darker art under a
-   dark hatch, a black-and-white border marching round it above its neighbours,
-   and a greyed number. No player colour is black or white, so it never looks
+   dark hatch, a grey-and-white border marching round it above its neighbours,
+   and a greyed number. No player colour is grey or white, so it never looks
    like a road. */
 .bandit-layer {
   pointer-events: none;
@@ -494,9 +494,9 @@
   stroke-linejoin: round;
 }
 .bandit-outline-base {
-  stroke: #0b0b0b;
+  stroke: #707070;
   stroke-width: 9;
-  filter: drop-shadow(0 0 5px #000c);
+  filter: drop-shadow(0 0 4px #0006);
 }
 .bandit-outline-dash {
   stroke: #fff;

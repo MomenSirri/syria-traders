@@ -389,7 +389,7 @@ export default function GameBoard({
               const tile = tiles[tileId];
               return (
                 <g key={`${kind}-${tileId}`} className={`bandit-layer ${kind}-layer`}>
-                  {/* Black and white like a cordon: no player colour, so never a road. */}
+                  {/* Grey and white like a cordon: no player colour, so never a road. */}
                   <polygon
                     className="bandit-outline-base"
                     points={points(tile.vertexIds.map((id) => vertices[id]))}
