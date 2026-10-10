@@ -23,10 +23,47 @@ function keyboard(event, callback) {
   }
 }
 
-const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false };
+const NO_FRESH = { edges: new Set(), vertices: new Set(), robber: false, serial: 0 };
+// A build sends a tremor through the map: tiles near the new piece jolt away from it
+// and the wave fades with distance. A road barely stirs the nearby tiles, a village
+// shakes its neighbourhood, and a city rocks the whole map.
+const QUAKES = {
+  road: { push: 4, reach: 230, ms: 520 },
+  village: { push: 9, reach: 420, ms: 760 },
+  city: { push: 17, reach: 900, ms: 1100 },
+};
+function quakeFor(fresh, board) {
+  if (!board || (!fresh.vertices.size && !fresh.edges.size)) return null;
+  const built = [...fresh.vertices].map((id) => board.vertices[id]);
+  const site =
+    built.find((vertex) => vertex.building === "city") ||
+    built.find((vertex) => vertex.building === "village");
+  if (site) return { kind: site.building, x: site.x, y: site.y, serial: fresh.serial };
+  const edge = board.edges[[...fresh.edges][0]];
+  const a = board.vertices[edge.v1],
+    b = board.vertices[edge.v2];
+  return { kind: "road", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, serial: fresh.serial };
+}
+function quakeStyle(quake, center) {
+  if (!quake) return undefined;
+  const { push, reach, ms } = QUAKES[quake.kind];
+  const dx = center.x - quake.x,
+    dy = center.y - quake.y;
+  const distance = Math.hypot(dx, dy);
+  const strength = push * Math.max(0, 1 - distance / reach);
+  if (strength < 0.5) return undefined;
+  const unit = distance > 1 ? 1 / distance : 0;
+  // Alternate two identical keyframes so a quick second build restarts the wave.
+  return {
+    "--qx": `${(dx * unit * strength).toFixed(2)}px`,
+    "--qy": `${(dy * unit * strength + (unit ? 0 : -strength)).toFixed(2)}px`,
+    animation: `tile-quake-${quake.serial % 2 ? "a" : "b"} ${ms}ms cubic-bezier(0.3, 0.7, 0.4, 1) ${Math.round(distance * 0.45)}ms both`,
+  };
+}
 // Pieces that appeared since the last update get a short entrance animation.
 function useFreshPieces(gameId, board) {
   const previous = useRef(null);
+  const serial = useRef(0);
   const [fresh, setFresh] = useState(NO_FRESH);
   const roads = board ? board.edges.filter((e) => e.ownerId).map((e) => e.id) : [];
   const homes = board
@@ -52,8 +89,10 @@ function useFreshPieces(gameId, board) {
           .map((entry) => Number(entry.split(":")[0])),
       ),
       robber: before.robber !== board.robberTileId,
+      serial: serial.current + 1,
     };
     if (!next.edges.size && !next.vertices.size && !next.robber) return;
+    serial.current = next.serial;
     setFresh(next);
     const timer = setTimeout(() => setFresh(NO_FRESH), 1600);
     return () => clearTimeout(timer);
@@ -77,6 +116,7 @@ export default function GameBoard({
 }) {
   const board = game.board;
   const fresh = useFreshPieces(game.id, board);
+  const quake = useMemo(() => quakeFor(fresh, board), [fresh]);
   const viewBox = useMemo(() => {
     if (!board) return "0 0 100 100";
     // Fit the actual outer corners instead of adding a large invisible margin.
@@ -132,7 +172,9 @@ export default function GameBoard({
           {tiles.length} territories / {seaTiles.filter((sea) => sea.harbor).length} harbors
         </span>
       </div>
-      <div className="board-stage">
+      <div
+        className={`board-stage ${quake?.kind === "city" ? `city-quake-${quake.serial % 2 ? "a" : "b"}` : ""}`}
+      >
         <svg
           className="board-svg"
           viewBox={viewBox}
@@ -178,7 +220,7 @@ export default function GameBoard({
           </defs>
           <g className="sea-layer">
             {seaTiles.map((sea) => (
-              <g key={sea.id} className="sea-tile">
+              <g key={sea.id} className="sea-tile" style={quakeStyle(quake, sea.center)}>
                 <polygon points={points(corners(sea.center))} fill="url(#sea-waves)" />
                 {sea.harbor && (
                   <g>
@@ -226,6 +268,7 @@ export default function GameBoard({
                 <g
                   key={tile.id}
                   data-tile-id={tile.id}
+                  style={quakeStyle(quake, tile.center)}
                   className={`tile-group ${target ? "robber-target" : ""} ${blocked ? "blocked-tile" : ""} ${previewTileId === tile.id ? "robber-preview" : ""} ${highlightedTileIds.includes(tile.id) ? "producing-tile" : ""}`}
                   role={target ? "button" : undefined}
                   tabIndex={target ? 0 : undefined}

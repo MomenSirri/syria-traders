@@ -2238,3 +2238,90 @@ g[role="button"]:focus-visible {
     min-height: 0;
   }
 }
+
+/* ==========================================================================
+   Build tremor: tiles jolt away from a new road, village or city (GameBoard)
+   ========================================================================== */
+@keyframes tile-quake-a {
+  0% {
+    transform: translate(0, 0);
+  }
+  16% {
+    transform: translate(var(--qx), var(--qy));
+  }
+  38% {
+    transform: translate(calc(var(--qx) * -0.55), calc(var(--qy) * -0.55));
+  }
+  60% {
+    transform: translate(calc(var(--qx) * 0.3), calc(var(--qy) * 0.3));
+  }
+  80% {
+    transform: translate(calc(var(--qx) * -0.12), calc(var(--qy) * -0.12));
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes tile-quake-b {
+  0% {
+    transform: translate(0, 0);
+  }
+  16% {
+    transform: translate(var(--qx), var(--qy));
+  }
+  38% {
+    transform: translate(calc(var(--qx) * -0.55), calc(var(--qy) * -0.55));
+  }
+  60% {
+    transform: translate(calc(var(--qx) * 0.3), calc(var(--qy) * 0.3));
+  }
+  80% {
+    transform: translate(calc(var(--qx) * -0.12), calc(var(--qy) * -0.12));
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+/* A city also rocks the whole map once, like a heavy stone set down on the table. */
+.board-stage.city-quake-a {
+  animation: map-rock-a 900ms ease-out both;
+}
+.board-stage.city-quake-b {
+  animation: map-rock-b 900ms ease-out both;
+}
+@keyframes map-rock-a {
+  0%,
+  100% {
+    transform: none;
+  }
+  12% {
+    transform: translateY(5px) scale(0.994);
+  }
+  28% {
+    transform: translate(-4px, -3px) rotate(-0.35deg);
+  }
+  46% {
+    transform: translate(3px, 2px) rotate(0.25deg);
+  }
+  66% {
+    transform: translate(-1.5px, -1px) rotate(-0.1deg);
+  }
+}
+@keyframes map-rock-b {
+  0%,
+  100% {
+    transform: none;
+  }
+  12% {
+    transform: translateY(5px) scale(0.994);
+  }
+  28% {
+    transform: translate(-4px, -3px) rotate(-0.35deg);
+  }
+  46% {
+    transform: translate(3px, 2px) rotate(0.25deg);
+  }
+  66% {
+    transform: translate(-1.5px, -1px) rotate(-0.1deg);
+  }
+}
