@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Syria Traders</string>
+    <string name="setup_title">Syria Traders on this TV</string>
+    <string name="setup_body">Start the game on your PC with run-game.bat, then enter the TV address it shows (the line ending in :8080/tv).</string>
+    <string name="setup_hint">PC address, for example 192.168.1.164:8080</string>
+    <string name="setup_connect">Show the game</string>
+    <string name="offline_title">Can\'t reach the game</string>
+    <string name="offline_body">Nothing answered at %1$s.\nIs run-game.bat running on the PC, and is the TV on the same Wi-Fi?\nTrying again every few seconds.</string>
+    <string name="retry">Try again now</string>
+    <string name="change_address">Change PC address</string>
+    <string name="menu_title">Syria Traders</string>
+    <string name="menu_back">Back to the game</string>
+    <string name="menu_reload">Reload the game screen</string>
+    <string name="menu_exit">Close the app</string>
+</resources>

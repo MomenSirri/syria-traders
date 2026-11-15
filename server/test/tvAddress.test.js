@@ -104,3 +104,20 @@ test("the TV address uses the real Wi-Fi address before virtual adapters", () =>
     os.networkInterfaces = original;
   }
 });
+
+test("the TV address offers the Android TV app for download when the PC has it", async () => {
+  const apk = path.join(process.env.GAME_DATA_DIR, "syria-traders-tv.apk");
+  process.env.TV_APK_PATH = apk;
+  await call("/api/health");
+  let response = await fetch(`${base}/tv-app.apk`);
+  assert.equal(response.status, 404);
+  assert.match(await response.text(), /android-tv folder/);
+
+  fs.writeFileSync(apk, "PK fake apk");
+  response = await fetch(`${base}/tv-app.apk`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "application/vnd.android.package-archive");
+  assert.match(response.headers.get("content-disposition"), /syria-traders-tv\.apk/);
+  assert.equal(await response.text(), "PK fake apk");
+  delete process.env.TV_APK_PATH;
+});

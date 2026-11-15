@@ -1,0 +1,43 @@
+name: Android TV app
+
+on:
+  push:
+    branches: [main]
+    paths: ["android-tv/**", ".github/workflows/android-tv.yml"]
+  pull_request:
+    paths: ["android-tv/**", ".github/workflows/android-tv.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Unit tests
+        run: gradle -p android-tv --no-daemon testReleaseUnitTest
+
+      - name: Build the APK (Android SDK comes with the runner)
+        run: gradle -p android-tv --no-daemon assembleRelease lintRelease
+
+      - name: Name the APK
+        run: cp android-tv/app/build/outputs/apk/release/app-release.apk syria-traders-tv.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syria-traders-tv-apk
+          path: syria-traders-tv.apk
+          if-no-files-found: error
