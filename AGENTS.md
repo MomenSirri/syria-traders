@@ -20,6 +20,8 @@ New server tests go in `server/test/*.test.js` (client: `client/test/*.test.mjs`
 
 CI (`.github/workflows/ci.yml`) runs all four on Node 24.
 
+Optional Android TV app in `android-tv/` (Java WebView, no AndroidX): `.github/workflows/android-tv.yml` runs its unit tests and builds `syria-traders-tv.apk` (Gradle 8.14, JDK 17, the runner's Android SDK). It only shows the PC's TV address; keep game logic out of it.
+
 ## Running
 
 - Local/LAN play: `npm start` serves HTTPS on 8443 with a self-signed cert in `certs/`, plus a plain-HTTP smart-TV address on 8080 (`TV_PORT`, `off` disables). `run-game.bat` depends on this; keep it working.

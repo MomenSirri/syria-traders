@@ -80,6 +80,7 @@ Everyone plays on their own phone while a TV shows the shared table.
 - The build includes a fallback bundle for older TV browsers. It was checked in Chromium 63 and 69 (roughly 2019-2020 Samsung and LG TVs), but not on a real TV.
 - Set `TV_PORT` to change port 8080, or `TV_PORT=off` to turn the address off.
 - Google TV and Android TV have no browser built in: install one from the Play Store, such as TV Bro. These browsers report a small screen (about 960x540), so table screens ask to be laid out 1920 wide and scaled to fit. If a browser ignores that and the TV shows the narrow layout, cast a Chrome tab from a laptop instead.
+- **Optional TV app:** instead of a browser, Google TV and Android TV can run the small Syria Traders app in [`android-tv/`](android-tv/README.md). It opens the same TV address full screen, without browser bars, keeps the screen awake, plays the table sounds without a key press and doesn't quit on a stray Back press. The PC still runs the game, so phones, saves and the online link work as before, and the browser keeps working too. Install steps are in [android-tv/README.md](android-tv/README.md).
 
 The TV always shows what a road, village and city cost.
 

@@ -1,3 +1,4 @@
+const path = require("node:path");
 const express = require("express");
 const app = require("./app");
 const sessions = require("./game/sessions");
@@ -29,6 +30,18 @@ tv.use("/api", express.json({ limit: "4mb" }), (req, _res, next) => {
   } catch (error) {
     next(error);
   }
+});
+// The optional Android TV app, so a TV can download it from the PC it plays on
+// (TV Bro or Downloader: http://PC:8080/tv-app.apk). The APK is a local file the
+// owner drops in android-tv/; it is never committed.
+tv.get("/tv-app.apk", (_req, res) => {
+  const apk = process.env.TV_APK_PATH || path.resolve(__dirname, "../../android-tv/syria-traders-tv.apk");
+  res.type("application/vnd.android.package-archive");
+  res.sendFile(apk, { headers: { "Content-Disposition": 'attachment; filename="syria-traders-tv.apk"' } }, (err) => {
+    if (err && !res.headersSent) {
+      res.status(404).type("text").send("No TV app on this PC yet. Put syria-traders-tv.apk in the game's android-tv folder.");
+    }
+  });
 });
 tv.use(app);
 tv.use((err, _req, res, _next) => {
